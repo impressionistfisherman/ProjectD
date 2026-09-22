@@ -6,12 +6,16 @@
 | 작업 | 기준 문서 |
 |---|---|
 | 현재 상태·다음 작업·Active Spec | [PROGRESS](../PROGRESS.md) |
+| 요구사항 추적·완료 조건 | [REQUIREMENTS](REQUIREMENTS.md) |
 | 성장·전투 모드·던전·부활·파티·세계 | [GAME_DESIGN](GAME_DESIGN.md) |
 | 직업·무기·승급·스킬 | [CLASSES_AND_SKILLS](CLASSES_AND_SKILLS.md) |
 | 전투 계산·장비·강화·재련·경제 | [BALANCE_AND_ECONOMY](BALANCE_AND_ECONOMY.md) |
 | 생활 직업·제작·농사·거처·상점 | [LIFE_AND_HOUSING](LIFE_AND_HOUSING.md) |
 | 개발 환경·통신·저장·복구 | [TECHNICAL_DESIGN](TECHNICAL_DESIGN.md) |
-| 시험 운영 범위·미결정 사항 | [PILOT_AND_DECISIONS](PILOT_AND_DECISIONS.md) |
+| 확정 규칙·예외·운영 처리 | [RULES_AND_OPERATIONS](RULES_AND_OPERATIONS.md) |
+| 1~20 성장·스킬·장비·폐봉수대 수치 | [PILOT_CONTENT_SPEC](PILOT_CONTENT_SPEC.md) |
+| 콘텐츠 ID·저장·통신 계약 | [DATA_CONTRACTS](DATA_CONTRACTS.md) |
+| 시험 운영 범위·개발 순서 | [PILOT_AND_DECISIONS](PILOT_AND_DECISIONS.md) |
 | 설계·인계·검증·문서 관리 | [DEVELOPMENT_WORKFLOW](DEVELOPMENT_WORKFLOW.md) |
 | 구현 요청 작성 | [CODEX_HANDOFF](CODEX_HANDOFF.md) |
 

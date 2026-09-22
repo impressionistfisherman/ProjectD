@@ -19,14 +19,15 @@
 |---|---|---|
 | Minecraft | Java Edition 26.1.2 | 버전별 문서를 사용해 구현 |
 | Java | JDK 25 | 클라이언트·서버·빌드 환경의 Java 버전 일치 |
-| Fabric Loader | 26.1.2 호환 버전 하나를 착수 시 고정 | 게임 버전에 맞는 세부 버전 선택 |
-| Fabric API | 26.1.2용 버전 하나를 고정 | Loader와 함께 기동 시험 후 버전 고정 |
-| Fabric Loom/Gradle | 26.1.2 공식 생성 프로젝트의 조합 고정 | Wrapper·플러그인을 함께 고정 |
-| PostgreSQL | 18 계열, 지원 중인 패치 버전 고정 | 거래·물품 저장과 장애 복구에 사용 |
-| PostgreSQL JDBC | Java 25와 선택 DB의 호환 버전 고정 | 배포 조건과 DB 연결 확인 |
+| Fabric Loader | 0.19.5 | 첫 기동 시험 뒤 잠금 파일과 함께 고정 |
+| Fabric API | 0.155.2+26.1.2 | Loader와 함께 전용 서버 기동 확인 |
+| Fabric Loom | 1.17.21 | Wrapper·플러그인을 함께 고정 |
+| Gradle Wrapper | 9.7.1 | 프로젝트 생성 뒤 Wrapper 검증 |
+| PostgreSQL | 18.6 | 거래·물품 저장과 장애 복구에 사용 |
+| PostgreSQL JDBC | 실제 기동 시험에서 Java 25·PostgreSQL 18.6 호환 버전 고정 | 연결·재시작 시험 뒤 잠금 |
 | 테스트 | 순수 Java 단위 시험 + 실제 PostgreSQL 통합 시험 + 전용 서버 수동 시험 | 프레임워크 버전은 기초 기동 단계에서 선정 |
 
-Minecraft/Loader/API/Loom/Gradle/JDK/JDBC/DB 패치 버전, 배포 파일 해시, 라이선스를 하나의 버전 명세에 기록한 뒤 빌드와 기동을 확인한다. 배포에는 고정된 버전을 사용한다.
+Java의 정확한 배포판·패치 버전과 PostgreSQL JDBC 버전은 실제 빈 모드 빌드, 전용 서버 기동, DB 연결·재시작 시험을 통과한 조합으로 잠근다. Minecraft/Loader/API/Loom/Gradle/JDK/JDBC/DB의 배포 파일 해시와 라이선스는 하나의 버전 명세에 기록하고, 배포에는 그 잠긴 버전만 사용한다.
 
 26.1은 비난독화 전환과 Java 25 요구가 있는 경계이다. 1.21.11 이하의 모드를 그대로 복사해 사용할 수 있다고 가정하지 않는다.
 외부 애니메이션·NPC·퀘스트·전투 모드는 이번에 필수 의존성으로 지정하지 않는다. 필요 시 공식 배포처에서 해당 게임 버전·로더·클라이언트/서버 측·재배포 조건을 확인해 추가한다.
@@ -35,7 +36,7 @@ Minecraft/Loader/API/Loom/Gradle/JDK/JDBC/DB 패치 버전, 배포 파일 해시
 
 한 저장소, 하나의 게임 서버 프로세스, 하나의 데이터베이스로 시작한다. 다중 서버·프록시·Redis·마이크로서비스는 첫 시험 범위에 포함하지 않는다.
 
-코드는 다음과 같이 게임 규칙, 모드 연동, 콘텐츠, 데이터베이스, 시각 자료와 시험으로 나누어 관리한다. 실제 저장소 위치는 개발 환경을 구성할 때 정한다.
+코드는 다음과 같이 게임 규칙, 모드 연동, 콘텐츠, 데이터베이스, 시각 자료와 시험으로 나누어 관리한다.
 
 ```text
 server-project/
@@ -51,7 +52,10 @@ server-project/
 ```
 
 순수 규칙과 게임 연동을 분리하되, 기능마다 별도 서비스로 분산시키지 않는다. Java 25를 기본 언어로 사용한다.
-개발은 Windows+PowerShell 기준. 운영 OS·호스팅·메모리는 목표 동시접속과 예산에 맞춰 선정한다.
+
+개발은 Windows+PowerShell 기준이다. Fabric 개발 파일은 공백·한글·클라우드 동기화 경로를 피한 영문 경로, 예를 들어 `C:\Projects\dalmaru`에 GitHub 저장소를 복제해 둔다. 현재 `프로젝트달마루` 폴더는 문서와 Git 원격 동기화의 기준으로 유지하며 자동 이동하지 않는다.
+
+시험 운영의 잠정 호스팅 기준은 Linux x86_64, 8 vCPU, 메모리 16GiB, NVMe 100GiB 이상이다. 목표는 동시 접속 20명, 동시 일반 던전 4개, 1분 평균 TPS 19.5 이상, 95% 틱 45ms 이하로 둔다. 이는 시작 예산·부하 시험의 기준이며 실제 공개 수용 인원을 보장하는 값은 아니다.
 
 ## 4. 기능별 책임
 
@@ -105,7 +109,7 @@ PostgreSQL 트랜잭션은 DB 내부의 원자성을 제공한다. Minecraft 월
 DB가 경제·장비의 기준 원본이며 화면과 플레이어 가방은 그 결과를 반영한다. 월드 파일을 과거로 되돌렸다고 DB 물품을 다시 발급하지 않는다.
 강화 결과는 성공/실패와 비용·귀속·누적 확률을 같이 기록한다. 결과가 확정된 요청은 재추첨하지 않는다. DB 확정 이전의 추첨값은 사용자에게 노출하지 않는다.
 메인 틱에서 동기 DB 대기를 하지 않는다. 반대로 비동기 작업 스레드에서 게임 월드를 직접 수정하지 않는다.
-DB 장애 시 경제 작업을 보류/거부하고, 성공이라고 표시하지 않는다. 허용할 일반 전투 범위와 장기 장애 종료 정책은 운영 시험에서 정한다.
+DB 장애가 확인되면 경제·보상·제작·거래·강화·캐릭터 전환과 새 공략 시작을 즉시 거부하고 성공으로 표시하지 않는다. 진행 중 공략은 정지 상태로 전환해 최대 5분 동안 DB 복구를 기다리며, 복구하지 못하면 클리어 없이 취소하고 예약을 해제한다. 필드 전투는 진행할 수 있지만 보상·퀘스트 완료처럼 영구 저장이 필요한 결과는 확정하지 않는다.
 
 ## 7. 바닐라 기능과의 경계
 
@@ -140,15 +144,20 @@ DB 장애 시 경제 작업을 보류/거부하고, 성공이라고 표시하지
 - 운영자의 지급·회수도 사유·원장·멱등 요청으로 처리.
 - DB 기본 백업+연속 WAL 보관, 월드 템플릿·콘텐츠·설정 백업 병행. 별도 장애 영역에 보관.
 - DB 시점 복구와 월드 복구 버전을 함께 기록. 개별 캐릭터 전체를 임의로 롤백해 다른 계정의 거래와 충돌시키지 않음.
-- 복구 목표 시간·허용 데이터 손실·보관 기간은 호스팅과 예산 결정 후 수치화. 무손실을 검증 없이 약속하지 않음.
+- 시험 운영의 복구 목표는 일반 서버 재시작 RTO 30분 이내, 전체 호스트 장애 RPO 5분 이내다. 일일 기본 백업, 원격 WAL 보관, 배포 전 월드·콘텐츠 백업을 수행한다. 무손실을 검증 없이 약속하지 않음.
 
 ## 11. 공식 근거
 
 - [Fabric 26.1.2 개발 문서](https://docs.fabricmc.net/26.1.2/develop/): 버전별 도구와 개발 안내.
 - [Fabric 프로젝트 생성](https://docs.fabricmc.net/26.1.2/develop/getting-started/creating-a-project): 초기 프로젝트 생성 기준.
 - [Fabric 26.1 안내](https://www.fabricmc.net/2026/03/14/261.html): Java 25·비난독화 전환, 구버전 모드 호환 경계.
+- [Fabric Loader 0.19.5](https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.19.5/): 시험 기준 Loader 배포본.
+- [Fabric API 0.155.2+26.1.2](https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.155.2%2B26.1.2/): 시험 기준 API 배포본.
+- [Fabric Loom 1.17.21](https://maven.fabricmc.net/fabric-loom/fabric-loom.gradle.plugin/1.17.21/): 시험 기준 빌드 플러그인 배포본.
+- [Gradle 9.7.1](https://gradle.org/releases/): 시험 기준 Wrapper 버전.
 - [Fabric 네트워킹](https://docs.fabricmc.net/develop/networking): 클라이언트·서버 통신 개념. 이 일반 링크의 버전은 변할 수 있어 구현 시 26.1.2 문서 선택 필요.
 - [NeoForge 시작 안내](https://docs.neoforged.net/docs/gettingstarted/): 대안 도구 비교.
+- [PostgreSQL 18.6](https://www.postgresql.org/docs/release/18.6/): 시험 기준 DB 패치 버전.
 - [PostgreSQL 트랜잭션](https://www.postgresql.org/docs/18/tutorial-transactions.html): DB 작업의 원자적 처리.
 - [PostgreSQL 연속 보관·시점 복구](https://www.postgresql.org/docs/18/continuous-archiving.html): 기본 백업과 WAL의 복구 조건.
 
