@@ -1,0 +1,28 @@
+# Local dependencies, agent state, and execution logs.
+node_modules/
+*.log
+/.claude/
+/tools/autoplay/logs/
+
+# Machine-specific launch and inspection outputs.
+/tools/autoplay/classpath.init.gradle
+/tools/autoplay/classpath.txt
+/tools/autoplay/server.args
+/tools/autoplay/server-api*.txt
+/tools/autoplay/server-command.txt
+/tools/autoplay/change-scope.txt
+/tools/autoplay/bot-package-probe.json
+/tools/autoplay/dependency-sources.json
+/tools/autoplay/server-process-check.json
+/tools/autoplay/server-stop.json
+/verification-mdf3/classpath.txt
+/verification-mdf3/*.exit.txt
+/verification-mdf3/mdf5/*.index
+
+# Existing local reports with credential references: preserve but do not stage.
+/verification-mdf3/SUMMARY.md
+/verification-mdf3/OSCAR_CURRENT_REVIEW.md
+
+# Keep build outputs and displaced JARs outside commits.
+/tools/autoplay/deps/
+/tools/autoplay/displaced/

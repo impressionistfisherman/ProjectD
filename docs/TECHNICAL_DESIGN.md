@@ -1,5 +1,7 @@
 # 달마루 기술 구성·저장 설계
 
+> 문서 ID: DSD-001 · 분류: 기술 설계 · 상태: 기준 · 적용 기준: 2026-09-23
+
 
 ## 1. 개발 환경
 
@@ -20,11 +22,11 @@
 | Minecraft | Java Edition 26.1.2 | 버전별 문서를 사용해 구현 |
 | Java | JDK 25 | 클라이언트·서버·빌드 환경의 Java 버전 일치 |
 | Fabric Loader | 0.19.5 | 첫 기동 시험 뒤 잠금 파일과 함께 고정 |
-| Fabric API | 0.155.2+26.1.2 | Loader와 함께 전용 서버 기동 확인 |
+| Fabric API | 0.155.3+26.1.2 | 공식 26.1.2 템플릿으로 빌드 확인, Loader와 함께 전용 서버 기동 확인 |
 | Fabric Loom | 1.17.21 | Wrapper·플러그인을 함께 고정 |
-| Gradle Wrapper | 9.7.1 | 프로젝트 생성 뒤 Wrapper 검증 |
+| Gradle Wrapper | 9.5.1 | 공식 26.1.2 템플릿으로 빌드 확인 |
 | PostgreSQL | 18.6 | 거래·물품 저장과 장애 복구에 사용 |
-| PostgreSQL JDBC | 실제 기동 시험에서 Java 25·PostgreSQL 18.6 호환 버전 고정 | 연결·재시작 시험 뒤 잠금 |
+| PostgreSQL JDBC | 42.7.13 | Java 25·PostgreSQL 18.6에서 `ProjectD` 연결 확인, Gradle 잠금 파일에 기록 |
 | 테스트 | 순수 Java 단위 시험 + 실제 PostgreSQL 통합 시험 + 전용 서버 수동 시험 | 프레임워크 버전은 기초 기동 단계에서 선정 |
 
 Java의 정확한 배포판·패치 버전과 PostgreSQL JDBC 버전은 실제 빈 모드 빌드, 전용 서버 기동, DB 연결·재시작 시험을 통과한 조합으로 잠근다. Minecraft/Loader/API/Loom/Gradle/JDK/JDBC/DB의 배포 파일 해시와 라이선스는 하나의 버전 명세에 기록하고, 배포에는 그 잠긴 버전만 사용한다.
@@ -152,9 +154,9 @@ DB 장애가 확인되면 경제·보상·제작·거래·강화·캐릭터 전�
 - [Fabric 프로젝트 생성](https://docs.fabricmc.net/26.1.2/develop/getting-started/creating-a-project): 초기 프로젝트 생성 기준.
 - [Fabric 26.1 안내](https://www.fabricmc.net/2026/03/14/261.html): Java 25·비난독화 전환, 구버전 모드 호환 경계.
 - [Fabric Loader 0.19.5](https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.19.5/): 시험 기준 Loader 배포본.
-- [Fabric API 0.155.2+26.1.2](https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.155.2%2B26.1.2/): 시험 기준 API 배포본.
+- [Fabric API 0.155.3+26.1.2](https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.155.3%2B26.1.2/): 공식 26.1.2 템플릿 기준 API 배포본.
 - [Fabric Loom 1.17.21](https://maven.fabricmc.net/fabric-loom/fabric-loom.gradle.plugin/1.17.21/): 시험 기준 빌드 플러그인 배포본.
-- [Gradle 9.7.1](https://gradle.org/releases/): 시험 기준 Wrapper 버전.
+- [Gradle 9.5.1](https://gradle.org/releases/): 공식 26.1.2 템플릿으로 확인한 Wrapper 버전.
 - [Fabric 네트워킹](https://docs.fabricmc.net/develop/networking): 클라이언트·서버 통신 개념. 이 일반 링크의 버전은 변할 수 있어 구현 시 26.1.2 문서 선택 필요.
 - [NeoForge 시작 안내](https://docs.neoforged.net/docs/gettingstarted/): 대안 도구 비교.
 - [PostgreSQL 18.6](https://www.postgresql.org/docs/release/18.6/): 시험 기준 DB 패치 버전.
