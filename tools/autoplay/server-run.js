@@ -1,11 +1,51 @@
 // Runs `gradlew runServer` with a controllable stdin: lines appended to logs/server.cmd are sent to the console.
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '../../server-project');
 const mods = path.join(root, 'run', 'mods');
-const deployed = fs.existsSync(mods) && fs.readdirSync(mods).find(name => /^dalmaru(?:-.*)?\.jar$/i.test(name));
+let deployed;
+if (fs.existsSync(mods) && fs.readdirSync(mods).some(name => /\.jar$/i.test(name))) {
+  // Windows provides ZIP reading through .NET; use metadata rather than a JAR filename.
+  const inspected = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', String.raw`
+    $ErrorActionPreference = 'Stop'
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    function Read-ModMetadata($archive, $name) {
+      $entry = $archive.GetEntry($name)
+      if ($null -eq $entry) { return $null }
+      $reader = New-Object IO.StreamReader($entry.Open())
+      try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+    }
+    function Is-DalmaruMod($toml) {
+      $inMods = $false
+      foreach ($line in ($toml -split '\r?\n')) {
+        if ($line -match '^\s*\[') {
+          $inMods = $line -cmatch '^\s*\[\[mods\]\]\s*(?:#.*)?$'
+        } elseif ($inMods -and $line -cmatch '^\s*modId\s*=\s*(["''])dalmaru\1\s*(?:#.*)?$') {
+          return $true
+        }
+      }
+      return $false
+    }
+    foreach ($jar in Get-ChildItem -LiteralPath $env:DALMARU_MODS_DIR -File -Filter '*.jar') {
+      $archive = [IO.Compression.ZipFile]::OpenRead($jar.FullName)
+      try {
+        $fabric = Read-ModMetadata $archive 'fabric.mod.json'
+        $toml = Read-ModMetadata $archive 'META-INF/mods.toml'
+        if (($null -ne $fabric -and (ConvertFrom-Json $fabric).id -ceq 'dalmaru') -or
+            ($null -ne $toml -and (Is-DalmaruMod $toml))) {
+          Write-Output $jar.Name
+          break
+        }
+      } finally { $archive.Dispose() }
+    }
+  `], { encoding: 'utf8', timeout: 30000, env: { ...process.env, DALMARU_MODS_DIR: mods } });
+  if (inspected.error || inspected.status !== 0) {
+    throw new Error(`Cannot inspect run/mods JAR metadata: ${inspected.error?.message || inspected.stderr}`);
+  }
+  deployed = inspected.stdout.trim();
+}
 if (deployed) throw new Error(`Move run/mods/${deployed} outside run/mods before starting the development server.`);
 
 const logs = path.join(__dirname, 'logs');
