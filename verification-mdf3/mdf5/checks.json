@@ -1,0 +1,12 @@
+{
+  "ignoreRule": "PASS: runtime ignored; all 10 run sources visible",
+  "duplicateJar": "PASS: guard blocks before logs/server spawn; original jar quarantined with matching SHA256",
+  "trainingEntry": "PASS: real F6-equivalent packet accepted",
+  "trainingFailure": "PASS: actual 4 deaths; 3 revives; FAILED; count 0; rewards 0",
+  "trainingCompletion": "server-side boss kill verification; physical brazier/reward traversal and DB completion observed",
+  "trainingReward": "PASS: 100/5/2/level20 box; one grant; count 1; wallet 170",
+  "botExit": 0,
+  "serverExit": 0,
+  "remainingJava": 0,
+  "settingsUnchanged": true
+}

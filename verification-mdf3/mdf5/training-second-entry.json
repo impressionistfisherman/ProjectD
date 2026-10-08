@@ -1,0 +1,16 @@
+{
+  "response": {
+    "requestId": "1770000000502",
+    "accepted": true,
+    "runId": "d1159aac-dc74-4030-b598-d7064ee29aa9",
+    "partySize": 1,
+    "scalingTier": 1,
+    "state": "ACTIVE",
+    "status": "폐봉수대 공략을 시작했습니다."
+  },
+  "floor": {
+    "x": 202608,
+    "y": 100,
+    "z": 180176
+  }
+}

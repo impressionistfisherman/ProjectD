@@ -1,0 +1,22 @@
+{
+  "runtime": {
+    "exit": 0,
+    "stdout": "server-project/.gitignore:33:/run/\tserver-project/run/mods/probe.jar\n"
+  },
+  "sources": {
+    "exit": 1,
+    "stdout": "",
+    "files": [
+      "BeaconTowerBosses.java",
+      "BeaconTowerMap.java",
+      "PartyRuntime.java",
+      "RunDifficulty.java",
+      "RunEncounterRules.java",
+      "RunRecord.java",
+      "RunRepository.java",
+      "RunReward.java",
+      "RunRewardRepository.java",
+      "RunRuntime.java"
+    ]
+  }
+}

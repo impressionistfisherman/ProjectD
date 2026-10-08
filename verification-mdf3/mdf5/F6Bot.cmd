@@ -1,0 +1,17 @@
+select 088a4de9-5b5e-4609-8620-21232aeca805
+enter TRAINING 1770000000501
+fight 182128 100
+pos
+stop
+enter TRAINING 1770000000502
+pos
+stop
+scan
+stop
+enter TRAINING 1770000000503
+goto 300368.5 318003.5
+scan
+goto 300368.5 318036.5
+stop
+stop
+quit

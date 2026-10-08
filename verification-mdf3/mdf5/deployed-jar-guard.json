@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "stdout": "",
+  "stderr": "C:\\Users\\gusdl\\OneDrive\\Desktop\\Dalmaru\\tools\\autoplay\\server-run.js:9\r\nif (deployed) throw new Error(`Move run/mods/${deployed} outside run/mods before starting the development server.`);\r\n              ^\r\n\r\nError: Move run/mods/dalmaru-0.1.0.jar outside run/mods before starting the development server.\r\n    at Object.<anonymous> (C:\\Users\\gusdl\\OneDrive\\Desktop\\Dalmaru\\tools\\autoplay\\server-run.js:9:21)\r\n    at Module._compile (node:internal/modules/cjs/loader:1871:14)\r\n    at Object..js (node:internal/modules/cjs/loader:2002:10)\r\n    at Module.load (node:internal/modules/cjs/loader:1594:32)\r\n    at Module._load (node:internal/modules/cjs/loader:1396:12)\r\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\r\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\r\n    at node:internal/main/run_main_module:33:47\r\n\r\nNode.js v24.18.0\r\n"
+}
