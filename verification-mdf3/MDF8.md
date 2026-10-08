@@ -40,3 +40,17 @@
 검증: compileJava compileClientJava testClasses verifyEquipmentRespawn --no-daemon --console=plain, exit 0. EquipmentRespawnCheck는 제품 refreshCombat 메서드를 그대로 추출해 지연된 저장소 응답과 교체 가능한 플레이어 목록 대역으로 실행합니다. 조회 시작 → 동일 UUID 새 entity로 교체·35% HP → 응답 처리 순서에서 이전 entity가 갱신되지 않고 새 entity에만 적용되는지 확인합니다. 기존 HEAD의 콜백은 기대 assertion 실패로 F1을 재현했고 수정 콜백은 PASS했습니다. HP 680/238 → 740/259는 전투 대역의 비율 검사이며 실제 엔진 관측값은 아닙니다. 실제 서버 부활·DB 연결·완주는 미검증입니다.
 
 TEST_RESULT.md·서버 설정은 변경하지 않았습니다. 승인된 미추적 e HEAD만 삭제했습니다. 비밀번호와 동일한 문자열이 원격 문서 이력에 존재하여 god 지시로 이력 재작성·bundle·reflog/gc는 보류했습니다.
+
+## 브랜치 push 및 실서버 검증 요청 (2026-10-09)
+
+사람 승인에 따라 oscar/mdf8-solo-clear-20261008을 origin에 push했습니다. 원격 브랜치 HEAD 99849859b270bb6984d5379275ce02395353a871을 ls-remote로 확인했습니다. main 병합·force push·비밀번호 회전·이력 재작성은 수행하지 않았습니다.
+
+실서버 autoplay 검증: BLOCKED. DALMARU_DB_PASSWORD 환경변수가 없어 서버/봇을 시작하지 않았으며 god에 환경변수 제공을 요청했습니다. 사망→부활 후 장비/HP 35%, 실제 보스 HP, 보상 1회 지급은 모두 미실행입니다. 기존 대역 회귀 PASS와 서버측 엔진 경계 PASS는 이 항목들의 실제 플레이 PASS를 뜻하지 않습니다. 환경변수 제공 후 봇 가능 범위를 확인하고 우회한 단계는 서버측 검증, 봇으로 수행할 수 없는 단계는 수동 필요로 분리하여 기록해야 합니다.
+
+## 실서버 autoplay 후속 (2026-10-09)
+
+환경변수 제공 후 검증을 재개했습니다. 장착 HP37·자연 부활35% 기대값, DB 지연 중 부활 후 현재 entity 최대 HP34→37, 실제 보스HP540/720, 완료/보상1회 및 요청 재전송 후 추가 지급0을 확인했습니다. 명령 처치·공간 격리는 서버측 검증이며 실제 1인 완주 PASS가 아닙니다. 발판 지형 간섭으로 질식하는 결함을 확인했고, 정밀 회복 비율·완주는 수동 필요입니다. 상세: MDF8_AUTOPLAY.md 및 MDF8_AUTOPLAY_RESULT.json. 이전 환경변수 미제공 BLOCKED 기록은 재개 전 상태입니다.
+
+## 지형 질식 후속 수정 (2026-10-09)
+
+BeaconTowerMap.build에서 내부 지형을 비운 뒤 구조물을 생성하도록 수정했습니다. 제품 생성 코드의 고체 지형 회귀 시험과 컴파일 PASS. 기존 봇 creative 확인→survival 전환 후 새 spawn에서 수동 fill/setblock 없이 74.1초 생존·질식/사망0·발/머리 AIR를 확인했습니다(보스 NoAI 분리, 서버측 검증). 정상 전투 완주·정밀 회복은 수동 필요입니다. 상세와 캐시3개 경로: MDF8_AUTOPLAY.md, 증거: MDF8_AUTOPLAY_TERRAIN_RESULT.json.

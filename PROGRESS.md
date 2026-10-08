@@ -104,3 +104,9 @@
 - 2026-10-08 MDF-8 보안 후속: tools/autoplay/server-run.js의 DB 비밀번호 폴백 제거. DALMARU_DB_PASSWORD 미설정/빈 값이면 로그 생성·서버 실행 전에 명확한 오류로 종료. node tools/autoplay/server-run.test.js PASS(exit 0): 기존 JAR 차단 및 환경변수 누락/빈 값 검증, 실제 서버 미기동. 이력 재작성·push 없음; 과거 이력 처리는 사람 결정 대기.
 
 - 2026-10-09 MDF-8 F1 수정: 장비 DB 응답을 서버 스레드에서 현재 UUID 플레이어에 적용하여 부활 전 entity 갱신을 방지합니다. 기존 세션·캐릭터·revision 검증 유지. compileJava/compileClientJava/testClasses/verifyEquipmentRespawn PASS; 기존 콜백은 재현 시험 실패, 수정 콜백은 새 entity에 적용·HP 비율 35% 유지 PASS(서버/전투 대역 사용, 실제 부활 미검증). TEST_RESULT.md 불변. e HEAD 삭제; 이력 정리는 원격 문서의 동일 문자열 때문에 god 지시로 보류.
+
+- 2026-10-09 MDF-8 push 완료: 원격 작업 브랜치 99849859b270bb6984d5379275ce02395353a871 확인. autoplay 실서버 검증은 DALMARU_DB_PASSWORD 환경변수 없음으로 BLOCKED, 서버/봇 미기동·god에 제공 요청. 결과는 verification-mdf3/MDF8.md 작업본에 기록.
+
+- 2026-10-09 MDF-8 autoplay: 서버/봇 장착HP37·부활35% 기대값 확인, 실제 DB 지연을 가로지른 부활 후 현재 entity HP34→37, 보스HP540/720·보상1회/재전송추가0 서버측 검증. 발판 지형 겹침·질식 FAIL, 명령 없는 완주/정밀 회복은 수동 필요. 서버/봇exit0·자체Java/Node정리·설정 보존. 문서 작업본: verification-mdf3/MDF8_AUTOPLAY.md. 제품 코드/TEST_RESULT 변경·커밋·push 없음.
+
+- 2026-10-09 MDF-8 지형 질식 수정: 지도 내부 지형을 생성 전 비우고 구조물/외부 보존. 고체 지형 회귀(기존실패/수정PASS)·컴파일PASS. 기존 봇 survival, 수동air처리 없이 새spawn74.1초·질식/사망0·Health유지 서버측 검증(보스NoAI분리). 서버/봇exit0·자체Java/Node0·설정/TEST_RESULT보존. 상세: verification-mdf3/MDF8_AUTOPLAY.md. push 없음; 캐시3개 보존·경로 보고.

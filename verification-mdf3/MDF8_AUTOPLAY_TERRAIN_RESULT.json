@@ -1,0 +1,59 @@
+{
+  "baseCommit": "99849859b270bb6984d5379275ce02395353a871",
+  "mapSourceSha256": "cadcd1e3d3798a7e90753556026ab6b6eae86bf7a0ff4b15fa0c113d5f4600fd",
+  "productionRegression": "verifyBeaconTowerTerrain PASS; baseline fails on solid interior terrain",
+  "realServerClassification": "server-side spawn validation; boss NoAI during observation",
+  "bot": "M8Oscar_8bcc51",
+  "character": "2a35ad38-f44c-4f78-820c-842333639582",
+  "run": "1636af21-382e-4605-9d95-8e2fe70cb8da",
+  "position": {
+    "x": 252720.5,
+    "y": 101,
+    "z": 230128.5
+  },
+  "gameModeBefore": 1,
+  "gameModeTested": 0,
+  "secondsObserved": 74.118,
+  "healthStart": 18.626469,
+  "healthEnd": 18.626469,
+  "suffocationEvents": 0,
+  "deathEvents": 0,
+  "feetAndHeadAir": true,
+  "manualFillOrSetblock": false,
+  "bossAiRestored": true,
+  "dbBefore": {
+    "xp": 550,
+    "grants": 1
+  },
+  "dbAfter": {
+    "xp": 550,
+    "grants": 1,
+    "runState": "PAUSED"
+  },
+  "serverExit": 0,
+  "botExit": 0,
+  "settingsUnchanged": true,
+  "ownJavaRemaining": 0,
+  "ownNodeRemaining": 0,
+  "logs": "C:\\Users\\gusdl\\AppData\\Local\\Temp/oscar-mdf8-terrain-qyMu4e/logs",
+  "evidence": [
+    "[04:20:57] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 1",
+    "[04:21:13] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 1",
+    "[04:21:13] [Server thread/INFO] (Minecraft) Set M8Oscar_8bcc51's game mode to Survival Mode",
+    "[04:21:14] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 0",
+    "[04:21:57] [Server thread/WARN] (Minecraft) Can't keep up! Is the server overloaded? Running 6095ms or 121 ticks behind",
+    "[04:21:57] [Server thread/INFO] (Minecraft) Modified entity data of 철문수장",
+    "[04:21:57] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: [252720.5d, 101.0d, 230128.5d]",
+    "[04:21:57] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 0",
+    "[04:21:57] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 18.626469f",
+    "[04:21:57] [Server thread/INFO] (Minecraft) [Not Secure] [Server] MDF8_TERRAIN_FEET_AIR",
+    "[04:21:57] [Server thread/INFO] (Minecraft) [Not Secure] [Server] MDF8_TERRAIN_HEAD_AIR",
+    "[04:23:11] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 18.626469f",
+    "[04:23:11] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 0",
+    "[04:23:11] [Server thread/INFO] (Minecraft) [Not Secure] [Server] MDF8_TERRAIN_AFTER_WAIT_FEET_AIR",
+    "[04:23:11] [Server thread/INFO] (Minecraft) [Not Secure] [Server] MDF8_TERRAIN_AFTER_WAIT_HEAD_AIR",
+    "[04:24:19] [Server thread/INFO] (Minecraft) Modified entity data of 철문수장",
+    "[04:24:19] [Server thread/INFO] (Minecraft) M8Oscar_8bcc51 has the following entity data: 0",
+    "[04:24:20] [Server thread/INFO] (Minecraft) Stopping the server"
+  ]
+}

@@ -8,6 +8,9 @@ final class BeaconTowerMap {
     private BeaconTowerMap() { }
 
     static void build(ServerLevel level, BlockPos origin) {
+        for (int x = -8; x <= 8; x++) for (int z = -6; z <= 74; z++) for (int y = 1; y <= 4; y++) {
+            level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+        }
         for (int x = -9; x <= 9; x++) for (int z = -6; z <= 74; z++) level.setBlock(origin.offset(x, 0, z), Blocks.DEEPSLATE_TILES.defaultBlockState(), 3);
         for (int z = -6; z <= 74; z++) for (int y = 1; y <= 4; y++) {
             level.setBlock(origin.offset(-9, y, z), Blocks.DEEPSLATE_BRICKS.defaultBlockState(), 3);

@@ -208,6 +208,12 @@ tasks.register('verifyEquipmentRespawn', JavaExec) {
 	mainClass = 'kr.dalmaru.EquipmentRespawnCheck'
 }
 
+tasks.register('verifyBeaconTowerTerrain', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.BeaconTowerTerrainCheck'
+}
+
 tasks.named('test') {
 	failOnNoDiscoveredTests = false
 }
