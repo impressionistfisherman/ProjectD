@@ -42,6 +42,18 @@ public final class EquipmentRepository {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
         try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound FROM dalmaru.character_equipment WHERE character_id=? ORDER BY slot_id")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { List<EquipmentRecord> equipment = new ArrayList<>(); while (result.next()) equipment.add(record(result)); return equipment; } }
     }
+    public List<EquipmentRecord> equipped(UUID characterId) throws SQLException {
+        if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try (var connection = DriverManager.getConnection(url, username, password);
+             var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound FROM dalmaru.character_equipment WHERE character_id=? AND location='EQUIPPED' ORDER BY slot_id")) {
+            statement.setObject(1, characterId);
+            try (var rows = statement.executeQuery()) {
+                List<EquipmentRecord> result = new ArrayList<>();
+                while (rows.next()) result.add(record(rows));
+                return result;
+            }
+        }
+    }
     public RefinementResult refine(UUID accountId, long generation, long requestId, UUID equipmentId) throws SQLException {
         if (generation < 1 || requestId < 1 || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid refinement request.");
         try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try {

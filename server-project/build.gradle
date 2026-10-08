@@ -196,6 +196,12 @@ tasks.register('verifyCombatCalculator', JavaExec) {
 	mainClass = 'kr.dalmaru.CombatCalculatorCheck'
 }
 
+tasks.register('verifySoloCombatDefinitions', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.SoloCombatDefinitionCheck'
+}
+
 tasks.named('test') {
 	failOnNoDiscoveredTests = false
 }
