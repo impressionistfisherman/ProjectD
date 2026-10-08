@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"id": "dalmaru",
+	"version": "${version}",
+	"name": "Dalmaru",
+	"description": "Dalmaru RPG first-connection pilot.",
+	"authors": [
+		"Dalmaru"
+	],
+	"contact": {
+		"sources": "https://github.com/impressionistfisherman/ProjectD"
+	},
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"kr.dalmaru.DalmaruMod"
+		],
+		"client": [
+			"kr.dalmaru.client.DalmaruClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

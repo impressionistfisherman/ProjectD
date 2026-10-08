@@ -1,0 +1,13 @@
+package kr.dalmaru;
+
+import kr.dalmaru.network.DalmaruNetworking;
+import net.fabricmc.api.ModInitializer;
+
+public final class DalmaruMod implements ModInitializer {
+	public static final String MOD_ID = "dalmaru";
+
+	@Override
+	public void onInitialize() {
+		DalmaruNetworking.initialize();
+	}
+}

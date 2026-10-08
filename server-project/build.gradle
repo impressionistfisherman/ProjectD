@@ -1,0 +1,218 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+repositories {
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
+}
+
+dependencyLocking {
+	lockAllConfigurations()
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"dalmaru" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	implementation "org.postgresql:postgresql:${project.postgresql_jdbc_version}"
+	include "org.postgresql:postgresql:${project.postgresql_jdbc_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName"}
+	}
+}
+
+tasks.register('verifyProjectD', JavaExec) {
+	group = 'verification'
+	description = 'Verifies the configured PostgreSQL development database connection.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.DatabaseConnectionCheck'
+}
+
+tasks.register('verifyAccountRepository', JavaExec) {
+	group = 'verification'
+	description = 'Verifies account creation and connection generation against PostgreSQL.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.AccountRepositoryCheck'
+}
+
+tasks.register('verifyCharacterRepository', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterRepositoryCheck'
+}
+
+tasks.register('verifyCharacterSelection', JavaExec) {
+	group = 'verification'
+	description = 'Verifies idempotent character selection and connection generation checks against PostgreSQL.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterSelectionCheck'
+}
+
+tasks.register('verifyCharacterCreation', JavaExec) {
+	group = 'verification'
+	description = 'Verifies idempotent character creation and connection generation checks against PostgreSQL.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterCreationCheck'
+}
+
+tasks.register('verifyCharacterStatInvestment', JavaExec) {
+	group = 'verification'
+	description = 'Verifies server-owned idempotent character stat investment against PostgreSQL.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterStatInvestmentCheck'
+}
+
+tasks.register('verifyCharacterExperience', JavaExec) {
+	group = 'verification'
+	description = 'Verifies persisted experience, level-up, and stat-point rewards against PostgreSQL.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterExperienceCheck'
+}
+
+tasks.register('verifyCharacterProfession', JavaExec) {
+	group = 'verification'
+	description = 'Verifies the first profession grants six persisted skill points exactly once.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterProfessionCheck'
+}
+
+tasks.register('verifyCharacterSkill', JavaExec) {
+	group = 'verification'
+	description = 'Verifies persisted, idempotent character skill learning.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CharacterSkillCheck'
+}
+
+tasks.register('applyCurrentMigrations', JavaExec) {
+	group = 'verification'
+	description = 'Applies the pending V009 and V010 development migrations.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.ApplyCurrentMigrations'
+}
+
+tasks.register('verifyEnhancementRules', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.EnhancementRulesCheck'
+}
+tasks.register('verifyCharacterEquipment', JavaExec) {
+    group = 'verification'
+    description = 'Verifies persisted nine-slot equipment, ownership, enhancement replay, and +15 cap.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.CharacterEquipmentCheck'
+}
+tasks.register('verifyCharacterRun', JavaExec) {
+    group = 'verification'
+    description = 'Verifies run entry reservation, difficulty unlock, completion, and failure release.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.CharacterRunCheck'
+}
+
+tasks.register('verifyRunRewards', JavaExec) {
+	group = 'verification'
+	description = 'Verifies completed-run currency, material, mailbox, and replay-safe rewards.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.RunRewardCheck'
+}
+
+tasks.register('verifyRunLifecycle', JavaExec) {
+	group = 'verification'
+	description = 'Verifies unattended pause, resume, and deadline expiration.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.RunLifecycleCheck'
+}
+tasks.register('verifyRunEncounterRules', JavaExec) {
+    group = 'verification'
+    description = 'Verifies party-scaled brazier and training boss rules.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.RunEncounterRulesCheck'
+}
+tasks.register('verifyPartyRuntime', JavaExec) {
+    group = 'verification'
+    description = 'Verifies 1-4 player party invite, acceptance, and leave state.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.PartyRuntimeCheck'
+}
+
+tasks.register('verifyCombatRewards', JavaExec) {
+	group = 'verification'
+	description = 'Verifies the pilot monster reward table used by server combat events.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CombatRewardCheck'
+}
+
+tasks.register('verifyCombatCalculator', JavaExec) {
+	group = 'verification'
+	description = 'Verifies server-owned pilot combat formulas.'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.CombatCalculatorCheck'
+}
+
+tasks.named('test') {
+	failOnNoDiscoveredTests = false
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
