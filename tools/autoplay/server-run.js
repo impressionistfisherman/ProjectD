@@ -3,6 +3,8 @@ const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+if (!process.env.DALMARU_DB_PASSWORD) throw new Error('DALMARU_DB_PASSWORD must be set before starting the development server.');
+
 const root = path.resolve(__dirname, '../../server-project');
 const mods = path.join(root, 'run', 'mods');
 let deployed;
@@ -57,7 +59,7 @@ const out = fs.createWriteStream(path.join(logs, 'server.console.log'));
 // cmd.exe cannot resolve gradlew.bat from this OneDrive cwd, so start the wrapper jar directly.
 const child = spawn('java', ['-cp', 'gradle/wrapper/gradle-wrapper.jar', 'org.gradle.wrapper.GradleWrapperMain', '--console=plain', 'runServer'], {
   cwd: root,
-  env: { ...process.env, DALMARU_DB_PASSWORD: process.env.DALMARU_DB_PASSWORD || 'postgres' },
+  env: process.env,
 });
 fs.writeFileSync(path.join(logs, 'server.pid'), String(child.pid));
 child.stdout.pipe(out);

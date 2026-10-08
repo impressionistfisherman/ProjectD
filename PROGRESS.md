@@ -100,3 +100,5 @@
 - 2026-10-08 MDF-8 A안 기반: 실제 EQUIPPED 조회, 명시적 10/15/20레벨 장비 수치와 능력치 예산, 1인용 RPG/엔진 단위 어댑터를 구현했습니다. 자동 지급 없음. 소유권/슬롯/레벨/740HP/피해52/208·277타/보스 체력 왕복 독립 Java assertions PASS. 전체 피해 경로 연결과 엔진 검증은 진행 중입니다.
 
 - 2026-10-08 MDF-8 A안 완료: 실제 장착 장비·RPG 체력/피해·기본 공격/기술/보스 경로 연결. 컴파일·장비/계산 assertions PASS, 서버측 체력 경계 540/720/993.6 및 피해 2.6 PASS. 서버 exit 0·Java 0·설정값 보존 확인. 실제 완주·다인·회복/보호막 미검증, Jim QA·Creed 리뷰 대기. 상세: verification-mdf3/MDF8.md.
+
+- 2026-10-08 MDF-8 보안 후속: tools/autoplay/server-run.js의 DB 비밀번호 폴백 제거. DALMARU_DB_PASSWORD 미설정/빈 값이면 로그 생성·서버 실행 전에 명확한 오류로 종료. node tools/autoplay/server-run.test.js PASS(exit 0): 기존 JAR 차단 및 환경변수 누락/빈 값 검증, 실제 서버 미기동. 이력 재작성·push 없음; 과거 이력 처리는 사람 결정 대기.
