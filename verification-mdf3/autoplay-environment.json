@@ -1,0 +1,26 @@
+{
+  "time": "2026-10-08T08:40:33.599Z",
+  "status": "BLOCKED",
+  "botPackageProbe": {
+    "exit": 1,
+    "reason": "EACCES fetching minecraft-protocol"
+  },
+  "gradle": {
+    "exit": 1,
+    "reason": "Fabric Loom 1.17-SNAPSHOT unavailable offline"
+  },
+  "server": {
+    "launcherPid": 19236,
+    "launcherExit": null,
+    "port25565": "ECONNREFUSED",
+    "reason": "Fabric Loader AccessDeniedException normalizing build/classes/java/main"
+  },
+  "configUnchanged": true,
+  "cleanup": {
+    "exit": 1,
+    "processCheckExit": 1,
+    "reason": "Process enumeration and taskkill access denied"
+  },
+  "gameplayExecuted": false,
+  "fixturesCreated": false
+}

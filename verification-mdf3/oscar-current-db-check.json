@@ -1,0 +1,29 @@
+{
+  "executable": "C:/Program Files/PostgreSQL/18/bin/psql.exe",
+  "args": [
+    "-h",
+    "localhost",
+    "-p",
+    "15432",
+    "-U",
+    "postgres",
+    "-d",
+    "ProjectD",
+    "-X",
+    "-w",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-t",
+    "-A",
+    "-c",
+    "select 1"
+  ],
+  "environment": {
+    "PGPASSWORD": "postgres",
+    "DALMARU_DB_PASSWORD": "postgres"
+  },
+  "exitCode": 0,
+  "stdout": "1\r\n",
+  "stderr": "",
+  "checkedAt": "2026-10-08T08:16:50.989Z"
+}
