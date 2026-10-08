@@ -202,6 +202,12 @@ tasks.register('verifySoloCombatDefinitions', JavaExec) {
 	mainClass = 'kr.dalmaru.SoloCombatDefinitionCheck'
 }
 
+tasks.register('verifyEquipmentRespawn', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.EquipmentRespawnCheck'
+}
+
 tasks.named('test') {
 	failOnNoDiscoveredTests = false
 }

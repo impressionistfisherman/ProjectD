@@ -498,22 +498,29 @@ public final class DalmaruNetworking {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.accountSession == null || !profile.characterId().equals(state.accountSession.activeCharacterId())) return;
 		COMBAT.clearEquipment(player, profile);
+		MinecraftServer server = serverFor(player);
+		UUID playerId = player.getUUID();
 		AccountSession session = state.accountSession;
 		long revision = ++state.equipmentRevision;
 		CompletableFuture.supplyAsync(() -> {
 			try { return EQUIPMENT.equipped(profile.characterId()); }
 			catch (Exception error) { throw new IllegalStateException(error); }
-		}).thenAccept(records -> serverFor(player).execute(() -> {
-			if (CONNECTIONS.get(player.getUUID()) != state || state.accountSession != session || revision != state.equipmentRevision
+		}).thenAccept(records -> server.execute(() -> {
+			ServerPlayer currentPlayer = server.getPlayerList().getPlayer(playerId);
+			if (currentPlayer == null || CONNECTIONS.get(playerId) != state || state.accountSession != session || revision != state.equipmentRevision
 				|| state.activeProfile == null || !state.activeProfile.characterId().equals(profile.characterId())) return;
-			try { COMBAT.equipment(player, state.activeProfile, records); }
+			try { COMBAT.equipment(currentPlayer, state.activeProfile, records); }
 			catch (IllegalArgumentException invalid) {
 				LOGGER.warn("Rejected equipped combat stats for {}.", profile.characterId(), invalid);
-				player.sendSystemMessage(Component.literal("장비 전투 수치가 유효하지 않습니다."));
+				currentPlayer.sendSystemMessage(Component.literal("장비 전투 수치가 유효하지 않습니다."));
 			}
 		})).exceptionally(error -> {
 			LOGGER.warn("Failed to refresh equipped combat stats for {}.", profile.characterId(), error);
-			serverFor(player).execute(() -> { if (CONNECTIONS.get(player.getUUID()) == state && revision == state.equipmentRevision) player.sendSystemMessage(Component.literal("장비 전투 수치를 불러오지 못했습니다.")); });
+			server.execute(() -> {
+				ServerPlayer currentPlayer = server.getPlayerList().getPlayer(playerId);
+				if (currentPlayer != null && CONNECTIONS.get(playerId) == state && state.accountSession == session && revision == state.equipmentRevision)
+					currentPlayer.sendSystemMessage(Component.literal("장비 전투 수치를 불러오지 못했습니다."));
+			});
 			return null;
 		});
 	}

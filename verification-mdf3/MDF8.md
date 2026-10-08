@@ -32,3 +32,11 @@
 - 장비 획득·장착 UI나 아이템 지급은 만들지 않았습니다. 자연 회복·보호막·다인 전투의 전체 정합성은 미검증입니다. 다인 일반 해법을 확정하지 않습니다.
 - Creed는 Mixin 훅·단위 경계·서버 소유권·비동기 응답 검증을 리뷰해야 합니다.
 - main 직접 커밋/머지·push 없음. 기존 불명확 미추적 파일 4개를 보존했습니다. TEST_RESULT.md는 과거 민감 기록 때문에 커밋에서 제외하고 이번 결과를 작업본에만 추가합니다.
+
+## F1 후속 수정 (2026-10-09)
+
+장비 DB 조회가 부활을 가로지를 때 이전 플레이어 entity를 갱신하던 결함을 수정했습니다. 성공/오류 응답 모두 서버 스레드에서 UUID의 현재 접속 플레이어를 재조회합니다. 연결·세션·활성 캐릭터·revision 검증과 CombatRuntime의 체력 비율 유지 동작을 보존합니다.
+
+검증: compileJava compileClientJava testClasses verifyEquipmentRespawn --no-daemon --console=plain, exit 0. EquipmentRespawnCheck는 제품 refreshCombat 메서드를 그대로 추출해 지연된 저장소 응답과 교체 가능한 플레이어 목록 대역으로 실행합니다. 조회 시작 → 동일 UUID 새 entity로 교체·35% HP → 응답 처리 순서에서 이전 entity가 갱신되지 않고 새 entity에만 적용되는지 확인합니다. 기존 HEAD의 콜백은 기대 assertion 실패로 F1을 재현했고 수정 콜백은 PASS했습니다. HP 680/238 → 740/259는 전투 대역의 비율 검사이며 실제 엔진 관측값은 아닙니다. 실제 서버 부활·DB 연결·완주는 미검증입니다.
+
+TEST_RESULT.md·서버 설정은 변경하지 않았습니다. 승인된 미추적 e HEAD만 삭제했습니다. 비밀번호와 동일한 문자열이 원격 문서 이력에 존재하여 god 지시로 이력 재작성·bundle·reflog/gc는 보류했습니다.

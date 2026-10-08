@@ -102,3 +102,5 @@
 - 2026-10-08 MDF-8 A안 완료: 실제 장착 장비·RPG 체력/피해·기본 공격/기술/보스 경로 연결. 컴파일·장비/계산 assertions PASS, 서버측 체력 경계 540/720/993.6 및 피해 2.6 PASS. 서버 exit 0·Java 0·설정값 보존 확인. 실제 완주·다인·회복/보호막 미검증, Jim QA·Creed 리뷰 대기. 상세: verification-mdf3/MDF8.md.
 
 - 2026-10-08 MDF-8 보안 후속: tools/autoplay/server-run.js의 DB 비밀번호 폴백 제거. DALMARU_DB_PASSWORD 미설정/빈 값이면 로그 생성·서버 실행 전에 명확한 오류로 종료. node tools/autoplay/server-run.test.js PASS(exit 0): 기존 JAR 차단 및 환경변수 누락/빈 값 검증, 실제 서버 미기동. 이력 재작성·push 없음; 과거 이력 처리는 사람 결정 대기.
+
+- 2026-10-09 MDF-8 F1 수정: 장비 DB 응답을 서버 스레드에서 현재 UUID 플레이어에 적용하여 부활 전 entity 갱신을 방지합니다. 기존 세션·캐릭터·revision 검증 유지. compileJava/compileClientJava/testClasses/verifyEquipmentRespawn PASS; 기존 콜백은 재현 시험 실패, 수정 콜백은 새 entity에 적용·HP 비율 35% 유지 PASS(서버/전투 대역 사용, 실제 부활 미검증). TEST_RESULT.md 불변. e HEAD 삭제; 이력 정리는 원격 문서의 동일 문자열 때문에 god 지시로 보류.
