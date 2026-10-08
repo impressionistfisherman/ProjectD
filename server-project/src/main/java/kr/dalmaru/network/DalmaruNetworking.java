@@ -12,6 +12,11 @@ import kr.dalmaru.account.CharacterProfile;
 import kr.dalmaru.account.CharacterStat;
 import kr.dalmaru.combat.CombatRewards;
 import kr.dalmaru.combat.CombatRuntime;
+import kr.dalmaru.combat.CombatCalculator;
+import kr.dalmaru.combat.CombatUnits;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.tags.DamageTypeTags;
 import kr.dalmaru.quest.QuestRepository;
 import kr.dalmaru.equipment.EquipmentRepository;
 import kr.dalmaru.run.RunDifficulty;
@@ -59,7 +64,7 @@ public final class DalmaruNetworking {
 	private static final QuestRepository QUESTS = new QuestRepository();
 	private static final EquipmentRepository EQUIPMENT = new EquipmentRepository();
 	private static final RunRepository RUNS = new RunRepository();
-	private static final RunRuntime RUN_RUNTIME = new RunRuntime();
+	private static final RunRuntime RUN_RUNTIME = new RunRuntime(COMBAT::bossDamage);
 	private static final PartyRuntime PARTIES = new PartyRuntime();
 	private static final SkillRepository SKILLS = new SkillRepository();
 	private static long currentTick;
@@ -416,14 +421,18 @@ public final class DalmaruNetworking {
 			if (payload.requestId() < 1 || state.accountSession == null) return;
 			AccountSession session = state.accountSession;
 			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.enhance(session.accountId(), session.connectionGeneration(), payload.requestId(), payload.equipmentId()); } catch (Exception exception) { throw new IllegalStateException(exception); } })
-				.thenAccept(result -> context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), true, result.success(), result.equipment().enhancement(), result.equipment().consecutiveFailures(), result.success() ? "강화 성공" : "강화 실패"))))
+				.thenAccept(result -> context.server().execute(() -> {
+					if (CONNECTIONS.get(context.player().getUUID()) != state || state.accountSession != session) return;
+					if (state.activeProfile != null) refreshCombat(context.player(), state.activeProfile);
+					ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), true, result.success(), result.equipment().enhancement(), result.equipment().consecutiveFailures(), result.success() ? "강화 성공" : "강화 실패"));
+				}))
 				.exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), false, false, 0, 0, "강화할 수 없습니다."))); return null; });
 		});
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
 			AccountSession session = state.accountSession;
-			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.listOrCreate(session.activeCharacterId()).stream().map(equipment -> new DalmaruPayloads.EquipmentData(equipment.equipmentId(), equipment.slotId(), equipment.itemId(), equipment.enhancement(), equipment.consecutiveFailures(), equipment.bound())).toList(); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(equipment -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "", equipment)); })).exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "장비를 불러올 수 없습니다.", java.util.List.of()))); return null; });
+			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.equipped(session.activeCharacterId()).stream().map(equipment -> new DalmaruPayloads.EquipmentData(equipment.equipmentId(), equipment.slotId(), equipment.itemId(), equipment.enhancement(), equipment.consecutiveFailures(), equipment.bound())).toList(); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(equipment -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "", equipment)); })).exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "장비를 불러올 수 없습니다.", java.util.List.of()))); return null; });
 		});
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
@@ -453,6 +462,61 @@ public final class DalmaruNetworking {
 	}
 
 	private static MinecraftServer serverFor(ServerPlayer player) { return ((ServerLevel) player.level()).getServer(); }
+
+	private static boolean playerAttack(DamageSource source) {
+		return source.is(DamageTypes.PLAYER_ATTACK) || source.is(DamageTypeTags.IS_PROJECTILE);
+	}
+	public static boolean managedDamage(LivingEntity target, DamageSource source) {
+		return CombatRuntime.explicitRpgDamage(target)
+			|| (source.getEntity() instanceof ServerPlayer attacker && COMBAT.managed(attacker) && playerAttack(source))
+			|| (target instanceof ServerPlayer player && COMBAT.managed(player));
+	}
+	public static float incomingDamage(LivingEntity target, DamageSource source, float amount) {
+		if (CombatRuntime.explicitRpgDamage(target)) return amount;
+		if (!Float.isFinite(amount) || amount < 0) throw new IllegalArgumentException("Invalid incoming damage.");
+		if (amount == 0) return 0;
+		if (source.getEntity() instanceof ServerPlayer attacker && COMBAT.managed(attacker) && playerAttack(source)) {
+			boolean magic = COMBAT.magical(attacker);
+			int defense = target instanceof ServerPlayer player ? COMBAT.defense(player, magic) : RUN_RUNTIME.bossDefense(target.getUUID(), magic);
+			double multiplier = source.is(DamageTypeTags.IS_PROJECTILE) ? 1 : amount / attacker.getAttributeValue(Attributes.ATTACK_DAMAGE);
+			return CombatUnits.toEngine(COMBAT.basicAttack(attacker, multiplier, defense, currentTick));
+		}
+		if (target instanceof ServerPlayer player && COMBAT.managed(player)) {
+			boolean magic = source.is(DamageTypes.MAGIC) || source.is(DamageTypes.INDIRECT_MAGIC) || source.is(DamageTypeTags.IS_FIRE);
+			int defense = source.is(DamageTypeTags.BYPASSES_ARMOR) ? 0 : COMBAT.defense(player, magic);
+			return CombatUnits.toEngine(CombatCalculator.damage(CombatUnits.toRpg(amount), 1, 1, false, defense));
+		}
+		return amount;
+	}
+	private static boolean rpgSkillDamage(ServerPlayer player, LivingEntity target, float amount) {
+		boolean magic = COMBAT.magical(player);
+		int defense = target instanceof ServerPlayer victim ? COMBAT.defense(victim, magic) : RUN_RUNTIME.bossDefense(target.getUUID(), magic);
+		int damage = COMBAT.attack(player, amount / player.getAttributeValue(Attributes.ATTACK_DAMAGE), defense);
+		return CombatRuntime.hurtRpg(target, player.damageSources().playerAttack(player), damage);
+	}
+	private static void refreshCombat(ServerPlayer player, CharacterProfile profile) {
+		ConnectionState state = CONNECTIONS.get(player.getUUID());
+		if (state == null || state.accountSession == null || !profile.characterId().equals(state.accountSession.activeCharacterId())) return;
+		COMBAT.clearEquipment(player, profile);
+		AccountSession session = state.accountSession;
+		long revision = ++state.equipmentRevision;
+		CompletableFuture.supplyAsync(() -> {
+			try { return EQUIPMENT.equipped(profile.characterId()); }
+			catch (Exception error) { throw new IllegalStateException(error); }
+		}).thenAccept(records -> serverFor(player).execute(() -> {
+			if (CONNECTIONS.get(player.getUUID()) != state || state.accountSession != session || revision != state.equipmentRevision
+				|| state.activeProfile == null || !state.activeProfile.characterId().equals(profile.characterId())) return;
+			try { COMBAT.equipment(player, state.activeProfile, records); }
+			catch (IllegalArgumentException invalid) {
+				LOGGER.warn("Rejected equipped combat stats for {}.", profile.characterId(), invalid);
+				player.sendSystemMessage(Component.literal("장비 전투 수치가 유효하지 않습니다."));
+			}
+		})).exceptionally(error -> {
+			LOGGER.warn("Failed to refresh equipped combat stats for {}.", profile.characterId(), error);
+			serverFor(player).execute(() -> { if (CONNECTIONS.get(player.getUUID()) == state && revision == state.equipmentRevision) player.sendSystemMessage(Component.literal("장비 전투 수치를 불러오지 못했습니다.")); });
+			return null;
+		});
+	}
 
 	private static void partyInvite(ServerPlayer player, String targetName) {
 		ServerPlayer target = serverFor(player).getPlayerList().getPlayerByName(targetName);
@@ -506,7 +570,7 @@ public final class DalmaruNetworking {
 			player.swing(InteractionHand.MAIN_HAND, true);
 			((ServerLevel) player.level()).sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
 			for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), target -> target != player && player.hasLineOfSight(target) && target.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
-				target.hurtServer((ServerLevel) player.level(), player.damageSources().playerAttack(player), damage);
+				rpgSkillDamage(player, target, damage);
 			}
 		} catch (Exception exception) { LOGGER.warn("Failed to use warrior sweep for {}.", player.getUUID(), exception); }
 	}
@@ -526,7 +590,7 @@ public final class DalmaruNetworking {
 		player.playSound(SoundEvents.PLAYER_ATTACK_STRONG, 1.0F, 1.15F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.85 + (rank - 1) * 0.075));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) target.hurtServer((ServerLevel) player.level(), player.damageSources().playerAttack(player), damage);
+		if (target != null) rpgSkillDamage(player, target, damage);
 	}
 
 	private static void useRisingStrike(ServerPlayer player) {
@@ -541,7 +605,7 @@ public final class DalmaruNetworking {
 		player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 0.9F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.25 + (rank - 1) * 0.1125));
 		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
-			target.hurtServer((ServerLevel) player.level(), player.damageSources().playerAttack(player), damage);
+			rpgSkillDamage(player, target, damage);
 			target.setDeltaMovement(target.getDeltaMovement().x, 0.45 + rank * 0.05, target.getDeltaMovement().z);
 			target.hurtMarked = true;
 		}
@@ -572,7 +636,7 @@ public final class DalmaruNetworking {
 		for (int distance = 1; distance <= 12; distance++) level.sendParticles(ParticleTypes.CRIT, player.getX() + direction.x * distance, player.getY() + 1.4 + direction.y * distance, player.getZ() + direction.z * distance, 2, 0.03, 0.03, 0.03, 0.0);
 		player.playSound(SoundEvents.ARROW_SHOOT, 1.0F, 1.0F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) target.hurtServer(level, player.damageSources().playerAttack(player), damage);
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
 	}
 
 	private static void useSpiritTalisman(ServerPlayer player) {
@@ -587,7 +651,7 @@ public final class DalmaruNetworking {
 		for (int distance = 1; distance <= 10; distance++) level.sendParticles(ParticleTypes.ENCHANT, player.getX() + direction.x * distance, player.getY() + 1.4 + direction.y * distance, player.getZ() + direction.z * distance, 4, 0.08, 0.08, 0.08, 0.02);
 		player.playSound(SoundEvents.EVOKER_CAST_SPELL, 0.8F, 1.4F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) target.hurtServer(level, player.damageSources().playerAttack(player), damage);
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
 	}
 
 	private static void useAmbush(ServerPlayer player) {
@@ -608,7 +672,7 @@ public final class DalmaruNetworking {
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) {
 			if (target.getLookAngle().normalize().dot(player.position().subtract(target.position()).normalize()) < 0) damage *= 1.2F;
-			target.hurtServer(level, player.damageSources().playerAttack(player), damage);
+			rpgSkillDamage(player, target, damage);
 		}
 	}
 
@@ -627,7 +691,7 @@ public final class DalmaruNetworking {
 		player.playSound(SoundEvents.ARROW_SHOOT, 0.9F, 1.25F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.85 + (rank - 1) * 0.075));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) target.hurtServer(level, player.damageSources().playerAttack(player), damage);
+		if (target != null) rpgSkillDamage(player, target, damage);
 	}
 
 	private static void useBindingTalisman(ServerPlayer player) {
@@ -642,7 +706,7 @@ public final class DalmaruNetworking {
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.70 + (rank - 1) * 0.0875));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) {
-			target.hurtServer(level, player.damageSources().playerAttack(player), damage);
+			rpgSkillDamage(player, target, damage);
 			target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 35 + rank * 5, 4, false, true, true));
 			level.sendParticles(ParticleTypes.ENCHANT, target.getX(), target.getY() + 1.0, target.getZ(), 24, 0.4, 0.7, 0.4, 0.04);
 		}
@@ -673,7 +737,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.90 + (rank - 1) * 0.10));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) { target.hurtServer(level, player.damageSources().playerAttack(player), damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 30 + rank * 10, 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
+		if (target != null) { rpgSkillDamage(player, target, damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 30 + rank * 10, 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
 		player.playSound(SoundEvents.CHAIN_HIT, 0.9F, 0.9F);
 	}
 
@@ -707,7 +771,7 @@ public final class DalmaruNetworking {
 		if (state == null || state.activeProfile == null || !"ARCHER".equals(state.activeProfile.profession()) || state.skillRanks.getOrDefault("skill.archer.binding_shot", 0) < 1) return;
 		if (COMBAT.useBindingShot(player.getUUID(), currentTick) != CombatRuntime.SweepResult.USED) return;
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) { int rank=state.skillRanks.get("skill.archer.binding_shot"); target.hurtServer((ServerLevel) player.level(), player.damageSources().playerAttack(player), (float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*(.7+(rank-1)*.075))); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20+rank*10, 2, false, true, true)); ((ServerLevel)player.level()).sendParticles(ParticleTypes.CRIT,target.getX(),target.getY()+1,target.getZ(),12,.2,.4,.2,.02); }
+		if (target != null) { int rank=state.skillRanks.get("skill.archer.binding_shot"); rpgSkillDamage(player, target, (float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*(.7+(rank-1)*.075))); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20+rank*10, 2, false, true, true)); ((ServerLevel)player.level()).sendParticles(ParticleTypes.CRIT,target.getX(),target.getY()+1,target.getZ(),12,.2,.4,.2,.02); }
 		player.playSound(SoundEvents.ARROW_HIT, .9F, .8F);
 	}
 	private static void useProtectiveTalisman(ServerPlayer player) {
@@ -747,7 +811,7 @@ public final class DalmaruNetworking {
 	private static void sendCharacterProfile(ServerPlayer player, CharacterProfile profile) {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state != null) state.activeProfile = profile;
-		COMBAT.refresh(player, profile);
+		refreshCombat(player, profile);
 		ServerPlayNetworking.send(player, new DalmaruPayloads.CharacterProfileResponse(profile.characterId(), profileData(profile)));
 	}
 
@@ -832,28 +896,28 @@ public final class DalmaruNetworking {
 
 	private static void sendCharacterStatInvestment(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {
 		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
-		if (accepted && profile != null) COMBAT.refresh(context.player(), profile);
+		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterStatInvestmentResponse(requestId, characterId, accepted, replayed, status, data));
 	}
 
 	private static void sendCharacterStatReset(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {
 		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
-		if (accepted && profile != null) COMBAT.refresh(context.player(), profile);
+		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterStatResetResponse(requestId, characterId, accepted, replayed, status, data));
 	}
 
 	private static void sendCharacterProfession(ServerPlayNetworking.Context context, long requestId, boolean accepted, String status, CharacterProfile profile) {
 		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
-		if (accepted && profile != null) COMBAT.refresh(context.player(), profile);
+		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterProfessionResponse(requestId, accepted, status, data));
 	}
 
 	private static void sendSkillLearn(ServerPlayNetworking.Context context, long requestId, boolean accepted, String status, CharacterProfile profile) {
 		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
-		if (accepted && profile != null) COMBAT.refresh(context.player(), profile);
+		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.SkillLearnResponse(requestId, accepted, status, data));
 	}
@@ -890,6 +954,7 @@ public final class DalmaruNetworking {
 		private boolean compatible;
 		private AccountSession accountSession;
 		private CharacterProfile activeProfile;
+		private long equipmentRevision;
 		private Map<String, Integer> skillRanks = new HashMap<>();
 		private String accountFailure;
 		private boolean selectionReadySent;

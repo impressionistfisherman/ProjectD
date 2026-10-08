@@ -16,9 +16,14 @@ public final class CombatCalculator {
 	}
 
 	public static int damage(int weaponAttack, double strengthMultiplier, double skillMultiplier, boolean critical, int defense) {
-		if (weaponAttack < 0 || strengthMultiplier < 0 || skillMultiplier < 0 || defense < 0) throw new IllegalArgumentException("Combat values must not be negative.");
+		return damage((double) weaponAttack, strengthMultiplier, skillMultiplier, critical, defense);
+	}
+	public static int damage(double weaponAttack, double strengthMultiplier, double skillMultiplier, boolean critical, int defense) {
+		if (!Double.isFinite(weaponAttack) || !Double.isFinite(strengthMultiplier) || !Double.isFinite(skillMultiplier)
+			|| weaponAttack < 0 || strengthMultiplier < 0 || skillMultiplier < 0 || defense < 0) throw new IllegalArgumentException("Invalid combat values.");
 		double defenseRemaining = 1.0 - Math.min(0.75, defense / (defense + 500.0));
 		double criticalMultiplier = critical ? 1.5 : 1.0;
-		return Math.max(0, (int) Math.round(weaponAttack * strengthMultiplier * skillMultiplier * criticalMultiplier * defenseRemaining));
+		long rounded = Math.round(weaponAttack * strengthMultiplier * skillMultiplier * criticalMultiplier * defenseRemaining);
+		return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, rounded));
 	}
 }

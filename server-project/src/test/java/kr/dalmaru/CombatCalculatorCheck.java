@@ -15,5 +15,7 @@ public final class CombatCalculatorCheck {
 		if (CombatCalculator.damage(100, 1.0, 1.0, true, 0) != 150) throw new IllegalStateException("Critical calculation is incorrect.");
 		if (CombatCalculator.damage(100, 1.0, 1.0, false, 10000) != 25) throw new IllegalStateException("Defense cap is incorrect.");
 		System.out.println("Server-owned combat formulas verified.");
+		if (CombatCalculator.damage((double) Float.MAX_VALUE, 1.0, 1.0, false, 0) != Integer.MAX_VALUE) throw new IllegalStateException("Large damage must saturate instead of overflowing.");
+		if (CombatCalculator.damage(Double.MAX_VALUE, 2.0, 1.0, true, 0) != Integer.MAX_VALUE) throw new IllegalStateException("Intermediate overflow must saturate.");
 	}
 }

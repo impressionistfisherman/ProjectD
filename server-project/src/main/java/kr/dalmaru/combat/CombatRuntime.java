@@ -4,6 +4,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import kr.dalmaru.account.CharacterProfile;
+import kr.dalmaru.equipment.EquipmentRecord;
+import kr.dalmaru.equipment.PilotEquipment;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -15,6 +20,8 @@ public final class CombatRuntime {
 	private static final Identifier ATTACK_DAMAGE_ID = Identifier.fromNamespaceAndPath("dalmaru", "profile_attack_damage");
 	private static final Identifier MAX_HEALTH_ID = Identifier.fromNamespaceAndPath("dalmaru", "profile_max_health");
 	private final Map<UUID, RuntimeState> states = new HashMap<>();
+	private final Map<UUID, EquipmentSnapshot> equipment = new HashMap<>();
+	private static final ThreadLocal<LivingEntity> RPG_TARGET = new ThreadLocal<>();
 	private final Map<UUID, Long> sweepCooldowns = new HashMap<>();
 	private final Map<UUID, Long> advanceCooldowns = new HashMap<>();
 	private final Map<UUID, Long> risingStrikeCooldowns = new HashMap<>();
@@ -33,19 +40,67 @@ public final class CombatRuntime {
 	private final Map<UUID, Long> shortStepCooldowns = new HashMap<>();
 
 	public void refresh(ServerPlayer player, CharacterProfile profile) {
-		int primary = primaryStat(profile);
-		CombatStats stats = CombatCalculator.derive(profile, primary);
+		EquipmentSnapshot snapshot = equipment.get(player.getUUID());
+		if (snapshot != null && !snapshot.characterId.equals(profile.characterId())) { equipment.remove(player.getUUID()); snapshot = null; }
+		PilotEquipment.Stats gear = snapshot == null ? PilotEquipment.Stats.EMPTY : PilotEquipment.equipped(profile, snapshot.records);
+		CharacterProfile effective = new CharacterProfile(profile.characterId(), profile.level(), profile.experience(), profile.unspentStatPoints(),
+			profile.strength(), profile.dexterity(), profile.arcana(), profile.vitality() + gear.vitality(), profile.spirit() + gear.spirit(),
+			profile.freeResetAvailable(), profile.unspentSkillPoints(), profile.profession());
+		CombatStats stats = CombatCalculator.derive(effective, primaryStat(profile) + gear.primary());
 		var attackDamage = player.getAttribute(Attributes.ATTACK_DAMAGE);
 		if (attackDamage != null) attackDamage.addOrReplacePermanentModifier(new AttributeModifier(ATTACK_DAMAGE_ID, stats.strengthMultiplier() - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 		var maxHealth = player.getAttribute(Attributes.MAX_HEALTH);
 		if (maxHealth != null) {
 			double healthRatio = player.getMaxHealth() == 0 ? 1.0 : player.getHealth() / player.getMaxHealth();
-			maxHealth.addOrReplacePermanentModifier(new AttributeModifier(MAX_HEALTH_ID, stats.maximumHealth() - 20.0, AttributeModifier.Operation.ADD_VALUE));
+			maxHealth.addOrReplacePermanentModifier(new AttributeModifier(MAX_HEALTH_ID, CombatUnits.maximumHealth(stats.maximumHealth()) - 20.0, AttributeModifier.Operation.ADD_VALUE));
 			player.setHealth((float) Math.min(player.getMaxHealth(), Math.max(0, healthRatio * player.getMaxHealth())));
 		}
 		RuntimeState previous = states.get(player.getUUID());
 		double ratio = previous == null || previous.maximumStamina == 0 ? 1.0 : previous.stamina / previous.maximumStamina;
-		states.put(player.getUUID(), new RuntimeState(stats.maximumStamina(), Math.min(stats.maximumStamina(), Math.max(0, ratio * stats.maximumStamina())), stats.staminaRegenerationPerSecond(), previous == null ? Long.MIN_VALUE : previous.lastCombatTick));
+		RuntimeState refreshed = new RuntimeState(stats.maximumStamina(), Math.min(stats.maximumStamina(), Math.max(0, ratio * stats.maximumStamina())), stats.staminaRegenerationPerSecond(), previous == null ? Long.MIN_VALUE : previous.lastCombatTick, gear, stats.strengthMultiplier());
+		if (previous != null) refreshed.nextBasicAttackTick = previous.nextBasicAttackTick;
+		states.put(player.getUUID(), refreshed);
+	}
+
+	public void equipment(ServerPlayer player, CharacterProfile profile, java.util.List<EquipmentRecord> records) {
+		PilotEquipment.equipped(profile, records);
+		equipment.put(player.getUUID(), new EquipmentSnapshot(profile.characterId(), java.util.List.copyOf(records)));
+		refresh(player, profile);
+	}
+	public void clearEquipment(ServerPlayer player, CharacterProfile profile) {
+		equipment.remove(player.getUUID());
+		refresh(player, profile);
+	}
+	public boolean managed(ServerPlayer player) { return states.containsKey(player.getUUID()); }
+	public boolean magical(ServerPlayer player) { RuntimeState state = states.get(player.getUUID()); return state != null && state.gear.magical(); }
+	public int defense(ServerPlayer player, boolean magic) { RuntimeState state = states.get(player.getUUID()); return state == null ? 0 : state.gear.defense(magic); }
+	public int attack(ServerPlayer player, double multiplier, int defense) {
+		RuntimeState state = states.get(player.getUUID());
+		if (state == null) return 0;
+		// Undefined gear grants no weapon stats; retain only the engine's bare-hand base.
+		double attack = state.gear.attack() > 0 ? state.gear.attack() : CombatUnits.toRpg(player.getAttribute(Attributes.ATTACK_DAMAGE).getBaseValue());
+		return CombatCalculator.damage(attack, state.strengthMultiplier, multiplier, false, defense);
+	}
+	public int basicAttack(ServerPlayer player, double multiplier, int defense, long tick) {
+		RuntimeState state = states.get(player.getUUID());
+		if (state == null || tick < state.nextBasicAttackTick) return 0;
+		state.nextBasicAttackTick = tick + state.gear.basicTicks();
+		return attack(player, multiplier * state.gear.basicMultiplier(), defense);
+	}
+	public void bossDamage(ServerPlayer player, LivingEntity boss, float amount, boolean magic) {
+		int damage = CombatCalculator.damage((double) amount, 1, 1, false, defense(player, magic));
+		hurtRpg(player, player.damageSources().mobAttack(boss), damage);
+	}
+	public static boolean explicitRpgDamage(LivingEntity target) { return RPG_TARGET.get() == target; }
+	public static boolean hurtRpg(LivingEntity target, DamageSource source, double amount) {
+		if (amount <= 0) return false;
+		LivingEntity previous = RPG_TARGET.get();
+		try {
+			RPG_TARGET.set(target);
+			return target.hurtServer((ServerLevel) target.level(), source, CombatUnits.toEngine(amount));
+		} finally {
+			if (previous == null) RPG_TARGET.remove(); else RPG_TARGET.set(previous);
+		}
 	}
 
 	public void recordValidHit(ServerPlayer player, long tick) {
@@ -228,7 +283,7 @@ public final class CombatRuntime {
 		newPlayer.setHealth(newPlayer.getMaxHealth());
 	}
 
-	public void remove(UUID playerId) { states.remove(playerId); sweepCooldowns.remove(playerId); }
+	public void remove(UUID playerId) { states.remove(playerId); equipment.remove(playerId); sweepCooldowns.remove(playerId); }
 	public StaminaState stamina(UUID playerId, long tick) {
 		RuntimeState state = states.get(playerId);
 		return state == null ? null : new StaminaState(state.stamina, state.maximumStamina, state.lastCombatTick != Long.MIN_VALUE && tick - state.lastCombatTick < COMBAT_TIMEOUT_TICKS);
@@ -249,13 +304,19 @@ public final class CombatRuntime {
 		private final double staminaRegenerationPerSecond;
 		private double stamina;
 		private long lastCombatTick;
-		private RuntimeState(int maximumStamina, double stamina, double staminaRegenerationPerSecond, long lastCombatTick) {
+		private long nextBasicAttackTick;
+		private final PilotEquipment.Stats gear;
+		private final double strengthMultiplier;
+		private RuntimeState(int maximumStamina, double stamina, double staminaRegenerationPerSecond, long lastCombatTick, PilotEquipment.Stats gear, double strengthMultiplier) {
 			this.maximumStamina = maximumStamina;
 			this.stamina = stamina;
 			this.staminaRegenerationPerSecond = staminaRegenerationPerSecond;
 			this.lastCombatTick = lastCombatTick;
+			this.gear = gear;
+			this.strengthMultiplier = strengthMultiplier;
 		}
 	}
+	private record EquipmentSnapshot(UUID characterId, java.util.List<EquipmentRecord> records) { }
 	public record StaminaState(double current, double maximum, boolean inCombat) { }
 	public enum SweepResult { USED, STAMINA, COOLDOWN, UNAVAILABLE }
 }

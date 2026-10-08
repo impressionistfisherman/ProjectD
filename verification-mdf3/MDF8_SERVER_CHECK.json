@@ -1,0 +1,35 @@
+{
+  "kind": "server-side engine boundary only",
+  "cases": [
+    {
+      "maximumHealth": 540,
+      "damage": 2.6,
+      "observedHealth": 537.4
+    },
+    {
+      "maximumHealth": 720,
+      "damage": 2.6,
+      "observedHealth": 717.4
+    },
+    {
+      "maximumHealth": 993.6,
+      "damage": 2.6,
+      "observedHealth": 991
+    }
+  ],
+  "evidence": [
+    "[23:49:43] [Server thread/INFO] (Minecraft) The base value for attribute Max Health for entity Zombie set to 540.0",
+    "[23:49:43] [Server thread/INFO] (Minecraft) Zombie has the following entity data: 537.4f",
+    "[23:49:43] [Server thread/INFO] (Minecraft) The base value for attribute Max Health for entity Zombie set to 720.0",
+    "[23:49:43] [Server thread/INFO] (Minecraft) Zombie has the following entity data: 717.4f",
+    "[23:49:43] [Server thread/INFO] (Minecraft) The base value for attribute Max Health for entity Zombie set to 993.6",
+    "[23:49:43] [Server thread/INFO] (Minecraft) Zombie has the following entity data: 991.0f",
+    "[23:50:03] [Server thread/INFO] (Minecraft) Killed Zombie",
+    "[23:50:03] [Server thread/INFO] (Minecraft) Killed Zombie",
+    "[23:50:03] [Server thread/INFO] (Minecraft) Killed Zombie",
+    "[23:50:03] [Server thread/INFO] (Minecraft) Unmarked chunk [0, 0] in minecraft:overworld for force loading"
+  ],
+  "serverExit": 0,
+  "settingsUnchanged": true,
+  "manualPlayVerified": false
+}

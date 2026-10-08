@@ -18,6 +18,9 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 
 public final class RunRuntime {
+    private final BossDamage bossDamage;
+    public RunRuntime(BossDamage bossDamage) { this.bossDamage = java.util.Objects.requireNonNull(bossDamage); }
+    @FunctionalInterface public interface BossDamage { void hit(ServerPlayer player, net.minecraft.world.entity.LivingEntity boss, float amount, boolean magic); }
     private final Map<UUID, State> playerRuns = new HashMap<>();
     private final Map<UUID, Encounter> encounters = new HashMap<>();
 
@@ -97,6 +100,13 @@ public final class RunRuntime {
     public void disconnect(ServerPlayer player) { playerRuns.remove(player.getUUID()); }
     public UUID runId(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? null : state.runId; }
     public int revivesRemaining(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? 0 : state.revivesRemaining; }
+    public int bossDefense(UUID bossId, boolean magic) {
+        for (Encounter encounter : encounters.values()) if (bossId.equals(encounter.bossId)) {
+            int base = magic && encounter.stage == Stage.GATEKEEPER ? 55 : 80;
+            return base + (encounter.difficulty == RunDifficulty.TRAINING ? 20 : 0);
+        }
+        return 0;
+    }
 
     private void activateFinalBoss(Encounter encounter) {
         long ready = playerRuns.entrySet().stream().filter(entry -> entry.getValue().runId.equals(encounter.runId)).filter(entry -> encounter.brazierTicks.getOrDefault(entry.getKey(), 0) >= 80).count();
@@ -115,27 +125,30 @@ public final class RunRuntime {
         ServerPlayer target = players.stream().min(java.util.Comparator.comparingDouble(player -> player.distanceToSqr(boss))).orElseThrow();
         if (encounter.stage == Stage.GATEKEEPER) {
             int slamEvery = boss.getHealth() <= boss.getMaxHealth() * .5F ? 50 : 100;
-            if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, 150, ParticleTypes.CRIT);
-            else if (encounter.bossTicks % 40 == 0 && target.distanceToSqr(boss) <= 16) {
-                target.hurtServer(encounter.level, encounter.level.damageSources().mobAttack(boss), 110);
+            if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, attack(encounter, 150), false, ParticleTypes.CRIT);
+            else if (encounter.bossTicks % 60 == 0 && target.distanceToSqr(boss) <= 16) {
+                bossDamage.hit(target, boss, attack(encounter, 130), false);
                 target.push(target.getX() - boss.getX(), .2, target.getZ() - boss.getZ());
+            }
+            else if (encounter.bossTicks % 40 == 0 && target.distanceToSqr(boss) <= 16) {
+                bossDamage.hit(target, boss, attack(encounter, 110), false);
             }
         } else if (encounter.stage == Stage.BEACON) {
             float ratio = boss.getHealth() / boss.getMaxHealth();
             int every = ratio > .7F ? 70 : ratio > .35F ? 50 : 35;
             if (encounter.bossTicks % every != 0) return;
             if (ratio > .7F) {
-                target.hurtServer(encounter.level, encounter.level.damageSources().mobAttack(boss), 130);
+                bossDamage.hit(target, boss, attack(encounter, 130), false);
                 encounter.level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1, target.getZ(), 24, .4, .6, .4, .03);
-            } else if (ratio > .35F) damage(players, boss, 7, 120, ParticleTypes.SOUL);
-            else damage(players, boss, 6, 100, ParticleTypes.SOUL_FIRE_FLAME);
+            } else if (ratio > .35F) damage(players, boss, 7, attack(encounter, 120), true, ParticleTypes.SOUL);
+            else damage(players, boss, 6, attack(encounter, 180), true, ParticleTypes.SOUL_FIRE_FLAME);
         }
     }
 
-    private static void damage(List<ServerPlayer> players, Mob boss, double range, float amount, net.minecraft.core.particles.ParticleOptions particle) {
+    private void damage(List<ServerPlayer> players, Mob boss, double range, float amount, boolean magic, net.minecraft.core.particles.ParticleOptions particle) {
         ServerLevel level = (ServerLevel) boss.level();
         level.sendParticles(particle, boss.getX(), boss.getY() + 1, boss.getZ(), 32, 1.2, .8, 1.2, .04);
-        for (ServerPlayer player : players) if (player.distanceToSqr(boss) <= range * range) player.hurtServer(level, level.damageSources().mobAttack(boss), amount);
+        for (ServerPlayer player : players) if (player.distanceToSqr(boss) <= range * range) bossDamage.hit(player, boss, amount, magic);
     }
 
     private List<ServerPlayer> players(MinecraftServer server, UUID runId, ServerLevel level) {
@@ -152,8 +165,11 @@ public final class RunRuntime {
     private static UUID spawnBoss(ServerLevel level, BlockPos position, String name, double health) {
         Mob boss = EntityType.ZOMBIE.create(level, EntitySpawnReason.EVENT);
         if (boss == null) throw new IllegalStateException("Boss could not spawn.");
-        boss.getAttribute(Attributes.MAX_HEALTH).setBaseValue(health);
-        boss.setHealth((float) health);
+        float engineHealth = kr.dalmaru.combat.CombatUnits.maximumHealth(health);
+        boss.getAttribute(Attributes.MAX_HEALTH).setBaseValue(engineHealth);
+        boss.setHealth(engineHealth);
+        // Only the scripted RPG patterns deal damage, not the zombie's extra melee attack.
+        boss.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(0);
         boss.setCustomName(Component.literal(name));
         boss.setCustomNameVisible(true);
         boss.setPersistenceRequired(); // otherwise it despawns while the dying player respawns far away
@@ -166,6 +182,7 @@ public final class RunRuntime {
         return false;
     }
     private static double health(RunDifficulty difficulty, double base) { return RunEncounterRules.bossHealth(difficulty, base); }
+    private static float attack(Encounter encounter, int base) { return (float) (base * (encounter.difficulty == RunDifficulty.TRAINING ? 1.15 : 1.0)); }
 
     public record DeathResult(UUID runId, boolean canRespawn, boolean partyDefeated) { }
     private enum Stage { GATEKEEPER, BRAZIER, BEACON, COMPLETED }
