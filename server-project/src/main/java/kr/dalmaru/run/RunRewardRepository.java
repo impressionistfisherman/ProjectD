@@ -40,6 +40,7 @@ public final class RunRewardRepository {
         try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, ?, 'run.clear', ?)")) { ledger.setObject(1, UUID.randomUUID()); ledger.setObject(2, characterId); ledger.setObject(3, runId); ledger.setInt(4, copper); ledger.executeUpdate(); }
         material(connection, characterId, "material.ironstone", ironstone); material(connection, characterId, "token.bongsu", beaconToken);
         if (box != null) try (var mailbox = connection.prepareStatement("INSERT INTO dalmaru.character_mailbox (event_id, character_id, source_run_id, item_id, quantity) VALUES (?, ?, ?, ?, 1)")) { mailbox.setObject(1, UUID.randomUUID()); mailbox.setObject(2, characterId); mailbox.setObject(3, runId); mailbox.setString(4, box); mailbox.executeUpdate(); }
+        kr.dalmaru.account.CharacterRepository.grantExperience(connection, characterId, 500);
         return new RunReward(characterId, copper, ironstone, beaconToken, box);
     }
 

@@ -8,6 +8,7 @@ public final class DalmaruMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		kr.dalmaru.account.VanillaCharacterState.initialize();
 		DalmaruNetworking.initialize();
 	}
 }

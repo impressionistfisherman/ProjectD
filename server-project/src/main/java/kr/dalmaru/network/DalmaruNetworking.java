@@ -58,16 +58,24 @@ public final class DalmaruNetworking {
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
+    private static final java.util.concurrent.ExecutorService LIFECYCLE_DB=java.util.concurrent.Executors.newSingleThreadExecutor(task->{Thread thread=new Thread(task,"dalmaru-session-db");thread.setDaemon(true);return thread;});
+    private record JoinedSession(AccountSession session,String vanillaState,RunRepository.ReturnPosition position,kr.dalmaru.run.RunRecord run) { }
+    private static boolean currentJoin(MinecraftServer server,UUID id,ConnectionState state,ServerPlayer player) {
+        ServerPlayer current=server.getPlayerList().getPlayer(id);
+        return CONNECTIONS.get(id)==state&&current!=null&&state.connection==current.connection&&state.connection==player.connection;
+    }
+
 	private static final AccountRepository ACCOUNTS = new AccountRepository();
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static final QuestRepository QUESTS = new QuestRepository();
 	private static final EquipmentRepository EQUIPMENT = new EquipmentRepository();
 	private static final RunRepository RUNS = new RunRepository();
-	private static final RunRuntime RUN_RUNTIME = new RunRuntime(COMBAT::bossDamage);
+	private static final RunRuntime RUN_RUNTIME = new RunRuntime(COMBAT::bossDamage,COMBAT::remove);
 	private static final PartyRuntime PARTIES = new PartyRuntime();
 	private static final SkillRepository SKILLS = new SkillRepository();
 	private static long currentTick;
+    private static final java.util.Set<UUID> FINISHING_RUNS=new java.util.HashSet<>();
 
 	private DalmaruNetworking() { }
 
@@ -120,47 +128,75 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.CharacterCreateRequest.TYPE, DalmaruPayloads.CharacterCreateRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.CharacterCreateResponse.TYPE, DalmaruPayloads.CharacterCreateResponse.CODEC);
 
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-			UUID playerId = handler.getPlayer().getUUID();
-			CONNECTIONS.put(playerId, new ConnectionState(currentTick));
-			CompletableFuture.supplyAsync(() -> {
-				try {
-					return ACCOUNTS.openSession(playerId);
-				} catch (Exception exception) {
-					throw new IllegalStateException(exception);
-				}
-			}).thenAccept(session -> server.execute(() -> {
-				ConnectionState state = CONNECTIONS.get(playerId);
-				if (state != null) {
-					state.accountSession = session;
-					ServerPlayer player = server.getPlayerList().getPlayer(playerId);
-				if (player != null) { sendCharacterSelectionReady(player, state); if (session.activeCharacterId() != null) CompletableFuture.supplyAsync(() -> { try { return RUNS.active(session.activeCharacterId()); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(run -> server.execute(() -> { ServerPlayer current = server.getPlayerList().getPlayer(playerId); if (run != null && current != null && CONNECTIONS.get(playerId) == state && state.accountSession == session) RUN_RUNTIME.enter(current, run.runId(), run.difficulty(), run.partySize()); })); }
-				}
-			})).exceptionally(error -> {
-				server.execute(() -> {
-					ConnectionState state = CONNECTIONS.get(playerId);
-					if (state != null) state.accountFailure = "계정 저장소에 연결하지 못했습니다. 서버 로그를 확인하세요.";
-					LOGGER.error("Failed to open Dalmaru account session for {}.", playerId, error);
-				});
-				return null;
-			});
-		});
-		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			ConnectionState state = CONNECTIONS.remove(handler.getPlayer().getUUID());
-			if (state != null && state.accountSession != null && state.accountSession.activeCharacterId() != null) {
-				UUID characterId = state.accountSession.activeCharacterId();
-				java.util.List<UUID> connected = CONNECTIONS.values().stream().filter(member -> member.accountSession != null && member.accountSession.activeCharacterId() != null).map(member -> member.accountSession.activeCharacterId()).toList();
-				CompletableFuture.runAsync(() -> { try { RUNS.pauseIfUnattended(characterId, connected); } catch (Exception exception) { LOGGER.warn("Failed to pause unattended run.", exception); } });
-			}
-			RUN_RUNTIME.disconnect(handler.getPlayer());
-			COMBAT.remove(handler.getPlayer().getUUID());
-		});
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity,world)->RUN_RUNTIME.loadedEntity(entity));
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{
+            try{kr.dalmaru.run.RunTerrainRecovery.recover(server);RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot recover unfinished runs safely.",error);throw new IllegalStateException("Run recovery failed.",error);}
+        });
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server->{
+            LIFECYCLE_DB.shutdown();
+            try{if(!LIFECYCLE_DB.awaitTermination(5,java.util.concurrent.TimeUnit.SECONDS))LIFECYCLE_DB.shutdownNow();}catch(InterruptedException error){LIFECYCLE_DB.shutdownNow();Thread.currentThread().interrupt();}
+            RUN_RUNTIME.closeAll(server);
+            try{RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot cancel unfinished runs on shutdown.",error);}
+        });
+        net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((world,player,pos,block,entity)-> !(world instanceof ServerLevel level)||!RUN_RUNTIME.protectedBlock(level,pos));
+        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player,world,hand,hit)-> world instanceof ServerLevel level && RUN_RUNTIME.protectedBlock(level,hit.getBlockPos()) ? net.minecraft.world.InteractionResult.FAIL : net.minecraft.world.InteractionResult.PASS);
+
+        ServerPlayConnectionEvents.JOIN.register((handler,sender,server)->{
+            ServerPlayer joinedPlayer=handler.getPlayer();UUID playerId=joinedPlayer.getUUID();
+            ConnectionState joinedState=new ConnectionState(currentTick);joinedState.connection=handler;
+            CONNECTIONS.put(playerId,joinedState);COMBAT.reconnect(playerId);
+            String snapshot=kr.dalmaru.account.VanillaCharacterState.capture(joinedPlayer);
+            CompletableFuture.supplyAsync(()->{
+                try {
+                    AccountSession session=ACCOUNTS.openSession(playerId);joinedState.openedSession=session;
+                    String[] restored={null};CHARACTERS.recoverVanilla(session.accountId(),session.connectionGeneration(),snapshot,value->restored[0]=value);
+                    var position=session.activeCharacterId()==null?null:RUNS.pendingReturn(session.activeCharacterId());
+                    var run=session.activeCharacterId()==null?null:RUNS.active(session.activeCharacterId());
+                    return new JoinedSession(session,restored[0],position,run);
+                }catch(Exception error){throw new IllegalStateException(error);}
+            },LIFECYCLE_DB).thenAccept(result->server.execute(()->{
+                if(!currentJoin(server,playerId,joinedState,joinedPlayer))return;
+                ServerPlayer current=server.getPlayerList().getPlayer(playerId);
+                try {
+                    joinedState.accountSession=result.session();
+                    if(result.vanillaState()!=null)kr.dalmaru.account.VanillaCharacterState.restore(current,result.vanillaState());
+                    restorePendingReturn(current,result.session(),result.position());sendCharacterSelectionReady(current,joinedState);
+                    if(result.run()!=null)resumeRuntime(current,result.run());
+                }catch(Exception error){joinedState.accountFailure="캐릭터 복구 실패";LOGGER.error("Cannot install recovered session safely.",error);joinedState.connection.disconnect(Component.literal("캐릭터 상태를 복구하지 못했습니다. 운영자에게 문의하세요."));}
+            })).exceptionally(error->{
+                server.execute(()->{
+                    if(!currentJoin(server,playerId,joinedState,joinedPlayer))return;
+                    joinedState.accountFailure="계정 저장소에 연결하지 못했습니다. 서버 로그를 확인하세요.";
+                    LOGGER.error("Failed to open Dalmaru account session for {}.",playerId,error);
+                    joinedState.connection.disconnect(Component.literal(joinedState.accountFailure));
+                });return null;
+            });
+        });
+        ServerPlayConnectionEvents.DISCONNECT.register((handler,server)->{
+            ConnectionState state=CONNECTIONS.get(handler.getPlayer().getUUID());
+            if(state!=null&&state.connection!=null&&state.connection!=handler)return;
+            CONNECTIONS.remove(handler.getPlayer().getUUID());
+            if(state!=null){
+                AccountSession disconnectedSession=state.accountSession;
+                var connected=CONNECTIONS.values().stream().filter(member->member.accountSession!=null&&member.accountSession.activeCharacterId()!=null).map(member->member.accountSession.activeCharacterId()).toList();
+                var pending=CONNECTIONS.values().stream().filter(member->member.accountSession==null).toList();
+                CompletableFuture.runAsync(()->{
+                    AccountSession session=disconnectedSession!=null?disconnectedSession:state.openedSession;
+                    if(session==null||session.activeCharacterId()==null)return;
+                    var characters=new java.util.ArrayList<UUID>(connected);
+                    for(ConnectionState member:pending){var opened=member.openedSession;if(opened!=null&&opened.activeCharacterId()!=null)characters.add(opened.activeCharacterId());}
+                    try{RUNS.pauseIfUnattended(session.activeCharacterId(),characters);}catch(Exception error){LOGGER.warn("Failed to pause unattended run.",error);}
+                },LIFECYCLE_DB);
+            }
+            RUN_RUNTIME.disconnect(handler.getPlayer());
+            if(RUN_RUNTIME.runId(handler.getPlayer())==null)COMBAT.remove(handler.getPlayer().getUUID());else COMBAT.disconnect(handler.getPlayer().getUUID());
+        });
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			// Restore profile modifiers before the run sets revive health.
 			COMBAT.restoreAfterRespawn(oldPlayer, newPlayer);
 			RUN_RUNTIME.afterRespawn(oldPlayer, newPlayer);
 		});
-		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); RUN_RUNTIME.tick(server); if (currentTick % 20 == 0) { sendCombatStates(server); CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
+		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); RUN_RUNTIME.tick(server); if (currentTick % 20 == 0) { sendCombatStates(server);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
 			if (damageTaken > 0) {
 				if (source.getEntity() instanceof ServerPlayer player) COMBAT.recordValidHit(player, currentTick);
@@ -189,6 +225,18 @@ public final class DalmaruNetworking {
 					.then(literal("status").executes(command -> { showQuestStatus(command.getSource().getPlayerOrException(), command.getSource().getServer()); return 1; })))
 				.then(literal("profession").then(argument("job", StringArgumentType.word()).executes(command -> { selectProfession(command.getSource().getPlayerOrException(), command.getSource().getServer(), StringArgumentType.getString(command, "job")); return 1; })))
 		));
+
+        CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("dalmaru-town")
+            .requires(source->source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
+            .then(argument("name",StringArgumentType.word()).then(argument("radius",IntegerArgumentType.integer(1,128)).executes(command->{
+                var player=command.getSource().getPlayerOrException();
+                try{CHARACTERS.registerTown(StringArgumentType.getString(command,"name"),player.level().dimension().identifier().toString(),player.blockPosition().getX(),player.blockPosition().getY(),player.blockPosition().getZ(),IntegerArgumentType.getInteger(command,"radius"));}
+                catch(Exception error){LOGGER.error("Failed to register town safety boundary.",error);player.sendSystemMessage(Component.literal("마을 경계 저장에 실패했습니다."));}
+                return 1;
+            })))));
+        CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("dalmaru-equipment")
+            .then(literal("equip").then(argument("id",StringArgumentType.word()).then(argument("request",com.mojang.brigadier.arguments.LongArgumentType.longArg(1)).executes(command->{moveEquipment(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"id"),com.mojang.brigadier.arguments.LongArgumentType.getLong(command,"request"),true);return 1;}))))
+            .then(literal("unequip").then(argument("id",StringArgumentType.word()).then(argument("request",com.mojang.brigadier.arguments.LongArgumentType.longArg(1)).executes(command->{moveEquipment(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"id"),com.mojang.brigadier.arguments.LongArgumentType.getLong(command,"request"),false);return 1;}))))));
 
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Hello.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
@@ -274,27 +322,29 @@ public final class DalmaruNetworking {
 				sendCharacterSelect(context, payload.requestId(), payload.characterId(), false, false, state.accountFailure);
 				return;
 			}
-			AccountSession session = state.accountSession;
-			CompletableFuture.supplyAsync(() -> {
-				try {
-					CharacterSelectionResult selection = CHARACTERS.selectActive(session.accountId(), session.connectionGeneration(), payload.requestId(), payload.characterId());
-					return new SelectedCharacter(selection, CHARACTERS.profile(selection.characterId()), SKILLS.ranks(selection.characterId()));
-				} catch (Exception exception) {
-					throw new IllegalStateException(exception);
-				}
-			}).thenAccept(result -> context.server().execute(() -> {
-				if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) {
-					state.accountSession = new AccountSession(session.accountId(), result.selection().characterId(), session.connectionGeneration());
-				state.activeProfile = result.profile();
-				state.skillRanks = result.skillRanks();
-				sendCharacterSelect(context, payload.requestId(), result.selection().characterId(), true, result.selection().replayed(), result.selection().replayed() ? "기존 선택 결과입니다." : "캐릭터를 선택했습니다.");
-					sendCharacterProfile(context.player(), result.profile());
-				}
-			})).exceptionally(error -> {
-				LOGGER.warn("Rejected character selection for {}.", session.accountId(), error);
-				context.server().execute(() -> sendCharacterSelect(context, payload.requestId(), payload.characterId(), false, false, "캐릭터를 선택할 수 없습니다."));
-				return null;
-			});
+            AccountSession session=state.accountSession;
+            var player=context.player();
+            boolean changing=!payload.characterId().equals(session.activeCharacterId());
+            String original=kr.dalmaru.account.VanillaCharacterState.capture(player);
+            boolean[] installed={false};boolean committed=false;
+            try {
+                var stamina=COMBAT.stamina(player.getUUID(),currentTick);
+                if(changing&&session.activeCharacterId()!=null&&(RUN_RUNTIME.runId(player)!=null||(stamina!=null&&stamina.inCombat())||player.containerMenu!=player.inventoryMenu
+                    ||!CHARACTERS.inTown(player.level().dimension().identifier().toString(),player.blockPosition().getX(),player.blockPosition().getY(),player.blockPosition().getZ())))throw new IllegalArgumentException("Switch only in a registered town outside combat and storage.");
+                CharacterProfile profile=CHARACTERS.profile(payload.characterId());
+                var ranks=SKILLS.ranks(payload.characterId());
+                CharacterSelectionResult selection=CHARACTERS.selectActive(session.accountId(),session.connectionGeneration(),payload.requestId(),payload.characterId(),original,
+                    inventory->{installed[0]=true;kr.dalmaru.account.VanillaCharacterState.restore(player,inventory);});
+                committed=true;
+                if(changing)COMBAT.remove(player.getUUID());
+                state.accountSession=new AccountSession(session.accountId(),selection.characterId(),session.connectionGeneration());state.skillRanks=ranks;
+                sendCharacterSelect(context,payload.requestId(),selection.characterId(),true,selection.replayed(),"캐릭터를 선택했습니다.");sendCharacterProfile(player,profile);
+            } catch(Exception error) {
+                if(closeUncertainSelection(player,state,installed[0],committed,error))return;
+                if(!committed&&installed[0])kr.dalmaru.account.VanillaCharacterState.restore(player,original);
+                LOGGER.warn("Rejected character selection for {}.",session.accountId(),error);
+                sendCharacterSelect(context,payload.requestId(),payload.characterId(),false,false,"등록된 마을에서 전투·보관함을 종료한 뒤 선택하세요.");
+            }
 		});
 
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterCreateRequest.TYPE, (payload, context) -> {
@@ -434,13 +484,27 @@ public final class DalmaruNetworking {
 			AccountSession session = state.accountSession;
 			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.equipped(session.activeCharacterId()).stream().map(equipment -> new DalmaruPayloads.EquipmentData(equipment.equipmentId(), equipment.slotId(), equipment.itemId(), equipment.enhancement(), equipment.consecutiveFailures(), equipment.bound())).toList(); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(equipment -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "", equipment)); })).exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "장비를 불러올 수 없습니다.", java.util.List.of()))); return null; });
 		});
-		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE, (payload, context) -> {
-			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
-			AccountSession session = state.accountSession;
-			java.util.List<UUID> partyPlayers = PARTIES.members(context.player().getUUID());
-			CompletableFuture.supplyAsync(() -> { try { return RUNS.enter(session.accountId(), session.connectionGeneration(), payload.requestId(), RunDifficulty.valueOf(payload.difficulty()), partyCharacterIds(context.player())); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(run -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) { enterPartyRun(context.server(), partyPlayers, run); ServerPlayNetworking.send(context.player(), new DalmaruPayloads.RunResponse(payload.requestId(), true, run.runId(), run.partySize(), run.scalingTier(), run.state(), run.replayed() ? "기존 공략 예약입니다." : "폐봉수대 공략을 시작했습니다.")); } })).exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.RunResponse(payload.requestId(), false, new java.util.UUID(0, 0), 0, 0, "", "공략 입장 조건을 충족하지 못했습니다."))); return null; });
-		});
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE,(payload,context)->{
+            ConnectionState state=CONNECTIONS.get(context.player().getUUID());
+            if(state==null||!state.compatible||state.accountSession==null||payload.requestId()<1)return;
+            AccountSession session=state.accountSession;
+            java.util.List<UUID> players,characters;
+            try{players=PARTIES.members(context.player().getUUID());characters=partyCharacterIds(context.player());}
+            catch(Exception error){sendRunFailure(context,payload.requestId(),error);return;}
+            CompletableFuture.supplyAsync(()->{try{return RUNS.enter(session.accountId(),session.connectionGeneration(),payload.requestId(),RunDifficulty.valueOf(payload.difficulty()),characters);}catch(Exception error){throw new IllegalStateException(error);}})
+                .thenAccept(run->context.server().execute(()->{
+                    try{
+                        if(CONNECTIONS.get(context.player().getUUID())!=state||state.accountSession!=session)throw new IllegalStateException("Entry session changed.");
+                        for(int i=0;i<players.size();i++){var member=CONNECTIONS.get(players.get(i));if(member==null||member.accountSession==null||!characters.get(i).equals(member.accountSession.activeCharacterId()))throw new IllegalStateException("Entry roster changed.");}
+                        enterPartyRun(context.server(),players,run);
+                        ServerPlayNetworking.send(context.player(),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),run.replayed()?"기존 공략 예약입니다.":"폐봉수대 공략을 시작했습니다."));
+                    }catch(Exception error){
+                        if(!run.replayed())CompletableFuture.runAsync(()->{try{RUNS.cancelNewEntry(run.runId());}catch(Exception failure){LOGGER.error("Failed to cancel unsafe run entry.",failure);}}).thenRun(()->context.server().execute(()->RUN_RUNTIME.close(context.server(),run.runId())));
+                        sendRunFailure(context,payload.requestId(),error);
+                    }
+                })).exceptionally(error->{context.server().execute(()->sendRunFailure(context,payload.requestId(),error));return null;});
+        });
+
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountFailure != null || state.activeProfile == null || state.activeProfile.profession().isBlank()) { sendSkillLearn(context, payload.requestId(), false, "전직한 캐릭터를 먼저 선택하세요.", null); return; }
@@ -461,6 +525,22 @@ public final class DalmaruNetworking {
 		});
 	}
 
+    private static void sendRunFailure(ServerPlayNetworking.Context context,long requestId,Throwable error){
+        ServerPlayNetworking.send(context.player(),new DalmaruPayloads.RunResponse(requestId,false,new UUID(0,0),0,0,"",runEntryStatus(error)));
+    }
+    private static void moveEquipment(ServerPlayer player,String id,long requestId,boolean equip){
+        ConnectionState state=CONNECTIONS.get(player.getUUID());
+        if(state==null||!state.compatible||state.accountSession==null)return;
+        var stamina=COMBAT.stamina(player.getUUID(),currentTick);
+        if(RUN_RUNTIME.runId(player)!=null||(stamina!=null&&stamina.inCombat())){player.sendSystemMessage(Component.literal("전투·공략 중 장비를 변경할 수 없습니다."));return;}
+        AccountSession session=state.accountSession;
+        try{
+            var items=EQUIPMENT.move(session.accountId(),session.connectionGeneration(),requestId,UUID.fromString(id),equip);
+            if(state.activeProfile!=null)COMBAT.equipment(player,state.activeProfile,EQUIPMENT.equipped(session.activeCharacterId()));
+            ServerPlayNetworking.send(player,new DalmaruPayloads.EquipmentListResponse(requestId,"장비를 변경했습니다.",items.stream().map(item->new DalmaruPayloads.EquipmentData(item.equipmentId(),item.slotId(),item.itemId(),item.enhancement(),item.consecutiveFailures(),item.bound())).toList()));
+        }catch(Exception error){LOGGER.warn("Rejected equipment move.",error);player.sendSystemMessage(Component.literal("장비 소유권·직업·레벨 조건을 확인하세요."));}
+    }
+
 	private static MinecraftServer serverFor(ServerPlayer player) { return ((ServerLevel) player.level()).getServer(); }
 
 	private static boolean playerAttack(DamageSource source) {
@@ -472,7 +552,9 @@ public final class DalmaruNetworking {
 			|| (target instanceof ServerPlayer player && COMBAT.managed(player));
 	}
 	public static float incomingDamage(LivingEntity target, DamageSource source, float amount) {
-		if (CombatRuntime.explicitRpgDamage(target)) return amount;
+		if(source.getEntity() instanceof ServerPlayer attacker && !RUN_RUNTIME.mayTarget(attacker,target))return 0;
+        if(target instanceof ServerPlayer victim && !RUN_RUNTIME.mayReceive(victim,source.getEntity()))return 0;
+        if (CombatRuntime.explicitRpgDamage(target)) return amount;
 		if (!Float.isFinite(amount) || amount < 0) throw new IllegalArgumentException("Invalid incoming damage.");
 		if (amount == 0) return 0;
 		if (source.getEntity() instanceof ServerPlayer attacker && COMBAT.managed(attacker) && playerAttack(source)) {
@@ -533,6 +615,20 @@ public final class DalmaruNetworking {
 
 	private static void partyAccept(ServerPlayer player) { try { PARTIES.accept(player.getUUID()); player.sendSystemMessage(Component.literal("파티에 참가했습니다.")); } catch (IllegalArgumentException exception) { player.sendSystemMessage(Component.literal("수락할 파티 초대가 없습니다.")); } }
 
+	private static String runEntryStatus(Throwable error) {
+		Throwable cause = error;
+		while (cause.getCause() != null) cause = cause.getCause();
+		if (!(cause instanceof IllegalArgumentException)) { LOGGER.warn("Failed to enter run.", cause); return "공략 입장 처리에 실패했습니다. 잠시 후 다시 시도하세요."; }
+		return switch (cause.getMessage() == null ? "" : cause.getMessage()) {
+			case "Character already has an active run." -> "이미 진행 중인 공략이 있습니다. 입장창을 닫고 공략을 계속하세요.";
+			case "Pending run return requires recovery." -> "파티원의 이전 공략 복귀를 확인해야 합니다. 재접속으로 복귀를 완료한 뒤 다시 입장하세요.";
+			case "Level requirement not met." -> "초행은 15레벨, 수련은 20레벨부터 입장할 수 있습니다.";
+			case "Training is locked." -> "초행을 완료한 뒤 수련에 입장할 수 있습니다.";
+			case "Weekly clear limit reached." -> "이번 주 완료 횟수 3회를 모두 사용했습니다.";
+			default -> "공략 입장 조건을 충족하지 못했습니다.";
+		};
+	}
+
 	private static java.util.List<UUID> partyCharacterIds(ServerPlayer player) {
 		java.util.List<UUID> members = PARTIES.members(player.getUUID());
 		if (!members.getFirst().equals(player.getUUID())) throw new IllegalArgumentException("Only the party leader can start the run.");
@@ -541,15 +637,53 @@ public final class DalmaruNetworking {
 		return characters;
 	}
 
-	private static void enterPartyRun(MinecraftServer server, java.util.List<UUID> players, kr.dalmaru.run.RunRecord run) { for (UUID id : players) { ServerPlayer member = server.getPlayerList().getPlayer(id); if (member != null) RUN_RUNTIME.enter(member, run.runId(), run.difficulty(), run.partySize()); } }
+    private static void enterPartyRun(MinecraftServer server,java.util.List<UUID> players,kr.dalmaru.run.RunRecord run){
+        for(UUID id:players){
+            ServerPlayer member=server.getPlayerList().getPlayer(id);ConnectionState state=CONNECTIONS.get(id);
+            if(member==null||state==null||state.accountSession==null)throw new IllegalStateException("Run member disconnected before entry.");
+            UUID characterId=state.accountSession.activeCharacterId();
+            try{RUNS.saveReturn(run.runId(),characterId,member.level().dimension().identifier().toString(),member.getX(),member.getY(),member.getZ(),member.gameMode.getGameModeForPlayer().getName());}
+            catch(Exception error){throw new IllegalStateException("Cannot save safe run return.",error);}
+        }
+        for(UUID id:players){ServerPlayer member=server.getPlayerList().getPlayer(id);if(member!=null)resumeRuntime(member,run);}
+    }
+    private static void resumeRuntime(ServerPlayer player,kr.dalmaru.run.RunRecord run){
+        long paused=RUN_RUNTIME.pausedTicks(run.runId());
+        if(paused>0)for(UUID id:RUN_RUNTIME.participantIds(run.runId()))COMBAT.shiftCooldowns(id,paused);
+        RUN_RUNTIME.enter(player,run.runId(),run.difficulty(),run.partySize());
+    }
+    private static void restorePendingReturn(ServerPlayer player,AccountSession session,RunRepository.ReturnPosition position){
+        if(session.activeCharacterId()==null)return;
+        try{
+            if(position==null)return;
+            if(position.mode()==null)throw new IllegalStateException("Legacy return mode requires manual recovery.");
+            var level=serverFor(player).getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.Identifier.parse(position.dimension())));
+            if(level==null)throw new IllegalStateException("Return dimension unavailable.");
+            player.teleportTo(level,position.x(),position.y(),position.z(),java.util.Set.of(),player.getYRot(),player.getXRot(),false);
+            player.setGameMode(net.minecraft.world.level.GameType.byName(position.mode()));
+            serverFor(player).getPlayerList().saveAll();
+            CompletableFuture.runAsync(()->{try{RUNS.acknowledgeReturn(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),position.runId());}catch(Exception error){LOGGER.warn("Failed to acknowledge restored return.",error);}},LIFECYCLE_DB);
+        }catch(Exception error){ConnectionState state=CONNECTIONS.get(player.getUUID());if(state!=null)state.accountFailure="공략 복귀 실패";LOGGER.error("Failed to restore run return location.",error);player.connection.disconnect(Component.literal("공략 복귀 위치를 확인하지 못했습니다. 운영자에게 문의하세요."));throw new IllegalStateException("Run return recovery failed.",error);}
+    }
+    private static void acknowledgeReturns(MinecraftServer server,UUID runId){
+        server.getPlayerList().saveAll();
+        for(ServerPlayer player:server.getPlayerList().getPlayers()){
+            ConnectionState state=CONNECTIONS.get(player.getUUID());
+            if(state==null||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null||RUN_RUNTIME.runId(player)!=null)continue;
+            AccountSession captured=state.accountSession;
+            CompletableFuture.runAsync(()->{try{RUNS.acknowledgeReturn(captured.accountId(),captured.connectionGeneration(),captured.activeCharacterId(),runId);}catch(Exception error){LOGGER.warn("Failed to acknowledge run return.",error);}},LIFECYCLE_DB);
+        }
+    }
 
 	private static void completeRun(ServerPlayer player, MinecraftServer server, UUID runId) {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.accountSession == null) return;
 		AccountSession session = state.accountSession;
-		CompletableFuture.supplyAsync(() -> { try { RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, runId, true); Map<UUID, CharacterProfile> profiles = new HashMap<>(); for (var reward : RUNS.rewards(runId)) profiles.put(reward.characterId(), CHARACTERS.grantExperience(reward.characterId(), 500)); return profiles; } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(profiles -> server.execute(() -> {
-			for (var entry : CONNECTIONS.entrySet()) { ConnectionState memberState = entry.getValue(); if (memberState.accountSession == null) continue; CharacterProfile profile = profiles.get(memberState.accountSession.activeCharacterId()); if (profile == null) continue; ServerPlayer member = server.getPlayerList().getPlayer(entry.getKey()); if (member == null) continue; RUN_RUNTIME.leave(member); sendCharacterProfile(member, profile); member.sendSystemMessage(Component.literal("폐봉수대를 완료했습니다. 경험치 500과 공략 보상을 획득했습니다.")); }
-		})).exceptionally(error -> { LOGGER.error("Failed to complete run.", error); return null; });
+        if(!FINISHING_RUNS.add(runId))return;
+		CompletableFuture.supplyAsync(() -> { try { RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, runId, true); Map<UUID, CharacterProfile> profiles = new HashMap<>(); for (var reward : RUNS.rewards(runId)) profiles.put(reward.characterId(), CHARACTERS.profile(reward.characterId())); return profiles; } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(profiles -> server.execute(() -> {
+			FINISHING_RUNS.remove(runId);RUN_RUNTIME.close(server,runId);acknowledgeReturns(server,runId);
+            for (var entry : CONNECTIONS.entrySet()) { ConnectionState memberState = entry.getValue(); if (memberState.accountSession == null) continue; CharacterProfile profile = profiles.get(memberState.accountSession.activeCharacterId()); if (profile == null) continue; ServerPlayer member = server.getPlayerList().getPlayer(entry.getKey()); if (member == null) continue; sendCharacterProfile(member, profile); member.sendSystemMessage(Component.literal("폐봉수대를 완료했습니다. 경험치 500과 공략 보상을 획득했습니다.")); }
+		})).exceptionally(error -> { LOGGER.error("Failed to complete run.", error);server.execute(()->FINISHING_RUNS.remove(runId)); return null; });
 	}
 
 	private static void failRunAfterFinalDeath(ServerPlayer player, MinecraftServer server) {
@@ -558,7 +692,7 @@ public final class DalmaruNetworking {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.accountSession == null) return;
 		AccountSession session = state.accountSession;
-		CompletableFuture.supplyAsync(() -> { try { return RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, death.runId(), false); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(run -> server.execute(() -> player.sendSystemMessage(Component.literal("부활 횟수를 모두 사용해 폐봉수대 공략에 실패했습니다.")))).exceptionally(error -> { LOGGER.error("Failed to close run after final death.", error); return null; });
+		CompletableFuture.supplyAsync(() -> { try { return RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, death.runId(), false); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(run -> server.execute(() -> { RUN_RUNTIME.close(server,death.runId());acknowledgeReturns(server,death.runId());player.sendSystemMessage(Component.literal("부활 횟수를 모두 사용해 폐봉수대 공략에 실패했습니다.")); })).exceptionally(error -> { LOGGER.error("Failed to close run after final death.", error); return null; });
 	}
 
 	private static void useSweep(ServerPlayer player) {
@@ -576,7 +710,7 @@ public final class DalmaruNetworking {
 			float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.0 + (10 + rank * 10) / 100.0));
 			player.swing(InteractionHand.MAIN_HAND, true);
 			((ServerLevel) player.level()).sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
-			for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), target -> target != player && player.hasLineOfSight(target) && target.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
+			for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), target -> RUN_RUNTIME.mayTarget(player,target) && player.hasLineOfSight(target) && target.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
 				rpgSkillDamage(player, target, damage);
 			}
 		} catch (Exception exception) { LOGGER.warn("Failed to use warrior sweep for {}.", player.getUUID(), exception); }
@@ -590,13 +724,13 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useAdvance(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "진격을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		player.setDeltaMovement(direction.x, player.getDeltaMovement().y, direction.z);
+		RUN_RUNTIME.move(player,3,false);
 		player.hurtMarked = true;
 		player.swing(InteractionHand.MAIN_HAND, true);
 		((ServerLevel) player.level()).sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.35, 0.15, 0.35, 0.1);
 		player.playSound(SoundEvents.PLAYER_ATTACK_STRONG, 1.0F, 1.15F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.85 + (rank - 1) * 0.075));
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) rpgSkillDamage(player, target, damage);
 	}
 
@@ -611,7 +745,7 @@ public final class DalmaruNetworking {
 		((ServerLevel) player.level()).sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 20, 0.45, 0.7, 0.45, 0.15);
 		player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 0.9F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.25 + (rank - 1) * 0.1125));
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
 			rpgSkillDamage(player, target, damage);
 			target.setDeltaMovement(target.getDeltaMovement().x, 0.45 + rank * 0.05, target.getDeltaMovement().z);
 			target.hurtMarked = true;
@@ -643,7 +777,7 @@ public final class DalmaruNetworking {
 		for (int distance = 1; distance <= 12; distance++) level.sendParticles(ParticleTypes.CRIT, player.getX() + direction.x * distance, player.getY() + 1.4 + direction.y * distance, player.getZ() + direction.z * distance, 2, 0.03, 0.03, 0.03, 0.0);
 		player.playSound(SoundEvents.ARROW_SHOOT, 1.0F, 1.0F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
 	}
 
 	private static void useSpiritTalisman(ServerPlayer player) {
@@ -658,7 +792,7 @@ public final class DalmaruNetworking {
 		for (int distance = 1; distance <= 10; distance++) level.sendParticles(ParticleTypes.ENCHANT, player.getX() + direction.x * distance, player.getY() + 1.4 + direction.y * distance, player.getZ() + direction.z * distance, 4, 0.08, 0.08, 0.08, 0.02);
 		player.playSound(SoundEvents.EVOKER_CAST_SPELL, 0.8F, 1.4F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
 	}
 
 	private static void useAmbush(ServerPlayer player) {
@@ -669,14 +803,14 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useAmbush(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "급습을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		player.setDeltaMovement(direction.x * 1.15, player.getDeltaMovement().y, direction.z * 1.15);
+		RUN_RUNTIME.move(player,3,false);
 		player.hurtMarked = true;
 		player.swing(InteractionHand.MAIN_HAND, true);
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 18, 0.35, 0.2, 0.35, 0.04);
 		player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 0.9F, 1.4F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) {
 			if (target.getLookAngle().normalize().dot(player.position().subtract(target.position()).normalize()) < 0) damage *= 1.2F;
 			rpgSkillDamage(player, target, damage);
@@ -691,13 +825,13 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useRetreatShot(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "후퇴 사격을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		player.setDeltaMovement(-direction.x * 0.9, player.getDeltaMovement().y, -direction.z * 0.9);
+		RUN_RUNTIME.move(player,3,true);
 		player.hurtMarked = true;
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.3, 0.1, 0.3, 0.05);
 		player.playSound(SoundEvents.ARROW_SHOOT, 0.9F, 1.25F);
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.85 + (rank - 1) * 0.075));
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) rpgSkillDamage(player, target, damage);
 	}
 
@@ -711,7 +845,7 @@ public final class DalmaruNetworking {
 		var direction = player.getLookAngle().normalize();
 		ServerLevel level = (ServerLevel) player.level();
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.70 + (rank - 1) * 0.0875));
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) {
 			rpgSkillDamage(player, target, damage);
 			target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 35 + rank * 5, 4, false, true, true));
@@ -730,7 +864,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 45, 1.2, 0.7, 1.2, 0.05);
 		player.playSound(SoundEvents.FIRE_EXTINGUISH, 1.0F, 0.7F);
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(5.0), entity -> entity != player)) target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40 + rank * 10, 0, false, true, true));
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(5.0), entity -> RUN_RUNTIME.mayTarget(player,entity))) target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40 + rank * 10, 0, false, true, true));
 	}
 
 	private static void useShackleStrike(ServerPlayer player) {
@@ -743,7 +877,7 @@ public final class DalmaruNetworking {
 		var direction = player.getLookAngle().normalize();
 		ServerLevel level = (ServerLevel) player.level();
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.90 + (rank - 1) * 0.10));
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) { rpgSkillDamage(player, target, damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 30 + rank * 10, 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
 		player.playSound(SoundEvents.CHAIN_HIT, 0.9F, 0.9F);
 	}
@@ -755,7 +889,7 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useEscape(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "긴급 이탈을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		player.setDeltaMovement(-direction.x * 1.15, player.getDeltaMovement().y, -direction.z * 1.15);
+		RUN_RUNTIME.move(player,3,true);
 		player.hurtMarked = true;
 		player.removeEffect(MobEffects.SLOWNESS);
 		((ServerLevel) player.level()).sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1.0, player.getZ(), 18, 0.45, 0.15, 0.45, 0.05);
@@ -769,7 +903,7 @@ public final class DalmaruNetworking {
 		if (rank < 1) { player.sendSystemMessage(Component.literal("추적 표식을 먼저 습득하세요.")); return; }
 		CombatRuntime.SweepResult result = COMBAT.useTrackingMark(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "추적 표식을 아직 사용할 수 없습니다.")); return; }
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) { target.addEffect(new MobEffectInstance(MobEffects.GLOWING, 80 + rank * 20, 0, false, true, true)); ((ServerLevel) player.level()).sendParticles(ParticleTypes.GLOW, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.3, 0.5, 0.3, 0.02); player.playSound(SoundEvents.ARROW_HIT_PLAYER, 0.8F, 1.2F); }
 	}
 
@@ -777,7 +911,7 @@ public final class DalmaruNetworking {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.activeProfile == null || !"ARCHER".equals(state.activeProfile.profession()) || state.skillRanks.getOrDefault("skill.archer.binding_shot", 0) < 1) return;
 		if (COMBAT.useBindingShot(player.getUUID(), currentTick) != CombatRuntime.SweepResult.USED) return;
-		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> entity != player && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
+		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> RUN_RUNTIME.mayTarget(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) { int rank=state.skillRanks.get("skill.archer.binding_shot"); rpgSkillDamage(player, target, (float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*(.7+(rank-1)*.075))); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 20+rank*10, 2, false, true, true)); ((ServerLevel)player.level()).sendParticles(ParticleTypes.CRIT,target.getX(),target.getY()+1,target.getZ(),12,.2,.4,.2,.02); }
 		player.playSound(SoundEvents.ARROW_HIT, .9F, .8F);
 	}
@@ -787,7 +921,7 @@ public final class DalmaruNetworking {
 	}
 	private static void useShortStep(ServerPlayer player) {
 		ConnectionState state=CONNECTIONS.get(player.getUUID()); if(state==null||state.activeProfile==null||!"MAGE".equals(state.activeProfile.profession())||state.skillRanks.getOrDefault("skill.mage.short_step",0)<1||COMBAT.useShortStep(player.getUUID(),currentTick)!=CombatRuntime.SweepResult.USED)return;
-		var d=player.getLookAngle().normalize(); player.setDeltaMovement(d.x*1.5,player.getDeltaMovement().y,d.z*1.5); player.hurtMarked=true; ((ServerLevel)player.level()).sendParticles(ParticleTypes.PORTAL,player.getX(),player.getY()+1,player.getZ(),24,.4,.5,.4,.08); player.playSound(SoundEvents.ENDERMAN_TELEPORT,.8F,1.3F);
+		var d=player.getLookAngle().normalize(); RUN_RUNTIME.move(player,5,false); player.hurtMarked=true; ((ServerLevel)player.level()).sendParticles(ParticleTypes.PORTAL,player.getX(),player.getY()+1,player.getZ(),24,.4,.5,.4,.08); player.playSound(SoundEvents.ENDERMAN_TELEPORT,.8F,1.3F);
 	}
 
 	private static void sendCombatStates(MinecraftServer server) {
@@ -815,9 +949,26 @@ public final class DalmaruNetworking {
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterCreateResponse(requestId, characterId, slot, displayName, accepted, replayed, status));
 	}
 
+    private static boolean closeUncertainSelection(ServerPlayer player,ConnectionState state,boolean installed,boolean committed,Exception error) {
+        if(committed||!(error instanceof java.sql.SQLException))return false;
+        LOGGER.warn("Character selection database outcome requires reconnect recovery.",error);
+        state.accountFailure="캐릭터 저장 결과를 확인할 수 없습니다. 재접속해 복구하세요.";state.compatible=false;
+        // Neither owned inventory can remain transferable while the database outcome is unknown.
+        try{if(installed)kr.dalmaru.account.VanillaCharacterState.quarantine(player);}
+        finally{player.connection.disconnect(Component.literal(state.accountFailure));}
+        return true;
+    }
+
+    private static CharacterProfile applyProfile(ServerPlayer player, CharacterProfile candidate) {
+        ConnectionState state = stateFor(player.getUUID());
+        if (state.accountSession == null || !candidate.characterId().equals(state.accountSession.activeCharacterId())) throw new IllegalStateException("Profile belongs to another active character.");
+        if (candidate.supersedes(state.activeProfile)) state.activeProfile = candidate;
+        return state.activeProfile;
+    }
+
 	private static void sendCharacterProfile(ServerPlayer player, CharacterProfile profile) {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
-		if (state != null) state.activeProfile = profile;
+		profile = applyProfile(player, profile);
 		refreshCombat(player, profile);
 		ServerPlayNetworking.send(player, new DalmaruPayloads.CharacterProfileResponse(profile.characterId(), profileData(profile)));
 	}
@@ -902,28 +1053,28 @@ public final class DalmaruNetworking {
 	}
 
 	private static void sendCharacterStatInvestment(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {
-		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
+		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterStatInvestmentResponse(requestId, characterId, accepted, replayed, status, data));
 	}
 
 	private static void sendCharacterStatReset(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {
-		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
+		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterStatResetResponse(requestId, characterId, accepted, replayed, status, data));
 	}
 
 	private static void sendCharacterProfession(ServerPlayNetworking.Context context, long requestId, boolean accepted, String status, CharacterProfile profile) {
-		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
+		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterProfessionResponse(requestId, accepted, status, data));
 	}
 
 	private static void sendSkillLearn(ServerPlayNetworking.Context context, long requestId, boolean accepted, String status, CharacterProfile profile) {
-		if (accepted && profile != null) stateFor(context.player().getUUID()).activeProfile = profile;
+		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
 		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.SkillLearnResponse(requestId, accepted, status, data));
@@ -960,6 +1111,8 @@ public final class DalmaruNetworking {
 		private final long joinedTick;
 		private boolean compatible;
 		private AccountSession accountSession;
+		private volatile AccountSession openedSession;
+        private net.minecraft.server.network.ServerGamePacketListenerImpl connection;
 		private CharacterProfile activeProfile;
 		private long equipmentRevision;
 		private Map<String, Integer> skillRanks = new HashMap<>();

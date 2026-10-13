@@ -26,7 +26,7 @@ public final class CharacterRepository {
 		String host = System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost");
 		String port = System.getenv().getOrDefault("DALMARU_DB_PORT", "15432");
 		String database = System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
-		url = "jdbc:postgresql://" + host + ":" + port + "/" + database;
+		url = "jdbc:postgresql://" + host + ":" + port + "/" + database + "?connectTimeout=1&loginTimeout=1&socketTimeout=2&options=-c%20statement_timeout%3D250ms%20-c%20lock_timeout%3D200ms";
 		username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
 		password = System.getenv("DALMARU_DB_PASSWORD");
 	}
@@ -52,12 +52,12 @@ public final class CharacterRepository {
 
 	public CharacterProfile profile(UUID characterId) throws SQLException {
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
-		String sql = "SELECT p.character_id, p.level, p.experience, p.unspent_stat_points, p.strength, p.dexterity, p.arcana, p.vitality, p.spirit, p.free_reset_available, p.unspent_skill_points, COALESCE(j.base_job, '') FROM dalmaru.character_profiles p LEFT JOIN dalmaru.character_professions j ON j.character_id = p.character_id WHERE p.character_id = ?";
+		String sql = "SELECT p.character_id, p.level, p.experience, p.unspent_stat_points, p.strength, p.dexterity, p.arcana, p.vitality, p.spirit, p.free_reset_available, p.unspent_skill_points, COALESCE(j.base_job, ''), p.revision FROM dalmaru.character_profiles p LEFT JOIN dalmaru.character_professions j ON j.character_id = p.character_id WHERE p.character_id = ?";
 		try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement(sql)) {
 			statement.setObject(1, characterId);
 			try (var result = statement.executeQuery()) {
 				if (!result.next()) throw new IllegalArgumentException("Character profile was not found.");
-				return new CharacterProfile(result.getObject(1, UUID.class), result.getInt(2), result.getLong(3), result.getInt(4), result.getInt(5), result.getInt(6), result.getInt(7), result.getInt(8), result.getInt(9), result.getBoolean(10), result.getInt(11), result.getString(12));
+				return new CharacterProfile(result.getObject(1, UUID.class), result.getInt(2), result.getLong(3), result.getInt(4), result.getInt(5), result.getInt(6), result.getInt(7), result.getInt(8), result.getInt(9), result.getBoolean(10), result.getInt(11), result.getString(12), result.getLong(13));
 			}
 		}
 	}
@@ -81,7 +81,7 @@ public final class CharacterRepository {
 					try (var result = statement.executeQuery()) {
 						if (result.next()) {
 							if (!characterId.equals(result.getObject(1, UUID.class)) || result.getInt(2) != stat.id() || result.getInt(3) != amount) throw new IllegalArgumentException("Request ID was reused for a different stat investment.");
-							CharacterProfile profile = new CharacterProfile(characterId, result.getInt(4), result.getLong(5), result.getInt(6), result.getInt(7), result.getInt(8), result.getInt(9), result.getInt(10), result.getInt(11), result.getBoolean(12));
+							CharacterProfile profile = profileForUpdate(connection, characterId);
 							connection.commit();
 							return new CharacterStatInvestmentResult(profile, true);
 						}
@@ -135,7 +135,7 @@ public final class CharacterRepository {
 					try (var result = statement.executeQuery()) {
 						if (result.next()) {
 							if (!characterId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused for a different stat reset.");
-							CharacterProfile profile = new CharacterProfile(characterId, result.getInt(2), result.getLong(3), result.getInt(4), result.getInt(5), result.getInt(6), result.getInt(7), result.getInt(8), result.getInt(9), result.getBoolean(10));
+							CharacterProfile profile = profileForUpdate(connection, characterId);
 							connection.commit();
 							return new CharacterStatResetResult(profile, true);
 						}
@@ -164,33 +164,28 @@ public final class CharacterRepository {
 	}
 
 	public CharacterProfile grantExperience(UUID characterId, long amount) throws SQLException {
-		if (amount < 1) throw new IllegalArgumentException("Experience amount must be positive.");
-		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
-		try (var connection = DriverManager.getConnection(url, username, password)) {
-			connection.setAutoCommit(false);
-			try {
-				CharacterProfile before = profileForUpdate(connection, characterId);
-				int level = before.level();
-				long experience = Math.addExact(before.experience(), amount);
-				int points = before.unspentStatPoints();
-				while (level < 60 && experience >= experienceNeededForNextLevel(level)) {
-					experience -= experienceNeededForNextLevel(level);
-					level++;
-					points += 5;
-				}
-				if (level == 60) experience = 0;
-				try (var statement = connection.prepareStatement("UPDATE dalmaru.character_profiles SET level = ?, experience = ?, unspent_stat_points = ? WHERE character_id = ?")) {
-					statement.setInt(1, level); statement.setLong(2, experience); statement.setInt(3, points); statement.setObject(4, characterId);
-					statement.executeUpdate();
-				}
-				connection.commit();
-				return profile(characterId);
-			} catch (Exception exception) {
-				connection.rollback();
-				throw exception;
-			}
-		}
-	}
+        if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+        try (var connection = DriverManager.getConnection(url, username, password)) {
+            connection.setAutoCommit(false);
+            try { CharacterProfile result = grantExperience(connection, characterId, amount); connection.commit(); return result; }
+            catch (Exception exception) { connection.rollback(); throw exception; }
+        }
+    }
+    public static CharacterProfile grantExperience(java.sql.Connection connection, UUID characterId, long amount) throws SQLException {
+        if (amount < 1) throw new IllegalArgumentException("Experience amount must be positive.");
+        CharacterProfile before = profileForUpdate(connection, characterId);
+        int level = before.level(), points = before.unspentStatPoints();
+        long experience = Math.addExact(before.experience(), amount);
+        while (level < 60 && experience >= experienceNeededForNextLevel(level)) {
+            experience -= experienceNeededForNextLevel(level); level++; points += 5;
+        }
+        if (level == 60) experience = 0;
+        try (var update = connection.prepareStatement("UPDATE dalmaru.character_profiles SET level=?, experience=?, unspent_stat_points=? WHERE character_id=?")) {
+            update.setInt(1, level); update.setLong(2, experience); update.setInt(3, points); update.setObject(4, characterId);
+            if (update.executeUpdate()!=1) throw new SQLException("Character profile disappeared.");
+        }
+        return profileForUpdate(connection, characterId);
+    }
 
 	public static long experienceNeededForNextLevel(int level) {
 		if (level < 1 || level >= 60) throw new IllegalArgumentException("Level does not have a next level.");
@@ -219,43 +214,146 @@ public final class CharacterRepository {
 		}
 	}
 
-	public CharacterSelectionResult selectActive(UUID accountId, long connectionGeneration, long requestId, UUID characterId) throws SQLException {
-		if (connectionGeneration < 1 || requestId < 1) throw new IllegalArgumentException("Invalid character selection request.");
-		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
-		try (var connection = DriverManager.getConnection(url, username, password)) {
-			connection.setAutoCommit(false);
-			try {
-				String insert = "INSERT INTO dalmaru.character_selection_requests (account_id, connection_generation, request_id, character_id) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING character_id";
-				try (var statement = connection.prepareStatement(insert)) {
-					statement.setObject(1, accountId); statement.setLong(2, connectionGeneration); statement.setLong(3, requestId); statement.setObject(4, characterId);
-					try (var result = statement.executeQuery()) {
-						if (!result.next()) {
-							String existing = "SELECT character_id FROM dalmaru.character_selection_requests WHERE account_id = ? AND connection_generation = ? AND request_id = ?";
-							try (var existingStatement = connection.prepareStatement(existing)) {
-								existingStatement.setObject(1, accountId); existingStatement.setLong(2, connectionGeneration); existingStatement.setLong(3, requestId);
-								try (var existingResult = existingStatement.executeQuery()) {
-									existingResult.next();
-									if (!characterId.equals(existingResult.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused for a different character.");
-								}
-							}
-							connection.commit();
-							return new CharacterSelectionResult(characterId, true);
-						}
-					}
-				}
-				String update = "UPDATE dalmaru.accounts SET active_character_id = ? WHERE account_id = ? AND connection_generation = ? AND EXISTS (SELECT 1 FROM dalmaru.characters WHERE character_id = ? AND account_id = ?)";
-				try (var statement = connection.prepareStatement(update)) {
-					statement.setObject(1, characterId); statement.setObject(2, accountId); statement.setLong(3, connectionGeneration); statement.setObject(4, characterId); statement.setObject(5, accountId);
-					if (statement.executeUpdate() != 1) throw new IllegalArgumentException("Character selection was rejected.");
-				}
-				connection.commit();
-				return new CharacterSelectionResult(characterId, false);
-			} catch (Exception exception) {
-				connection.rollback();
-				throw exception;
-			}
-		}
-	}
+    public CharacterSelectionResult selectActive(UUID accountId, long generation, long requestId, UUID characterId) throws SQLException {
+        return selectActive(accountId, generation, requestId, characterId, null);
+    }
+    public CharacterSelectionResult selectActive(UUID accountId, long generation, long requestId, UUID characterId, String vanillaSnapshot) throws SQLException {
+        return selectActive(accountId,generation,requestId,characterId,vanillaSnapshot,null);
+    }
+    public CharacterSelectionResult selectActive(UUID accountId,long generation,long requestId,UUID characterId,String vanillaSnapshot,java.util.function.Consumer<String> install) throws SQLException {
+        if (generation < 1 || requestId < 1) throw new IllegalArgumentException("Invalid character selection request.");
+        if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+        if(install!=null&&vanillaSnapshot!=null)checkpointVanilla(accountId,generation,vanillaSnapshot);
+        try (var connection = DriverManager.getConnection(url, username, password)) {
+            connection.setAutoCommit(false);
+            boolean commitAttempted=false;
+            try {
+                UUID previous;
+                try (var account = connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) {
+                    account.setObject(1, accountId); account.setLong(2, generation);
+                    try (var row=account.executeQuery()) { if (!row.next()) throw new IllegalArgumentException("Stale selection session."); previous=row.getObject(1, UUID.class); }
+                }
+                boolean replayed=false;
+                try(var replay=connection.prepareStatement("SELECT character_id FROM dalmaru.character_selection_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) {
+                    replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId);
+                    try(var row=replay.executeQuery()) { if(row.next()) { if(!characterId.equals(row.getObject(1,UUID.class)) || !characterId.equals(previous)) throw new IllegalArgumentException("Selection request is no longer current."); replayed=true; } }
+                }
+                if (!replayed && !characterId.equals(previous)) {
+                    try(var run=connection.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r ON r.run_id=p.run_id WHERE p.character_id IN (?,?) AND r.state IN ('ACTIVE','PAUSED') FOR UPDATE OF r")) {
+                        run.setObject(1, previous); run.setObject(2, characterId);
+                        try(var row=run.executeQuery()) { if(row.next()) throw new IllegalArgumentException("Cannot switch during a run."); }
+                    }
+                    if (previous!=null && vanillaSnapshot!=null) try(var save=connection.prepareStatement("INSERT INTO dalmaru.character_vanilla_state(character_id,state) VALUES(?,?::jsonb) ON CONFLICT(character_id) DO UPDATE SET state=EXCLUDED.state,updated_at=CURRENT_TIMESTAMP")) {
+                        save.setObject(1,previous); save.setString(2,vanillaSnapshot); save.executeUpdate();
+                    }
+                }
+                if (!replayed) {
+                    try(var update=connection.prepareStatement("UPDATE dalmaru.accounts SET active_character_id=? WHERE account_id=? AND connection_generation=? AND EXISTS(SELECT 1 FROM dalmaru.characters WHERE character_id=? AND account_id=?)")) {
+                        update.setObject(1,characterId); update.setObject(2,accountId); update.setLong(3,generation); update.setObject(4,characterId); update.setObject(5,accountId);
+                        if(update.executeUpdate()!=1) throw new IllegalArgumentException("Character selection was rejected.");
+                    }
+                    try(var request=connection.prepareStatement("INSERT INTO dalmaru.character_selection_requests VALUES(?,?,?,?)")) {
+                        request.setObject(1,accountId); request.setLong(2,generation); request.setLong(3,requestId); request.setObject(4,characterId); request.executeUpdate();
+                    }
+                }
+                String inventory=null;
+                try(var stored=connection.prepareStatement("SELECT state::text FROM dalmaru.character_vanilla_state WHERE character_id=?")) {
+                    stored.setObject(1,characterId); try(var row=stored.executeQuery()) { if(row.next()) inventory=row.getString(1); }
+                }
+                // The initial selection adopts existing vanilla possessions; subsequent new characters start empty.
+                if ((previous==null || characterId.equals(previous)) && inventory==null) inventory=vanillaSnapshot;
+                if(!characterId.equals(previous)) {
+                    inventory=withOwner(inventory,characterId+":"+UUID.randomUUID());
+                    saveVanilla(connection,characterId,inventory);
+                    try(var checkpoint=connection.prepareStatement("UPDATE dalmaru.accounts SET vanilla_owner=?,vanilla_checkpoint=?::jsonb WHERE account_id=?")) {
+                        checkpoint.setString(1,vanillaOwner(inventory));checkpoint.setString(2,inventory);checkpoint.setObject(3,accountId);checkpoint.executeUpdate();
+                    }
+                    if(install!=null)install.accept(inventory);
+                }
+                commitAttempted=true;connection.commit(); return new CharacterSelectionResult(characterId,replayed,inventory);
+            } catch(Exception exception) {
+                try{connection.rollback();}catch(Exception rollback){exception.addSuppressed(rollback);throw new SelectionCommitUncertainException(exception);}
+                if(commitAttempted)throw new SelectionCommitUncertainException(exception);
+                throw exception;
+            }
+        }
+    }
+    private static String vanillaOwner(String snapshot) {
+        var json=com.google.gson.JsonParser.parseString(snapshot).getAsJsonObject();
+        return json.has("owner")?json.get("owner").getAsString():null;
+    }
+    private static String withOwner(String snapshot,String owner) {
+        var json=snapshot==null?new com.google.gson.JsonObject():com.google.gson.JsonParser.parseString(snapshot).getAsJsonObject();
+        if(snapshot==null)json.addProperty("empty",true);
+        json.addProperty("owner",owner);return json.toString();
+    }
+    private static void saveVanilla(java.sql.Connection connection,UUID character,String snapshot)throws SQLException {
+        try(var save=connection.prepareStatement("INSERT INTO dalmaru.character_vanilla_state(character_id,state) VALUES(?,?::jsonb) ON CONFLICT(character_id) DO UPDATE SET state=EXCLUDED.state,updated_at=CURRENT_TIMESTAMP")) {
+            save.setObject(1,character);save.setString(2,snapshot);save.executeUpdate();
+        }
+    }
+    public void checkpointVanilla(UUID account,long generation,String snapshot)throws SQLException {
+        try(var connection=DriverManager.getConnection(url,username,password)) {
+            connection.setAutoCommit(false);
+            try {
+                try(var lock=connection.prepareStatement("SELECT active_character_id,vanilla_owner FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) {
+                    lock.setObject(1,account);lock.setLong(2,generation);
+                    try(var row=lock.executeQuery()) {
+                        if(!row.next()||!java.util.Objects.equals(row.getString(2),vanillaOwner(snapshot)))throw new IllegalArgumentException("Inventory ownership is not recovered.");
+                        UUID character=row.getObject(1,UUID.class);if(character!=null)saveVanilla(connection,character,snapshot);
+                    }
+                }
+                try(var update=connection.prepareStatement("UPDATE dalmaru.accounts SET vanilla_checkpoint=?::jsonb WHERE account_id=?")){update.setString(1,snapshot);update.setObject(2,account);update.executeUpdate();}
+                connection.commit();
+            }catch(Exception error){connection.rollback();throw error;}
+        }
+    }
+    public void recoverVanilla(UUID account,long generation,String snapshot,java.util.function.Consumer<String> install)throws SQLException {
+        String restored;
+        try(var connection=DriverManager.getConnection(url,username,password)) {
+            connection.setAutoCommit(false);
+            try {
+                try(var lock=connection.prepareStatement("SELECT active_character_id,vanilla_owner,vanilla_checkpoint::text FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) {
+                    lock.setObject(1,account);lock.setLong(2,generation);
+                    try(var row=lock.executeQuery()) {
+                        if(!row.next())throw new IllegalArgumentException("Stale inventory recovery.");
+                        String owner=row.getString(2);
+                        if(owner!=null&&owner.equals(vanillaOwner(snapshot))){connection.commit();return;}
+                        if(owner==null) {
+                            if(vanillaOwner(snapshot)!=null)throw new IllegalStateException("Unrecognized inventory owner; manual recovery required.");
+                            try(var legacy=connection.prepareStatement("SELECT state::text FROM dalmaru.character_vanilla_state WHERE character_id=?")) {
+                                legacy.setObject(1,row.getObject(1,UUID.class));
+                                try(var stored=legacy.executeQuery()) {
+                                    if(stored.next()&&!com.google.gson.JsonParser.parseString(stored.getString(1)).equals(com.google.gson.JsonParser.parseString(snapshot)))throw new IllegalStateException("Legacy inventory mismatch; manual recovery required.");
+                                }
+                            }
+                            owner=String.valueOf(row.getObject(1))+":"+UUID.randomUUID();restored=withOwner(snapshot,owner);
+                            try(var update=connection.prepareStatement("UPDATE dalmaru.accounts SET vanilla_owner=?,vanilla_checkpoint=?::jsonb WHERE account_id=?")){update.setString(1,owner);update.setString(2,restored);update.setObject(3,account);update.executeUpdate();}
+                            UUID character=row.getObject(1,UUID.class);if(character!=null)saveVanilla(connection,character,restored);
+                        }else {
+                            restored=row.getString(3);
+                            if(restored==null||!owner.equals(vanillaOwner(restored)))throw new IllegalStateException("Inventory checkpoint is missing or inconsistent.");
+                        }
+                    }
+                }
+                // Durable recovery precedes installation, so a second crash repeats the same owned snapshot.
+                connection.commit();
+            }catch(Exception error){connection.rollback();throw error;}
+        }
+        install.accept(restored);
+    }
+
+    public boolean inTown(String dimension, int x, int y, int z) throws SQLException {
+        try(var connection=DriverManager.getConnection(url,username,password);var query=connection.prepareStatement("SELECT 1 FROM dalmaru.town_safe_zones WHERE dimension=? AND abs(x-?)<=radius AND abs(y-?)<=radius AND abs(z-?)<=radius")) {
+            query.setString(1,dimension);query.setInt(2,x);query.setInt(3,y);query.setInt(4,z);try(var row=query.executeQuery()){return row.next();}
+        }
+    }
+    public void registerTown(String name,String dimension,int x,int y,int z,int radius) throws SQLException {
+        if(radius<1||radius>128)throw new IllegalArgumentException("Invalid town radius.");
+        try(var connection=DriverManager.getConnection(url,username,password);var insert=connection.prepareStatement("INSERT INTO dalmaru.town_safe_zones VALUES(?,?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET dimension=EXCLUDED.dimension,x=EXCLUDED.x,y=EXCLUDED.y,z=EXCLUDED.z,radius=EXCLUDED.radius")) {
+            insert.setString(1,name);insert.setString(2,dimension);insert.setInt(3,x);insert.setInt(4,y);insert.setInt(5,z);insert.setInt(6,radius);insert.executeUpdate();
+        }
+    }
 
 	public CharacterCreationResult create(UUID accountId, long connectionGeneration, long requestId, int slot, String displayName) throws SQLException {
 		if (connectionGeneration < 1 || requestId < 1 || slot < 1 || slot > 4) throw new IllegalArgumentException("Invalid character creation request.");
@@ -266,7 +364,11 @@ public final class CharacterRepository {
 		try (var connection = DriverManager.getConnection(url, username, password)) {
 			connection.setAutoCommit(false);
 			try {
-				String requestSql = "INSERT INTO dalmaru.character_creation_requests (account_id, connection_generation, request_id, slot, display_name, normalized_name, character_id) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING character_id";
+				try (var account = connection.prepareStatement("SELECT 1 FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) {
+                    account.setObject(1, accountId); account.setLong(2, connectionGeneration);
+                    try (var row = account.executeQuery()) { if (!row.next()) throw new IllegalArgumentException("Stale character creation session."); }
+                }
+                String requestSql = "INSERT INTO dalmaru.character_creation_requests (account_id, connection_generation, request_id, slot, display_name, normalized_name, character_id) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING RETURNING character_id";
 				try (var statement = connection.prepareStatement(requestSql)) {
 					statement.setObject(1, accountId); statement.setLong(2, connectionGeneration); statement.setLong(3, requestId); statement.setInt(4, slot); statement.setString(5, displayName); statement.setString(6, normalizedName); statement.setObject(7, characterId);
 					try (var result = statement.executeQuery()) {
@@ -328,13 +430,13 @@ public final class CharacterRepository {
 		}
 	}
 
-	private static CharacterProfile profileForUpdate(java.sql.Connection connection, UUID characterId) throws SQLException {
-		String sql = "SELECT character_id, level, experience, unspent_stat_points, strength, dexterity, arcana, vitality, spirit, free_reset_available FROM dalmaru.character_profiles WHERE character_id = ? FOR UPDATE";
+	public static CharacterProfile profileForUpdate(java.sql.Connection connection, UUID characterId) throws SQLException {
+		String sql = "SELECT p.character_id, p.level, p.experience, p.unspent_stat_points, p.strength, p.dexterity, p.arcana, p.vitality, p.spirit, p.free_reset_available, p.unspent_skill_points, COALESCE(j.base_job, ''), p.revision FROM dalmaru.character_profiles p LEFT JOIN dalmaru.character_professions j ON j.character_id=p.character_id WHERE p.character_id = ? FOR UPDATE OF p";
 		try (var statement = connection.prepareStatement(sql)) {
 			statement.setObject(1, characterId);
 			try (var result = statement.executeQuery()) {
 				if (!result.next()) throw new IllegalArgumentException("Character profile was not found.");
-				return new CharacterProfile(result.getObject(1, UUID.class), result.getInt(2), result.getLong(3), result.getInt(4), result.getInt(5), result.getInt(6), result.getInt(7), result.getInt(8), result.getInt(9), result.getBoolean(10));
+				return new CharacterProfile(result.getObject(1, UUID.class), result.getInt(2), result.getLong(3), result.getInt(4), result.getInt(5), result.getInt(6), result.getInt(7), result.getInt(8), result.getInt(9), result.getBoolean(10), result.getInt(11), result.getString(12), result.getLong(13));
 			}
 		}
 	}

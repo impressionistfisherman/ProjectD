@@ -21,11 +21,15 @@ public final class BeaconTowerTerrainCheck {
                         public BlockPos offset(int dx, int dy, int dz) { return new BlockPos(x+dx,y+dy,z+dz); }
                     }
                     """,
+                "net/minecraft/world/level/block/state/BlockState.java", """
+                    package net.minecraft.world.level.block.state;
+                    public record BlockState(String name) { }
+                    """,
                 "net/minecraft/world/level/block/Blocks.java", """
                     package net.minecraft.world.level.block;
                     public enum Blocks {
                         AIR, DEEPSLATE_TILES, DEEPSLATE_BRICKS, IRON_BARS, POLISHED_DEEPSLATE;
-                        public String defaultBlockState() { return name(); }
+                        public net.minecraft.world.level.block.state.BlockState defaultBlockState() { return new net.minecraft.world.level.block.state.BlockState(name()); }
                     }
                     """,
                 "net/minecraft/server/level/ServerLevel.java", """
@@ -33,9 +37,11 @@ public final class BeaconTowerTerrainCheck {
                     import java.util.HashMap;
                     import net.minecraft.core.BlockPos;
                     public class ServerLevel {
-                        private final HashMap<BlockPos,String> blocks = new HashMap<>();
-                        public boolean setBlock(BlockPos p, String block, int flags) { blocks.put(p,block); return true; }
-                        public String getBlockState(BlockPos p) { return blocks.getOrDefault(p,"STONE"); }
+                        private final HashMap<BlockPos,net.minecraft.world.level.block.state.BlockState> blocks = new HashMap<>();
+                        public boolean setBlock(BlockPos p, net.minecraft.world.level.block.state.BlockState block, int flags) { blocks.put(p,block); return true; }
+                        public net.minecraft.world.level.block.state.BlockState getBlockState(BlockPos p) { return blocks.getOrDefault(p,new net.minecraft.world.level.block.state.BlockState("STONE")); }
+                        public BlockPos occupied;
+                        public Object getBlockEntity(BlockPos p) { return p.equals(occupied) ? new Object() : null; }
                     }
                     """,
                 "kr/dalmaru/run/BeaconTowerMap.java", Files.readString(source),
@@ -70,22 +76,29 @@ public final class BeaconTowerTerrainCheck {
             public static void main(String[] args) {
                 var origin = new BlockPos(89520,100,135312);
                 var level = new ServerLevel();
+                level.occupied=origin.offset(0,1,0);
+                boolean rejected=false;try{BeaconTowerMap.capture(level,origin);}catch(IllegalStateException expected){rejected=true;}
+                require(rejected,"J21 occupied block entity accepted");level.occupied=null;
+                var saved=BeaconTowerMap.capture(level,origin);
                 BeaconTowerMap.build(level,origin);
                 for (int x=-8;x<=8;x++) for(int z=-6;z<=74;z++) for(int y=1;y<=4;y++) {
-                    String expected="AIR";
+                    String expected=Set.of(-6,74).contains(z)?"DEEPSLATE_BRICKS":"AIR";
                     if (Math.abs(x)<=2 && Set.of(27,45,64).contains(z) && y<=3) expected="IRON_BARS";
                     if (Math.abs(x)==6 && Set.of(9,21,48,60).contains(z) && y<=3) expected="POLISHED_DEEPSLATE";
-                    require(level.getBlockState(origin.offset(x,y,z)).equals(expected),"Interior terrain not cleared or map obstacle changed.");
+                    require(level.getBlockState(origin.offset(x,y,z)).name().equals(expected),"Interior terrain not cleared or map obstacle changed.");
                 }
                 for(int x=-9;x<=9;x++) for(int z=-6;z<=74;z++)
-                    require(level.getBlockState(origin.offset(x,0,z)).equals("DEEPSLATE_TILES"),"Floor changed.");
+                    require(level.getBlockState(origin.offset(x,0,z)).name().equals("DEEPSLATE_TILES"),"Floor changed.");
                 for(int x:new int[]{-9,9}) for(int z=-6;z<=74;z++) for(int y=1;y<=4;y++)
-                    require(level.getBlockState(origin.offset(x,y,z)).equals("DEEPSLATE_BRICKS"),"Wall changed.");
-                for(var outside:new BlockPos[]{origin.offset(10,1,0),origin.offset(0,5,0),origin.offset(0,-1,0),origin.offset(0,1,75)})
-                    require(level.getBlockState(outside).equals("STONE"),"Terrain outside the map changed.");
+                    require(level.getBlockState(origin.offset(x,y,z)).name().equals("DEEPSLATE_BRICKS"),"Wall changed.");
+                for(var outside:new BlockPos[]{origin.offset(10,1,0),origin.offset(0,6,0),origin.offset(0,-1,0),origin.offset(0,1,75)})
+                    require(level.getBlockState(outside).name().equals("STONE"),"Terrain outside the map changed.");
+                for(int x=-9;x<=9;x++)for(int z=-6;z<=74;z++)require(level.getBlockState(origin.offset(x,5,z)).name().equals("DEEPSLATE_BRICKS"),"J21 roof not closed");
                 BeaconTowerMap.open(level,origin,27);
-                require(level.getBlockState(origin.offset(0,1,27)).equals("AIR"),"Gate opening changed.");
-                System.out.println("Solid-terrain spawn/corridor clearing and floor/wall/gate/pillar boundaries PASS (production builder, stubbed blocks).");
+                require(level.getBlockState(origin.offset(0,1,27)).name().equals("AIR"),"Gate opening changed.");
+                BeaconTowerMap.restore(level,saved);
+                for(int x=-9;x<=9;x++)for(int z=-6;z<=74;z++)for(int y=0;y<=5;y++)require(level.getBlockState(origin.offset(x,y,z)).name().equals("STONE"),"J21 terrain restoration incomplete");
+                System.out.println("J21 occupied-block rejection/restoration and solid-terrain spawn/corridor clearing and floor/wall/gate/pillar boundaries PASS (production builder, stubbed blocks).");
             }
             private static void require(boolean condition,String message) { if(!condition) throw new AssertionError(message); }
         }

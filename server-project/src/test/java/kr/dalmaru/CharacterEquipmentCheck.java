@@ -15,6 +15,7 @@ public final class CharacterEquipmentCheck {
         var accounts = new AccountRepository(); var characters = new CharacterRepository(); var equipment = new EquipmentRepository();
         var session = accounts.openSession(ACCOUNT); var character = characters.create(ACCOUNT, 1, "달마루_장비시험11");
         characters.selectActive(ACCOUNT, session.connectionGeneration(), 1001, character.characterId());
+        try(var connection=connection();var wallet=connection.prepareStatement("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,100) ON CONFLICT(character_id) DO UPDATE SET copper=100")){wallet.setObject(1,character.characterId());wallet.executeUpdate();}
         var items = equipment.listOrCreate(character.characterId());
         if (items.size() != 9 || !items.stream().allMatch(item -> item.bound())) throw new IllegalStateException("Nine bound starter items were not created.");
         var first = equipment.enhance(ACCOUNT, session.connectionGeneration(), 2001, items.getFirst().equipmentId());

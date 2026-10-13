@@ -20,6 +20,7 @@ public final class CombatRuntime {
 	private static final Identifier ATTACK_DAMAGE_ID = Identifier.fromNamespaceAndPath("dalmaru", "profile_attack_damage");
 	private static final Identifier MAX_HEALTH_ID = Identifier.fromNamespaceAndPath("dalmaru", "profile_max_health");
 	private final Map<UUID, RuntimeState> states = new HashMap<>();
+    private final java.util.Set<UUID> disconnected=new java.util.HashSet<>();
 	private final Map<UUID, EquipmentSnapshot> equipment = new HashMap<>();
 	private static final ThreadLocal<LivingEntity> RPG_TARGET = new ThreadLocal<>();
 	private final Map<UUID, Long> sweepCooldowns = new HashMap<>();
@@ -264,7 +265,9 @@ public final class CombatRuntime {
 
 	public void tick(long tick) {
 		if (tick % 20 != 0) return;
-		for (RuntimeState state : states.values()) {
+		for (var entry : states.entrySet()) {
+            if(disconnected.contains(entry.getKey()))continue;
+            RuntimeState state=entry.getValue();
 			if (state.lastCombatTick != Long.MIN_VALUE && tick - state.lastCombatTick >= COMBAT_TIMEOUT_TICKS) state.stamina = Math.min(state.maximumStamina, state.stamina + state.staminaRegenerationPerSecond);
 		}
 	}
@@ -283,7 +286,19 @@ public final class CombatRuntime {
 		newPlayer.setHealth(newPlayer.getMaxHealth());
 	}
 
-	public void remove(UUID playerId) { states.remove(playerId); equipment.remove(playerId); sweepCooldowns.remove(playerId); }
+    public void disconnect(UUID playerId){disconnected.add(playerId);}
+    public void reconnect(UUID playerId){disconnected.remove(playerId);}
+    public void shiftCooldowns(UUID playerId,long pausedTicks) {
+        if(pausedTicks<=0)return;
+        for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns))cooldown.computeIfPresent(playerId,(id,until)->Math.addExact(until,pausedTicks));
+        RuntimeState state=states.get(playerId);
+        if(state!=null){state.nextBasicAttackTick=Math.addExact(state.nextBasicAttackTick,pausedTicks);if(state.lastCombatTick!=Long.MIN_VALUE)state.lastCombatTick=Math.addExact(state.lastCombatTick,pausedTicks);}
+    }
+    public void remove(UUID playerId) {
+        states.remove(playerId);equipment.remove(playerId);disconnected.remove(playerId);
+        for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns))cooldown.remove(playerId);
+    }
+
 	public StaminaState stamina(UUID playerId, long tick) {
 		RuntimeState state = states.get(playerId);
 		return state == null ? null : new StaminaState(state.stamina, state.maximumStamina, state.lastCombatTick != Long.MIN_VALUE && tick - state.lastCombatTick < COMBAT_TIMEOUT_TICKS);

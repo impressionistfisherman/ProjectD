@@ -35,6 +35,19 @@ public final class PilotEquipment {
     }
     private PilotEquipment() { }
 
+    public static int slot(String itemId) {
+        Definition item=ITEMS.get(itemId);
+        if(item==null) throw new IllegalArgumentException("Undefined equipment cannot be equipped.");
+        return item.slot;
+    }
+    public static void requireEquippable(CharacterProfile profile, EquipmentRecord record) {
+        Definition item=ITEMS.get(record.itemId());
+        String armor=switch(profile.profession()){case "WARRIOR"->"heavy";case "ARCHER","ROGUE"->"light";case "MAGE"->"cloth";default->"";};
+        if(item==null || !profile.characterId().equals(record.characterId()) || profile.level()<item.level || item.level!=record.requiredLevel()
+            || (!record.profession().isBlank()&&!record.profession().equals(profile.profession()))
+            || (!item.requirement.isBlank()&&!item.requirement.equals(profile.profession())&&!item.requirement.equals(armor))) throw new IllegalArgumentException("Incompatible equipment.");
+    }
+
     public static Stats equipped(CharacterProfile profile, List<EquipmentRecord> records) {
         double attack = 0, physical = 0, magic = 0, primary = 0, vitality = 0, spirit = 0;
         boolean magical = false;

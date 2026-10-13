@@ -214,6 +214,54 @@ tasks.register('verifyBeaconTowerTerrain', JavaExec) {
 	mainClass = 'kr.dalmaru.BeaconTowerTerrainCheck'
 }
 
+tasks.register('verifyManualPlayRegression', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.ManualPlayRegressionCheck'
+}
+
+tasks.register('verifyPremergeDatabase', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.PremergeDatabaseCheck'
+}
+tasks.register('verifyPremergeRuntime', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.PremergeRuntimeCheck'
+}
+
+tasks.register('verifyReviewRegression', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.ReviewRegressionCheck'
+    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
+}
+tasks.register('verifyReviewDatabase', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.ReviewDatabaseCheck'
+    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
+}
+tasks.register('verifySessionLifecycle', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.SessionLifecycleCheck'
+    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
+}
+tasks.register('verifyLifecycleDatabase', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.LifecycleDatabaseCheck'
+    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
+}
+tasks.register('verifySelectionBoundary', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.SelectionBoundaryCheck'
+    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
+}
+
 tasks.named('test') {
 	failOnNoDiscoveredTests = false
 }

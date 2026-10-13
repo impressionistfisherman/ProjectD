@@ -122,7 +122,7 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceResponse.TYPE,
 			(payload, context) -> ClientEquipmentState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunResponse.TYPE,
-			(payload, context) -> ClientRunState.accept(payload));
+			(payload, context) -> { if (ClientRunState.accept(payload) && context.client().screen instanceof DalmaruRunScreen) context.client().setScreen(null); });
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.QuestResponse.TYPE,
 			(payload, context) -> ClientQuestState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CombatStateResponse.TYPE,
@@ -231,12 +231,20 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientPlayNetworking.send(new DalmaruPayloads.EquipmentListRequest(ClientEquipmentState.nextRequestId()));
 	}
 
+    public static void requestEquipmentMove(java.util.UUID equipmentId) {
+        if (net.minecraft.client.Minecraft.getInstance().player == null) return;
+        var item=ClientEquipmentState.equipment().stream().filter(record->record.equipmentId().equals(equipmentId)).findFirst().orElse(null);
+        if(item==null)return;
+        net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
+    }
+
 	public static void requestEnhancement(java.util.UUID equipmentId) {
 		ClientEquipmentState.enhance(equipmentId);
 		ClientPlayNetworking.send(new DalmaruPayloads.EquipmentEnhanceRequest(ClientEquipmentState.nextRequestId(), equipmentId));
 	}
 
 	public static void requestRun(String difficulty) {
-		ClientPlayNetworking.send(new DalmaruPayloads.RunEnterRequest(ClientRunState.nextRequestId(), difficulty));
+		long requestId = ClientRunState.nextRequestId();
+		if (requestId > 0) ClientPlayNetworking.send(new DalmaruPayloads.RunEnterRequest(requestId, difficulty));
 	}
 }
