@@ -203,3 +203,9 @@
 - Actual equipped stat consumer at enhancement0/5/6/15 preserves attack/primary/vitality/spirit; pity MAX_INT saturates100 without overflow.
 - Patch attempts failed exact-line matching and Python quoting before mutation; corrected against actual .02/.03 coefficients. Final artifact keeps baseline values.
 - No fixture DB quest reward test, live server/GUI/play or run snapshot/mob-data check. Independent QA pending. No deployment/schema/protocol change.
+
+## 2026-10-14 MDF-P1 S10b1
+- PASS --no-daemon verifyRunContentSnapshot compileClientJava (31s) against oscar_p1_fixture only. Actual RunRepository reserve/replay/read, version2 stored attack42 vs current/original41, SQL23514 for ID/version/snapshot changes, ordinary PAUSED transition, missing/legacy/mismatch rejection.
+- V026 initial fixture apply and corrected compatibility apply PASS; rerun with actual legacy pilot-1/NULL snapshot preserves row unchanged. Reject JSON-array snapshot. All test-owned runs and account removed in finally.
+- Initial migration draft assumed missing content_version from summary; source V012 proves existing default. Corrected before commit; fixture initially had no legacy rows, no production changes. Final test exercises real legacy row during rerun.
+- No live dungeon entry, runtime mob consumption, deployment/production DB or old-JAR rollout check; follow S10b2 and independent QA.

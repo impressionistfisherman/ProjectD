@@ -39,13 +39,29 @@ public final class RunRepository {
                 int tier = participants.size() == 1 ? 1 : participants.size() == 2 ? 2 : 4;
                 LocalDate week = weekId();
                 for (UUID characterId : participants) reserveAvailable(connection, characterId, difficulty, week);
+                var content=kr.dalmaru.content.ContentCatalog.current();
+                var definition=content.run(CONTENT);
+                if(!definition.enabled()||participants.size()<definition.minPlayers()||participants.size()>definition.maxPlayers())throw new IllegalArgumentException("Run definition does not allow this party.");
                 UUID runId = UUID.randomUUID();
-                try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_instances (run_id, content_id, difficulty, week_id, party_size, scaling_tier, state) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')")) { insert.setObject(1, runId); insert.setString(2, CONTENT); insert.setString(3, difficulty.name()); insert.setObject(4, week); insert.setInt(5, participants.size()); insert.setInt(6, tier); insert.executeUpdate(); }
+                try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_instances (run_id, content_id, difficulty, week_id, party_size, scaling_tier, state,content_version,content_snapshot) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE',?,?::jsonb)")) { insert.setObject(1, runId); insert.setString(2, CONTENT); insert.setString(3, difficulty.name()); insert.setObject(4, week); insert.setInt(5, participants.size()); insert.setInt(6, tier); insert.setString(7,content.version());insert.setString(8,content.snapshot());insert.executeUpdate(); }
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_participants (run_id, character_id,frozen_loadout,loadout_revision) VALUES (?, ?,?::jsonb,?)")) { for (UUID characterId : participants) { var loadout=kr.dalmaru.skill.LoadoutRepository.load(connection,characterId); insert.setObject(1, runId); insert.setObject(2, characterId); insert.setString(3,kr.dalmaru.skill.LoadoutRepository.encode(loadout.slots()));insert.setLong(4,loadout.revision());insert.addBatch(); } insert.executeBatch(); }
                 request(connection, accountId, generation, requestId, "ENTER", runId, "ACTIVE"); connection.commit(); return new RunRecord(runId, difficulty, participants.size(), tier, "ACTIVE", false);
             } catch (Exception exception) { connection.rollback(); throw exception; }
         }
     }
+    public kr.dalmaru.content.ContentCatalog frozenContent(UUID run)throws SQLException{
+        try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT content_id,content_version,content_snapshot::text FROM dalmaru.run_instances WHERE run_id=?")){
+            q.setObject(1,run);
+            try(var row=q.executeQuery()){
+                if(!row.next())throw new IllegalArgumentException("Run not found.");
+                if(row.getString(3)==null)throw new IllegalArgumentException("Legacy run content snapshot is unknown; operator recovery required.");
+                var catalog=kr.dalmaru.content.ContentCatalog.parse(row.getString(3));
+                if(!CONTENT.equals(row.getString(1))||!catalog.version().equals(row.getString(2))||!catalog.run(CONTENT).version().equals(row.getString(2))||!catalog.run(CONTENT).enabled())throw new IllegalArgumentException("Run content snapshot mismatch.");
+                return catalog;
+            }
+        }
+    }
+
     public kr.dalmaru.skill.SkillLoadout frozenLoadout(UUID run,UUID character)throws SQLException {
         try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT frozen_loadout::text,loadout_revision FROM dalmaru.run_participants WHERE run_id=? AND character_id=?")){
             q.setObject(1,run);q.setObject(2,character);try(var row=q.executeQuery()){if(!row.next()||row.getString(1)==null)throw new IllegalArgumentException("Legacy run lacks frozen loadout.");return new kr.dalmaru.skill.SkillLoadout(character,row.getLong(2),kr.dalmaru.skill.LoadoutRepository.decode(row.getString(1)));}

@@ -169,3 +169,9 @@
 - Quest version pilot-1 retained to prevent reward re-grants; bundle/run manifest pilot-j02-1. Disabled equipment/quests blocked. Quest status now reads configured goal.
 - PASS content catalog/enhancement rules/server-client compile (11s), diff check. No migration/protocol/deployment/production DB changes.
 - O27 remains PARTIAL: skill refs use existing runtime capability; full skill definitions/display metadata, run snapshot and J02 mob data remain subsequent slices. Independent Creed/Jim review and human play pending.
+
+## 2026-10-14 MDF-P1 S10b1
+- New database reservations persist catalog version and immutable JSON snapshot. Archived reader checks ID/version/manifest/activation; unknown legacy snapshot rejects rather than substituting current definitions.
+- V012 already has content_version NOT NULL DEFAULT pilot-1 (earlier summary was incorrect). V026 preserves that label and NULL legacy snapshots, adds snapshot and immutable ID/version/snapshot trigger; no backfill/contraction.
+- PASS fixture reservation/replay/archived read/immutability/state update/missing and mismatch rejection/legacy preservation/migration rerun plus compile (31s). oscar_p1_fixture schema26 only; production unchanged.
+- Runtime snapshot consumption/J02 mob data are S10b2; M10/O27 and independent QA remain PARTIAL.
