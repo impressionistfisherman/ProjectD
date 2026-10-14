@@ -7,6 +7,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.google.gson.JsonObject;
+import kr.dalmaru.request.RequestEnvelope;
+import kr.dalmaru.request.RequestJournal;
 
 public final class EquipmentRepository {
     private final String url = "jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/" + System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
@@ -15,15 +18,29 @@ public final class EquipmentRepository {
     private final SecureRandom random = new SecureRandom();
 
     public EnhancementResult enhance(UUID accountId, long generation, long requestId, UUID equipmentId) throws SQLException {
+        return enhance(accountId,generation,requestId,equipmentId,null);
+    }
+    public EnhancementResult enhance(UUID accountId,long generation,long requestId,UUID equipmentId,RequestEnvelope envelope)throws SQLException {
         if (generation < 1 || requestId < 1 || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid enhancement request.");
         try (var connection = DriverManager.getConnection(url, username, password)) {
             connection.setAutoCommit(false);
             try {
                 UUID characterId;
                 try (var active = connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) { active.setObject(1, accountId); active.setLong(2, generation); try (var result = active.executeQuery()) { if (!result.next() || result.getObject(1) == null) throw new IllegalArgumentException("Account has no active character."); characterId = result.getObject(1, UUID.class); } }
+                var body=new JsonObject();body.addProperty("equipmentId",equipmentId.toString());
+                if(envelope==null)envelope=RequestEnvelope.legacy(accountId,generation,characterId,"enhance_item",requestId,body);
+                if(envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(characterId)||!envelope.operation().equals("enhance_item")||!envelope.payload().equals(body))throw new IllegalArgumentException("Enhancement envelope does not match active session/body");
+                var stored=RequestJournal.begin(connection,accountId,requestId,envelope);
+                requestId=stored.legacyRequestId();
+                if(stored.result()!=null){
+                    var latest=read(connection,equipmentId);if(!characterId.equals(latest.characterId()))throw new IllegalArgumentException("Replay is not owned by active character");
+                    var original=stored.result();
+                    var replay=new EnhancementResult(latest,original.get("success").getAsBoolean(),true,original.get("enhancement").getAsInt(),original.get("consecutiveFailures").getAsInt(),stored.receipt());
+                    connection.commit();return replay;
+                }
                 try (var request = connection.prepareStatement("SELECT equipment_id, success, enhancement, consecutive_failures FROM dalmaru.character_enhancement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) {
                     request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId);
-                    try (var result = request.executeQuery()) { if (result.next()) { if (!equipmentId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); EquipmentRecord equipment = read(connection, equipmentId); if(!characterId.equals(equipment.characterId()))throw new IllegalArgumentException("Replay is not owned by active character."); connection.commit(); return new EnhancementResult(equipment, result.getBoolean(2), true, result.getInt(3), result.getInt(4)); } }
+                    try (var result = request.executeQuery()) { if (result.next()) { if (!equipmentId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); EquipmentRecord equipment = read(connection, equipmentId); if(!characterId.equals(equipment.characterId()))throw new IllegalArgumentException("Replay is not owned by active character."); var replay=confirmEnhancement(connection,stored,new EnhancementResult(equipment,result.getBoolean(2),true,result.getInt(3),result.getInt(4)),null);connection.commit();return replay; } }
                 }
                 EquipmentRecord equipment = readForUpdate(connection, equipmentId);
                 if (!characterId.equals(equipment.characterId())) throw new IllegalArgumentException("Equipment not owned by active character.");
@@ -56,9 +73,16 @@ public final class EquipmentRepository {
                 int enhancement = success ? equipment.enhancement() + 1 : equipment.enhancement(); int failures = success ? 0 : equipment.consecutiveFailures() + 1;
                 try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET enhancement=?, consecutive_failures=? WHERE equipment_id=?")) { update.setInt(1, enhancement); update.setInt(2, failures); update.setObject(3, equipmentId); update.executeUpdate(); }
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_enhancement_requests VALUES (?,?,?,?,?,?,?)")) { insert.setObject(1, accountId); insert.setLong(2, generation); insert.setLong(3, requestId); insert.setObject(4, equipmentId); insert.setInt(5, enhancement); insert.setInt(6, failures); insert.setBoolean(7, success); insert.executeUpdate(); }
-                connection.commit(); return new EnhancementResult(new EquipmentRecord(equipmentId, characterId, equipment.slotId(), equipment.itemId(), equipment.requiredLevel(), equipment.profession(), enhancement, failures, binding!=EquipmentBinding.FREE, binding), success, false);
+                var outcome=confirmEnhancement(connection,stored,new EnhancementResult(new EquipmentRecord(equipmentId, characterId, equipment.slotId(), equipment.itemId(), equipment.requiredLevel(), equipment.profession(), enhancement, failures, binding!=EquipmentBinding.FREE, binding), success, false),cost);connection.commit();return outcome;
             } catch (Exception exception) { connection.rollback(); throw exception; }
         }
+    }
+
+    private static EnhancementResult confirmEnhancement(Connection c,RequestJournal.Stored stored,EnhancementResult result,EnhancementRules.Cost cost)throws SQLException{
+        var outcome=new JsonObject();outcome.addProperty("equipmentId",result.equipment().equipmentId().toString());outcome.addProperty("success",result.success());outcome.addProperty("enhancement",result.resultEnhancement());outcome.addProperty("consecutiveFailures",result.resultFailures());
+        if(cost!=null){outcome.addProperty("copperSpent",cost.copper());outcome.addProperty("ironstoneSpent",cost.ironstone());}else outcome.addProperty("legacyResult",true);
+        var receipt=RequestJournal.confirm(c,stored,outcome);
+        return new EnhancementResult(result.equipment(),result.success(),result.replayed(),result.resultEnhancement(),result.resultFailures(),receipt);
     }
 
     public List<EquipmentRecord> move(UUID accountId,long generation,long requestId,UUID equipmentId,boolean equip) throws SQLException {

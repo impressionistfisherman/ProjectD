@@ -26,12 +26,13 @@ public final class EnhancementReplayCheck {
             check(replay.resultEnhancement()!=replay.equipment().enhancement()||replay.resultFailures()!=replay.equipment().consecutiveFailures(),"Fixture did not advance state");
             check(copper==value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character.characterId())&&material==value("SELECT quantity FROM dalmaru.character_materials WHERE character_id=? AND material_id='material.ironstone'",character.characterId()),"Replay charged again");
             check(value("SELECT count(*) FROM dalmaru.character_enhancement_requests WHERE account_id=?",account)==2,"Replay duplicated journal");
+            check(first.receipt()!=null&&replay.receipt().requestId().equals(first.receipt().requestId())&&replay.receipt().eventId().equals(first.receipt().eventId())&&value("SELECT count(*) FROM dalmaru.operation_requests WHERE account_id=?",account)==2,"Legacy adapter duplicated UUID journal/event");
             boolean rejected=false;try{repository.enhance(account,session.connectionGeneration(),11,items.get(1).equipmentId());}catch(IllegalArgumentException expected){rejected=true;}check(rejected,"Changed request body accepted");
             System.out.println("DB enhancement original outcome + latest state + no recharge/body reuse PASS");
         }finally{cleanup(account);}
     }
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
-    private static void cleanup(UUID account)throws SQLException{
+    static void cleanup(UUID account)throws SQLException{
         try(var c=connection()){
             c.setAutoCommit(false);
             try{
@@ -42,7 +43,7 @@ public final class EnhancementReplayCheck {
             }catch(SQLException error){c.rollback();throw error;}
         }
     }
-    private static Connection connection()throws SQLException{return DriverManager.getConnection("jdbc:postgresql://"+System.getenv().getOrDefault("DALMARU_DB_HOST","localhost")+":"+System.getenv().getOrDefault("DALMARU_DB_PORT","15432")+"/oscar_p1_fixture",System.getenv().getOrDefault("DALMARU_DB_USER","postgres"),System.getenv("DALMARU_DB_PASSWORD"));}
+    static Connection connection()throws SQLException{return DriverManager.getConnection("jdbc:postgresql://"+System.getenv().getOrDefault("DALMARU_DB_HOST","localhost")+":"+System.getenv().getOrDefault("DALMARU_DB_PORT","15432")+"/oscar_p1_fixture",System.getenv().getOrDefault("DALMARU_DB_USER","postgres"),System.getenv("DALMARU_DB_PASSWORD"));}
     private static void sql(String sql,UUID id)throws SQLException{try(var c=connection();var s=c.prepareStatement(sql)){s.setObject(1,id);s.executeUpdate();}}
     private static long value(String sql,UUID id)throws SQLException{try(var c=connection();var s=c.prepareStatement(sql)){s.setObject(1,id);try(var r=s.executeQuery()){if(!r.next())throw new AssertionError("Missing fixture row");return r.getLong(1);}}}
 }
