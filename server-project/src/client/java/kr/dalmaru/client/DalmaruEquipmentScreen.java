@@ -3,6 +3,7 @@ package kr.dalmaru.client;
 import java.util.ArrayList;
 import java.util.List;
 import kr.dalmaru.network.DalmaruPayloads;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -14,6 +15,11 @@ final class DalmaruEquipmentScreen extends Screen {
     DalmaruEquipmentScreen() { super(Component.literal("달마루 장비")); }
     @Override protected void init() { displayedPage=-1;DalmaruClient.requestEquipment(); rebuild(); }
     @Override public void tick() { rebuild(); }
+    @Override public void extractRenderState(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float delta){
+        super.extractRenderState(graphics,mouseX,mouseY,delta);
+        String status=font.plainSubstrByWidth(ClientEquipmentState.status(),width-20);
+        graphics.text(font,status,(width-font.width(status))/2,6,0xFFFFFFFF,false);
+    }
     private void rebuild() {
         List<DalmaruPayloads.EquipmentData> equipment = ClientEquipmentState.equipment();
         List<java.util.UUID> ids = equipment.stream().map(DalmaruPayloads.EquipmentData::equipmentId).toList();

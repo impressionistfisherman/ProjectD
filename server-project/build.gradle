@@ -306,3 +306,4 @@ tasks.register('verifySkillPresentation', JavaExec) { group = 'verification'; cl
 tasks.register('verifyRunRespawnBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunRespawnBoundaryCheck' }
 tasks.register('verifyRunDeathScreen', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunDeathScreenCheck' }
 tasks.register('verifyClientReplyRecovery', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientReplyRecoveryCheck' }
+tasks.register('verifyEnhancementReplay', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.EnhancementReplayCheck' }

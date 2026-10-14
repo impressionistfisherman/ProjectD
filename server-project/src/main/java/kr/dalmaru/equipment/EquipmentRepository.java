@@ -21,9 +21,9 @@ public final class EquipmentRepository {
             try {
                 UUID characterId;
                 try (var active = connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) { active.setObject(1, accountId); active.setLong(2, generation); try (var result = active.executeQuery()) { if (!result.next() || result.getObject(1) == null) throw new IllegalArgumentException("Account has no active character."); characterId = result.getObject(1, UUID.class); } }
-                try (var request = connection.prepareStatement("SELECT equipment_id, success FROM dalmaru.character_enhancement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) {
+                try (var request = connection.prepareStatement("SELECT equipment_id, success, enhancement, consecutive_failures FROM dalmaru.character_enhancement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) {
                     request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId);
-                    try (var result = request.executeQuery()) { if (result.next()) { if (!equipmentId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); EquipmentRecord equipment = read(connection, equipmentId); if(!characterId.equals(equipment.characterId()))throw new IllegalArgumentException("Replay is not owned by active character."); connection.commit(); return new EnhancementResult(equipment, result.getBoolean(2), true); } }
+                    try (var result = request.executeQuery()) { if (result.next()) { if (!equipmentId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); EquipmentRecord equipment = read(connection, equipmentId); if(!characterId.equals(equipment.characterId()))throw new IllegalArgumentException("Replay is not owned by active character."); connection.commit(); return new EnhancementResult(equipment, result.getBoolean(2), true, result.getInt(3), result.getInt(4)); } }
                 }
                 EquipmentRecord equipment = readForUpdate(connection, equipmentId);
                 if (!characterId.equals(equipment.characterId())) throw new IllegalArgumentException("Equipment not owned by active character.");

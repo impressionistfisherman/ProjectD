@@ -481,7 +481,7 @@ public final class DalmaruNetworking {
 				.thenAccept(result -> context.server().execute(() -> {
 					if (CONNECTIONS.get(context.player().getUUID()) != state || state.accountSession != session) return;
 					if (state.activeProfile != null) refreshCombat(context.player(), state.activeProfile);
-					ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), true, result.success(), result.equipment().enhancement(), result.equipment().consecutiveFailures(), result.success() ? "강화 성공" : "강화 실패"));
+					ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), true, result.success(), result.resultEnhancement(), result.resultFailures(), result.replayed() ? "이미 처리된 요청" : result.success() ? "강화 성공" : "강화 실패"));
 				}))
 				.exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), false, false, 0, 0, "강화할 수 없습니다."))); return null; });
 		});

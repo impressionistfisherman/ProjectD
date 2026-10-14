@@ -75,7 +75,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientProfileState.selected(payload.characterId());requestLoadout();requestSkillRanks();
+                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -97,7 +97,7 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListResponse.TYPE,
 			(payload, context) -> ClientEquipmentState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceResponse.TYPE,
-			(payload, context) -> ClientEquipmentState.accept(payload));
+			(payload, context) -> {ClientEquipmentState.accept(payload);requestEquipment();});
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunResponse.TYPE,
 			(payload, context) -> { if(ClientRunState.prepare(payload)){if(context.client().screen==null)context.client().setScreen(new DalmaruRunScreen());}else if (ClientRunState.accept(payload) && context.client().screen instanceof DalmaruRunScreen) context.client().setScreen(null); });
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.QuestResponse.TYPE,
@@ -204,7 +204,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 	}
 
 	public static void requestEquipment() {
-		ClientPlayNetworking.send(new DalmaruPayloads.EquipmentListRequest(ClientEquipmentState.nextRequestId()));
+		long request=ClientEquipmentState.nextRequestId();ClientEquipmentState.queried(request);ClientPlayNetworking.send(new DalmaruPayloads.EquipmentListRequest(request));
 	}
 
     public static void requestEquipmentMove(java.util.UUID equipmentId) {
@@ -215,7 +215,6 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
 
 	public static void requestEnhancement(java.util.UUID equipmentId) {
-		ClientEquipmentState.enhance(equipmentId);
 		ClientPlayNetworking.send(new DalmaruPayloads.EquipmentEnhanceRequest(ClientEquipmentState.nextRequestId(), equipmentId));
 	}
 

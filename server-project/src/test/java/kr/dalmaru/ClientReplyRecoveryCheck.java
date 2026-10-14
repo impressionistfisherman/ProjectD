@@ -10,7 +10,7 @@ public final class ClientReplyRecoveryCheck {
         Path dir=Files.createTempDirectory("client-reply-recovery-");
         try{
             var compilerArgs=new ArrayList<String>(List.of("-d",dir.toString()));
-            for(String name:List.of("ClientLoadoutState","ClientSkillState","ClientProfileState")){
+            for(String name:List.of("ClientLoadoutState","ClientSkillState","ClientProfileState","ClientEquipmentState")){
                 String source=Files.readString(Path.of("src/client/java/kr/dalmaru/client/"+name+".java")).replace("package kr.dalmaru.client;","").replace("import kr.dalmaru.network.DalmaruPayloads;","");
                 Path file=dir.resolve(name+".java");Files.writeString(file,source);compilerArgs.add(file.toString());
             }
@@ -35,6 +35,9 @@ public final class ClientReplyRecoveryCheck {
             record CharacterStatResetResponse(long requestId,UUID characterId,boolean accepted,String status,ProfileData profile){}
             record CharacterProfessionResponse(long requestId,boolean accepted,String status,ProfileData profile){}
             record SkillLearnResponse(long requestId,boolean accepted,String status,ProfileData profile){}
+            record EquipmentData(UUID equipmentId,int slotId,String itemId,int enhancement,int consecutiveFailures,boolean bound){}
+            record EquipmentListResponse(long requestId,String status,List<EquipmentData> equipment){}
+            record EquipmentEnhanceResponse(long requestId,boolean accepted,boolean success,int enhancement,int consecutiveFailures,String status){}
         }
         public class ReplyHarness{
             static void check(boolean value){if(!value)throw new AssertionError("Client reply recovery differs");}
@@ -78,6 +81,15 @@ public final class ClientReplyRecoveryCheck {
                 check(ClientProfileState.beginProfession("WARRIOR")&&!ClientProfileState.beginProfession("MAGE"));long profession=ClientProfileState.currentProfessionRequestId();for(int i=0;i<100;i++)ClientProfileState.tick();var professionRetry=ClientProfileState.retryProfession();check(professionRetry.requestId()==profession&&professionRetry.profession().equals("WARRIOR"));
                 ClientProfileState.acceptProfession(new DalmaruPayloads.CharacterProfessionResponse(profession,true,"profession",profile));check(ClientProfileState.retryProfession()==null&&!ClientProfileState.beginProfession("MAGE"));
                 ClientProfileState.accept(new DalmaruPayloads.CharacterProfileResponse(b,new DalmaruPayloads.ProfileData(5,0,false,"WARRIOR")));check(!ClientProfileState.canLearn()&&!ClientProfileState.beginSkill("s"));
+                ClientEquipmentState.resetForConnection();UUID gear=UUID.randomUUID();
+                long inventory1=ClientEquipmentState.nextRequestId(),inventory2=ClientEquipmentState.nextRequestId();ClientEquipmentState.queried(inventory2);
+                var latestItem=new DalmaruPayloads.EquipmentData(gear,0,"item",2,0,true);
+                ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(inventory2,"latest",List.of(latestItem)));
+                ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(inventory1,"old",List.of(new DalmaruPayloads.EquipmentData(gear,0,"item",1,0,true))));check(ClientEquipmentState.equipment().getFirst().enhancement()==2);
+                ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(3,true,true,1,0,"already processed"));check(ClientEquipmentState.equipment().getFirst().enhancement()==2&&ClientEquipmentState.status().equals("already processed"));
+                ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(inventory2,"latest",List.of(latestItem)));check(ClientEquipmentState.status().equals("already processed"));
+                var expiry=ClientEquipmentState.class.getDeclaredField("statusUntil");expiry.setAccessible(true);expiry.setLong(null,System.nanoTime()-1);check(ClientEquipmentState.status().equals("latest"));
+                long oldInventory=ClientEquipmentState.nextRequestId();ClientEquipmentState.selected();ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(oldInventory,"previous",List.of(latestItem)));check(ClientEquipmentState.equipment().isEmpty());
             }
         }
         """;
