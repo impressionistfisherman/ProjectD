@@ -481,9 +481,18 @@ public final class DalmaruNetworking {
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.OperationRequest.TYPE,(payload,context)->{
             try{
                 var envelope=new kr.dalmaru.request.RequestEnvelope(payload.requestId(),payload.connectionGeneration(),payload.activeCharacterId(),payload.operation(),com.google.gson.JsonParser.parseString(payload.payload()).getAsJsonObject());
-                if(!"enhance_item".equals(envelope.operation()))throw new IllegalArgumentException("Unsupported operation");
-                var body=envelope.payload();if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
-                enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
+                var body=envelope.payload();
+                switch(envelope.operation()){
+                    case "enhance_item"->{
+                        if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
+                        enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
+                    }
+                    case "learn_skill"->{
+                        if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
+                        learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
+                    }
+                    default->throw new IllegalArgumentException("Unsupported operation");
+                }
             }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){rejectOperation(context.player(),payload.correlationId(),payload.requestId());}
         });
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListRequest.TYPE, (payload, context) -> {
@@ -494,17 +503,7 @@ public final class DalmaruNetworking {
 		});
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE,(payload,context)->prepareRun(payload,context));
 
-		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnRequest.TYPE, (payload, context) -> {
-			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountFailure != null || state.activeProfile == null || state.activeProfile.profession().isBlank()) { sendSkillLearn(context, payload.requestId(), false, "전직한 캐릭터를 먼저 선택하세요.", null); return; }
-			AccountSession session = state.accountSession;
-			CharacterProfession profession = CharacterProfession.valueOf(state.activeProfile.profession());
-			CompletableFuture.supplyAsync(() -> {
-                try { return SKILLS.learnJournaled(session.accountId(), session.connectionGeneration(), payload.requestId(), session.activeCharacterId(), profession, payload.skillId(),null); }
-				catch (Exception exception) { throw new IllegalStateException(exception); }
-            }).thenAccept(result -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) { installSkillRanks(state,result); sendSkillLearn(context, payload.requestId(), true, payload.skillId() + " " + result.rank() + "단계를 습득했습니다.", result.profile()); } }))
-				.exceptionally(error -> { LOGGER.warn("Rejected skill learning for {}.", session.accountId(), error); context.server().execute(() -> sendSkillLearn(context, payload.requestId(), false, "기술을 습득할 수 없습니다.", null)); return null; });
-		});
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnRequest.TYPE,(payload,context)->learnSkillRequest(context,payload.requestId(),payload.skillId(),null));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
@@ -573,6 +572,34 @@ public final class DalmaruNetworking {
 	}
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
+    }
+    private static void learnSkillRequest(ServerPlayNetworking.Context context,long correlation,String skillId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){
+            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendSkillLearn(context,correlation,false,"\uc804\uc9c1\ud55c \uce90\ub9ad\ud130\ub97c \uba3c\uc800 \uc120\ud0dd\ud558\uc138\uc694.",null);return;
+        }
+        var session=state.accountSession;
+        var profession=kr.dalmaru.skill.SkillDefinition.capabilities().get(skillId);
+        if(profession==null){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendSkillLearn(context,correlation,false,"\uc54c \uc218 \uc5c6\ub294 \uae30\uc220\uc785\ub2c8\ub2e4.",null);return;}
+        CompletableFuture.supplyAsync(()->{
+            try{return SKILLS.learnJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),profession,skillId,envelope);}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(result->context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            installSkillRanks(state,result);
+            if(envelope==null)sendSkillLearn(context,correlation,true,skillId+" "+result.rank()+"\ub2e8\uacc4\ub97c \uc2b5\ub4dd\ud588\uc2b5\ub2c8\ub2e4.",result.profile());
+            else{
+                sendCharacterProfile(player,result.profile());
+                var original=new com.google.gson.JsonObject();original.addProperty("skillId",skillId);original.addProperty("rank",result.rank());var receipt=result.receipt();
+                ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.replayed()));
+            }
+        })).exceptionally(error->{context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendSkillLearn(context,correlation,false,"\uae30\uc220\uc744 \uc2b5\ub4dd\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.",null);
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            LOGGER.warn("Skill learning outcome for {}",session.accountId(),error);
+        });return null;});
     }
     private static void enhanceRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID equipment,kr.dalmaru.request.RequestEnvelope envelope){
         ConnectionState state=stateFor(player.getUUID());

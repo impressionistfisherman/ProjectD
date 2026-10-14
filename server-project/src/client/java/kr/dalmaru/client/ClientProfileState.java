@@ -99,6 +99,8 @@ final class ClientProfileState {
 		status = "기술을 습득하는 중입니다.";
 		return true;
 	}
+    static void delegateSkillRetry(){skillRequest=null;}
+    static void completeSkill(long correlation,String message){if(!skillWaiting||correlation!=currentSkillRequestId)return;skillWaiting=false;skillRequest=null;status=message;}
 	static long currentSkillRequestId() { return currentSkillRequestId; }
 	static void acceptSkill(DalmaruPayloads.SkillLearnResponse response) {
 		if (!skillWaiting || response.requestId() != currentSkillRequestId) return;

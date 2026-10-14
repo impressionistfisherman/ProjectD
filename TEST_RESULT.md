@@ -253,3 +253,9 @@
 - Actual DB learning twice then UUID1 replay returns original rank1/current rank2/points4, original event identity, altered correlation no new charge. Legacy same long replay charge once, concurrent UUID executes once, changed body/stale generation/wrong actual job/level9 reject.
 - Unique fixture-only trigger injects failure after point debit, proving points/rank/journal rollback; trigger/function cleaned. Actual network cache helper receives reverse/replayed/unrelated-profile results without reducing rank. Current ranks/profile share locked SQL snapshot.
 - Final oscar_p1_fixture accounts0/operation_requests0. No client UUID skill dispatch/live request/server/world/migration/protocol changes; application ACK and reconnect recovery remain M11.
+
+## 2026-10-15 MDF-P1 S09d2
+- Scripted exact-match edit stopped before client patch (server/profile-state portion applied); corrected actual multi-line method and continued only client stage. Intermediate backend/client legacy gates PASS17s; common client compile/recovery/envelope gates PASS12s.
+- Final PASS --no-daemon verifySkillWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifySkillJournal compileClientJava19s, diff check.
+- Actual receipt parser and completion method replay status/latest-query counters, reject/missing fields/foreign skill/fractional and rank6 malformed results/wrong correlation. Actual ClientProfileState100tick typed resend disabled after UUID delegation, wrong completion ID ignored, exact completion unlocks. Existing same-object UUID retry/context/selection and real DB charge/replay/rollback/cache tests retained.
+- No running Minecraft client/server request exchange, production data or application ACK/reconnect recovery. No migration/protocol/new packet format. M11 handles durable application status.

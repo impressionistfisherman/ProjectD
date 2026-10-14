@@ -220,3 +220,9 @@
 - Actual stored profession/level/skill-point/max-rank checks authoritative; cached profession cannot grant foreign-class skills. Legacy server response merges only increasing selected-character ranks, preventing old replay/reverse response rollback without coupling to unrelated profile updates.
 - PASS actual fixture UUID/legacy/concurrent charge-once/original-vs-latest/body/generation/profession/level/after-debit SQL failure rollback, exact response-cache helper including unrelated profile update. Final accounts0/requests0; compile and large-integer journal regression PASS.
 - No new SQL/protocol/live changes. Skill UUID wire/client retry follows S09d2; other mutation writers and actual application ACK/recovery remain. Merge shortcut requires revisioned snapshots if future rank reset/revoke is added; current pilot has no such writer. P1 PARTIAL/QA pending.
+
+## 2026-10-15 MDF-P1 S09d2
+- learn_skill now uses existing generic UUID operation wire. Legacy receiver delegates same helper; server derives executable profession then validates DB and sends latest monotonic profile before original-outcome receipt.
+- Client common tracker exclusively retries same envelope; typed skill retry delegated by clearing its request object. Missing context cancels pending UI; completion correlates ID and does not install original rank, querying latest ranks/loadout instead.
+- PASS actual receipt replay/reject/malformed/wrong skill/noninteger/rank6/correlation parser, actual typed retry delegation, generic retry/context/selection and backend journal gates+compile19s. No new packet format/protocol/migration/live change.
+- Other O28 writers and actual event ACK/reconnect recovery remain. P1 PARTIAL and independent QA pending. Prior S09d1 commit e165726; this wire slice follows it.

@@ -195,8 +195,11 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 	}
 
 	public static void requestSkill(String skillId) {
-		if (ClientProfileState.beginSkill(skillId)) ClientPlayNetworking.send(new DalmaruPayloads.SkillLearnRequest(ClientProfileState.currentSkillRequestId(), skillId));
-	}
+        if(!ClientProfileState.beginSkill(skillId))return;long correlation=ClientProfileState.currentSkillRequestId();
+        var body=new com.google.gson.JsonObject();body.addProperty("skillId",skillId);var request=ClientRequestState.begin(correlation,"learn_skill",body);
+        if(request==null){ClientProfileState.completeSkill(correlation,"\uce90\ub9ad\ud130 \uc815\ubcf4 \ud655\uc778 \uc911\uc785\ub2c8\ub2e4.");return;}
+        ClientProfileState.delegateSkillRetry();ClientPlayNetworking.send(request);
+    }
 
 	public static void requestSkillRanks() {
 		ClientPlayNetworking.send(new DalmaruPayloads.SkillRanksRequest(ClientSkillState.nextRequestId()));
@@ -217,8 +220,20 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
     }
 
+    private static void acceptSkillOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        String status="\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.";
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+            var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
+            if(!original.has("skillId")||!original.has("rank")||!original.get("skillId").isJsonPrimitive()||!original.getAsJsonPrimitive("skillId").isString()||!original.get("skillId").getAsString().equals(expected.get("skillId").getAsString())||!original.get("rank").isJsonPrimitive()||!original.getAsJsonPrimitive("rank").isNumber())throw new IllegalStateException("Invalid skill receipt");
+            int rank=original.get("rank").getAsBigDecimal().intValueExact();if(rank<1||rank>5)throw new IllegalStateException("Invalid skill rank");
+            status=receipt.replayed()?"\uc774\ubbf8 \ucc98\ub9ac\ub41c \uc694\uccad\uc785\ub2c8\ub2e4. \ucd5c\uc2e0 \uae30\uc220 \uc0c1\ud0dc\ub97c \ud655\uc778\ud569\ub2c8\ub2e4.":original.get("skillId").getAsString()+" "+rank+"\ub2e8\uacc4\ub97c \uc2b5\ub4dd\ud588\uc2b5\ub2c8\ub2e4.";
+        }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){status="\uacb0\uacfc \ud655\uc778 \uc911\uc785\ub2c8\ub2e4. \ucd5c\uc2e0 \uae30\uc220 \uc0c1\ud0dc\ub97c \ubd88\ub7ec\uc635\ub2c8\ub2e4.";}
+        ClientProfileState.completeSkill(receipt.correlationId(),status);requestSkillRanks();requestLoadout();
+    }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
         else{
