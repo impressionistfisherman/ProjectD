@@ -182,3 +182,10 @@
 - S10b1 Creed PASS received. Review condition handled: resume safely fails legacy ACTIVE/PAUSED with snapshot NULL, retains return checkpoint and prior rewards; terminal records do not need frozenContent. No guessed definitions/backfill.
 - PASS catalog24 invalid inputs/current and archived values, J02 roster/scaling, actual runtime lifecycle/pin/change rejection, DB legacy return/ACK/finished record/reward preservation and migration rerun, server/client compile. Fixture accounts0/runs0/schema26.
 - No new migration/protocol/live change. O27 full skill/display definitions and broader per-run equipment/skill definition consumers remain; M10/P1 PARTIAL pending remaining scope and independent QA. Missing legacy return mode remains pre-existing manual recovery requirement; no invented return mode/coordinates.
+
+## 2026-10-14 MDF-P1 S10c1
+-24 validated skill definitions now contain display, content/schema revision, executable profession/kind, weapon profiles, fixed pilot unlock/rank policy and cast energy/cooldown. Canonical JSON order preserves default active4 slots.
+- SkillDefinition API reads catalog names/descriptions/kinds;16 actual cast methods read costs/cooldowns without changing checks/map ownership or existing numbers.
+- Content schema2 adds full metadata; schema1 pilot-j02-1 snapshots resolve fixed schema1-skills.json baseline rather than newer display/tuning. Old resources/data preserved; unknown schema1 revision rejects.
+- PASS skill metadata/schema1/12 invalid inputs/16 actual cost-cooldown boundaries, presentation24, catalog, combat/runtime/DB snapshot regressions and compile. No DB migration/protocol/live change.
+- O27 effects and wider display/per-run routing remain S10c2+; O28/M08/M11-M14 follow. P1 PARTIAL, independent QA requested. S10b1/S10b2 Creed and Jim group5 PASS received.

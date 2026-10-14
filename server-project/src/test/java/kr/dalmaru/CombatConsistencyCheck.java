@@ -72,8 +72,8 @@ public final class CombatConsistencyCheck {
         Path temp=Files.createTempDirectory("dalmaru-combat-check-");
         try{
             Path file=temp.resolve("CombatProof.java");Files.writeString(file,code);
-            require(ToolProvider.getSystemJavaCompiler().run(null,null,null,"-d",temp.toString(),file.toString())==0,"Combat fixture compilation");
-            try(var loader=new URLClassLoader(new java.net.URL[]{temp.toUri().toURL()},ClassLoader.getPlatformClassLoader())){loader.loadClass("CombatProof").getMethod("check").invoke(null);}
+            require(ToolProvider.getSystemJavaCompiler().run(null,null,null,"-classpath",System.getProperty("java.class.path"),"-d",temp.toString(),file.toString())==0,"Combat fixture compilation");
+            try(var loader=new URLClassLoader(new java.net.URL[]{temp.toUri().toURL()},CombatConsistencyCheck.class.getClassLoader())){loader.loadClass("CombatProof").getMethod("check").invoke(null);}
         }finally{try(var paths=Files.walk(temp)){for(Path file:paths.sorted(java.util.Comparator.reverseOrder()).toList())Files.delete(file);}}
         System.out.println("C02/C03/C09-C14/C16 combat effects and J02 reward gate PASS");
     }

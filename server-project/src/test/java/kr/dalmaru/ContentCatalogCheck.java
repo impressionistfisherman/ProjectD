@@ -49,7 +49,7 @@ public final class ContentCatalogCheck {
         var archived=ContentCatalog.parse(changed.toString());
         check(archived.encounter().mob("GUARD").health()==999&&kr.dalmaru.run.BeaconTowerMobs.group(archived,0).getFirst()==kr.dalmaru.run.BeaconTowerMobs.Kind.SOLDIER&&kr.dalmaru.run.BeaconTowerMobs.healthScale(archived,1)==2&&catalog.encounter().mob("GUARD").health()==330,"Archived encounter used current definitions");
         try{archived.encounter().groups().get(0).clear();throw new AssertionError("Mutable roster");}catch(UnsupportedOperationException expected){}
-        reject(source,root->root.addProperty("schemaVersion",2));reject(source,root->root.addProperty("enabled",false));
+        reject(source,root->root.addProperty("schemaVersion",3));reject(source,root->root.addProperty("enabled",false));
         reject(source,root->root.getAsJsonArray("skills").add(root.getAsJsonArray("skills").get(0).deepCopy()));
         reject(source,root->root.getAsJsonArray("skills").get(0).getAsJsonObject().addProperty("id","skill.unknown"));
         reject(source,root->root.getAsJsonArray("quests").get(0).getAsJsonObject().getAsJsonArray("itemRefs").add("pilot.unknown"));

@@ -216,3 +216,10 @@
 - Actual entry method pins catalog identity and rejects changed snapshot on same encounter; existing movement/ownership/death/reconnect/lifecycle regressions PASS. Minecraft world spawning/rendering/manual play not run.
 - New god review condition: actual DB legacy ACTIVE/PAUSED safe-fail + exact return coordinates/survival mode + account-owned ACK, existing reward17 copper/2 ironstone/1 token preserved; terminal completed/failed reads/finish unaffected. Final verifyRunContentSnapshot compileClientJava PASS29s after reward-preservation assertion; prior condition gate PASS34s. Migration rerun preserves pilot-1/NULL legacy row.
 - Final fixture accounts0/runs0/schema26. Production DB/PID/JAR/protocol/online-mode untouched; no world/dungeon entry. Creed/Jim S10b2 QA pending.
+
+## 2026-10-14 MDF-P1 S10c1
+- PASS --no-daemon verifyContentCatalog verifySkillPresentation verifyCombatConsistency verifyPremergeRuntime verifyRunContentSnapshot compileClientJava (26s, oscar_p1_fixture only for DB gate).
+- RED verifySkillContent (11s): empty display name accepted. Added blank/length validation; PASS verifySkillContent verifyContentCatalog compileClientJava (14s).
+-24 original names/descriptions/kinds/order, schema1 reference-only metadata fidelity, changed schema2 display/energy independence, immutable weapon list;12 invalid metadata/profession/kind/cost/cooldown/unlock/weapon/revision cases.
+- Extracted16 actual cast bodies and shared helper execute baseline energy/cooldown values, no duplicate charge, insufficient stamina, exact expiry and absent state. Existing actual UI max-rank/tooltip and runtime lifecycle/movement/death tests PASS.
+- No live packet exchange/GUI/world play or deployment; effect coefficient/per-run equipment and skill definition consumption remains subsequent slices. No schema SQL/protocol/production changes.

@@ -211,156 +211,172 @@ public final class CombatRuntime {
 		if (state != null) state.lastCombatTick = tick;
 	}
 	public SweepResult useSweep(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.warrior.sweep");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 20) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < sweepCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 20;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		sweepCooldowns.put(playerId, tick + 90);
+		sweepCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useAdvance(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.warrior.advance");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 20) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < advanceCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 20;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		advanceCooldowns.put(playerId, tick + 140);
+		advanceCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useRisingStrike(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.warrior.rising_strike");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 30) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < risingStrikeCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 30;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		risingStrikeCooldowns.put(playerId, tick + 180);
+		risingStrikeCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useBattleCry(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.warrior.battle_cry");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 25) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < battleCryCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 25;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		battleCryCooldowns.put(playerId, tick + 360);
+		battleCryCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult usePiercingShot(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.archer.piercing_shot");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 22) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < piercingShotCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 22;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		piercingShotCooldowns.put(playerId, tick + 100);
+		piercingShotCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useSpiritTalisman(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.mage.spirit_talisman");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 20) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < spiritTalismanCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 20;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		spiritTalismanCooldowns.put(playerId, tick + 80);
+		spiritTalismanCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useAmbush(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.rogue.ambush");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 22) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < ambushCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 22;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		ambushCooldowns.put(playerId, tick + 100);
+		ambushCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useRetreatShot(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.archer.retreat_shot");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 18) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < retreatShotCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 18;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		retreatShotCooldowns.put(playerId, tick + 140);
+		retreatShotCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useBindingTalisman(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.mage.binding_talisman");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 30) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < bindingTalismanCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 30;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		bindingTalismanCooldowns.put(playerId, tick + 240);
+		bindingTalismanCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useSmokeBomb(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.rogue.smoke_bomb");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 25) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < smokeBombCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 25;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		smokeBombCooldowns.put(playerId, tick + 320);
+		smokeBombCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useShackleStrike(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.rogue.shackle_strike");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 20) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < shackleStrikeCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 20;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		shackleStrikeCooldowns.put(playerId, tick + 140);
+		shackleStrikeCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useEscape(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.rogue.escape");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 20) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < escapeCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 20;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		escapeCooldowns.put(playerId, tick + 240);
+		escapeCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 
 	public SweepResult useTrackingMark(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.archer.tracking_mark");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 20) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < trackingMarkCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 20;
+		defenseState(playerId).attack();state.stamina -= definition.energy();
 
-		trackingMarkCooldowns.put(playerId, tick + 240);
+		trackingMarkCooldowns.put(playerId, tick + definition.cooldownTicks());
 		return SweepResult.USED;
 	}
 	public SweepResult useBindingShot(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.archer.binding_shot");
 		RuntimeState state = states.get(playerId);
 		if (state == null) return SweepResult.UNAVAILABLE;
-		if (state.stamina < 25) return SweepResult.STAMINA;
+		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < bindingShotCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= 25;  bindingShotCooldowns.put(playerId, tick + 280); return SweepResult.USED;
+		defenseState(playerId).attack();state.stamina -= definition.energy();  bindingShotCooldowns.put(playerId, tick + definition.cooldownTicks()); return SweepResult.USED;
 	}
-	public SweepResult useProtectiveTalisman(UUID playerId, long tick) { return use(playerId, tick, 35, 280, protectiveTalismanCooldowns); }
-	public SweepResult useShortStep(UUID playerId, long tick) { return use(playerId, tick, 25, 240, shortStepCooldowns); }
+	public SweepResult useProtectiveTalisman(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.mage.protective_talisman"); return use(playerId, tick, definition.energy(), definition.cooldownTicks(), protectiveTalismanCooldowns); }
+	public SweepResult useShortStep(UUID playerId, long tick) {
+        var definition=kr.dalmaru.content.ContentCatalog.current().skill("skill.mage.short_step"); return use(playerId, tick, definition.energy(), definition.cooldownTicks(), shortStepCooldowns); }
 	private SweepResult use(UUID playerId, long tick, int cost, long cooldown, Map<UUID, Long> cooldowns) {
 		RuntimeState state=states.get(playerId); if(state==null)return SweepResult.UNAVAILABLE; if(state.stamina<cost)return SweepResult.STAMINA; if(tick<cooldowns.getOrDefault(playerId,0L))return SweepResult.COOLDOWN; defenseState(playerId).attack();state.stamina-=cost;  cooldowns.put(playerId,tick+cooldown); return SweepResult.USED;
 	}

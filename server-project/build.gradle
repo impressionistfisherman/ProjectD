@@ -313,3 +313,4 @@ tasks.register('verifyOperationWire', JavaExec) { group = 'verification'; classp
 tasks.register('verifyRequestJournalResult', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RequestJournalResultCheck' }
 tasks.register('verifyContentCatalog', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ContentCatalogCheck' }
 tasks.register('verifyRunContentSnapshot', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunContentSnapshotCheck' }
+tasks.register('verifySkillContent', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.SkillContentCheck' }
