@@ -194,3 +194,10 @@
 - Before effect-definition extraction, found actual rank5 smoke90ticks vs specification80ticks and shackle80ticks vs specification60ticks. Corrected only duration interpolation; retain existing target filters/control mechanism/amplifier and binding skill behavior.
 - PASS combat consistency/server-client compile23s and diff check. Endpoints smoke50/80 and shackle40/60 plus timed control expiry tested; live vanilla event/GUI not tested.
 - O27 definitions/per-run consumers and later P1 stages still in progress. Separate correction commit, no DB/protocol/deployment change.
+
+## 2026-10-14 MDF-P1 S10c2
+-24 skill effect endpoint tables now validated schema3 content: damage/passive bonuses/health/stamina/shield/control/mark/movement values consumed by existing handlers. Geometry, target filters, immunity checks and ability kinds retained; no interpreter/new abilities.
+- schema1 reference and schema2 metadata snapshots retain fixed historical effects (smoke90/shackle80 at rank5); new schema3 uses corrected80/60. Existing metadata/numerical contracts preserved except prior separate duration correction.
+- Marks capture bonus/duration at cast rather than recalculating newer tuning. Shield API accepts explicit lifetime while old160tick adapter remains. Parameter maps immutable and capability keys exact; negative/decreasing/invalid timing/percent/movement values reject.
+- PASS skill metadata/effects/schema1-2,16 actual casts, catalog24 rejection cases, actual combat/protection/runtime/UI/DB snapshot gates and compile32s. No migration/protocol/production changes.
+- Per-run combat/equipment definition routing and other display metadata remain S10c3+ before O28. Missing posture model remains existing design limitation: rising strike preserves current knock-up behavior; no unrequested model fabricated. P1 PARTIAL/QA pending.

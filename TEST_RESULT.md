@@ -228,3 +228,9 @@
 - PASS --no-daemon verifyCombatConsistency compileClientJava23s: smoke rank1/5=50/80ticks; shackle40/60ticks; unchanged binding normal/elite-boss policies and effect expiry59/60.
 - Initial investigation wrongly inferred shackle reused archer control. Actual source uses a separate vanilla Slowness30+rank*10; corrected diagnosis and restored original binding callbacks/control signature before final23s gate. Intermediate17s gate not evidence of the final routing.
 - No DB/migration/protocol/live cast/human play. Effects data extraction follows; this correction changes the two rank-duration endpoints to match PILOT_CONTENT_SPEC.
+
+## 2026-10-14 MDF-P1 S10c2
+- Initial compile FAIL13s: escape lacked rank local after definition routing; added guarded server rank local. Next gate FAIL22s: protection fixture lacked shared skill accessor; included actual accessor.
+- PASS --no-daemon verifySkillContent verifyContentCatalog verifyCombatConsistency verifySkillPresentation verifyPremergeRuntime verifyRunContentSnapshot compileClientJava32s, diff check.
+-24 effect tables rank0/1/3/5 interpolate, capability key/malformed/decreasing/negative tables reject; historical schema1/schema2 smoke90/shackle80 preserved against schema3 corrected80/60. Changed stored mark bonus/duration ownership and39/40 expiry; explicit shield11/12 lifetime. Existing cast16 cost/cooldown/ownership, metadata12 invalid cases and4 new parameter cases PASS.
+- Actual world handlers compile and consume values, but live Minecraft damage/control/geometry/GUI not exercised. Definition accessor still current catalog until S10c3 pins combat/equipment lookup. No deployed DB/protocol/live state changes.

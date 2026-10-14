@@ -17,9 +17,11 @@ public final class ContentCatalog {
         public EncounterDefinition {mobs=Map.copyOf(mobs);groups=groups.stream().map(List::copyOf).toList();healthScales=List.copyOf(healthScales);damageScales=List.copyOf(damageScales);}
         public Mob mob(String kind){var value=mobs.get(kind);if(value==null||!value.enabled())throw new IllegalArgumentException("Unknown/disabled encounter mob");return value;}
     }
-    public record Skill(String id,String contentVersion,CharacterProfession profession,SkillDefinition.Kind kind,String name,String description,List<String> weaponProfiles,int unlockLevel,int skillPoints,int maxRank,int energy,int cooldownTicks){
-        public Skill {weaponProfiles=List.copyOf(weaponProfiles);}
+    public record Skill(String id,String contentVersion,CharacterProfession profession,SkillDefinition.Kind kind,String name,String description,List<String> weaponProfiles,int unlockLevel,int skillPoints,int maxRank,int energy,int cooldownTicks,Map<String,RankValue> parameters){
+        public Skill {weaponProfiles=List.copyOf(weaponProfiles);parameters=Map.copyOf(parameters);}
+        public double parameter(String key,int rank){var value=parameters.get(key);if(value==null)throw new IllegalArgumentException("Unknown skill parameter: "+key);return value.at(rank);}
     }
+    public record RankValue(double first,double last){public double at(int rank){return kr.dalmaru.combat.CombatRules.rank(first,last,rank);}}
     private final List<Skill> skillDefinitions;
     public List<Skill> skills(){return skillDefinitions;}
     public Skill skill(String id){return skillDefinitions.stream().filter(skill->skill.id().equals(id)).findFirst().orElseThrow(()->new IllegalArgumentException("Unknown skill: "+id));}
@@ -63,7 +65,7 @@ public final class ContentCatalog {
             if(source.length()>1_048_576)throw new IllegalArgumentException("Content snapshot exceeds size limit");
             var root=JsonParser.parseString(source).getAsJsonObject();
             int schema=integer(root,"schemaVersion");
-            if((schema!=1&&schema!=2)||!flag(root,"enabled"))throw new IllegalArgumentException("Unsupported/disabled content schema");
+            if((schema!=1&&schema!=2&&schema!=3)||!flag(root,"enabled"))throw new IllegalArgumentException("Unsupported/disabled content schema");
             String version=version(root,"contentVersion");Set<String> all=new HashSet<>(),skills=new HashSet<>(),knownSkills=new HashSet<>();
             if(schema==1&&!version.equals("pilot-j02-1"))throw new IllegalArgumentException("Unknown schema1 skill revision");
             knownSkills.addAll(SkillDefinition.capabilities().keySet());
@@ -73,7 +75,7 @@ public final class ContentCatalog {
                 var skill=entry.getAsJsonObject();String id=id(skill,"id");unique(all,id);
                 if(!knownSkills.contains(id)||!flag(skill,"enabled"))throw new IllegalArgumentException("Unsupported/disabled pilot skill: "+id);skills.add(id);
                 var definition=schema==1?legacy.get(id):skill;
-                if(definition==null)throw new IllegalArgumentException("Unknown legacy skill");skillDefinitions.add(parseSkill(definition,id));
+                if(definition==null)throw new IllegalArgumentException("Unknown legacy skill");skillDefinitions.add(parseSkill(definition,id,schema));
             }
             if(!skills.equals(knownSkills))throw new IllegalArgumentException("Pilot skill set is incomplete");
             var equipment=root.getAsJsonObject("equipment");var levels=integers(equipment,"levels");
@@ -161,8 +163,8 @@ public final class ContentCatalog {
             }catch(IOException error){throw new IllegalStateException("Cannot load schema1 skill definitions",error);}
         }
     }
-    private static Skill parseSkill(JsonObject source,String expectedId){
-        if(integer(source,"schemaVersion")!=1||!flag(source,"enabled")||!id(source,"id").equals(expectedId))throw new IllegalArgumentException("Invalid skill definition");
+    private static Skill parseSkill(JsonObject source,String expectedId,int bundleSchema){
+        if(integer(source,"schemaVersion")!=(bundleSchema==3?2:1)||!flag(source,"enabled")||!id(source,"id").equals(expectedId))throw new IllegalArgumentException("Invalid skill definition");
         var profession=CharacterProfession.valueOf(text(source,"profession"));var kind=SkillDefinition.Kind.valueOf(text(source,"kind"));
         if(SkillDefinition.capabilities().get(expectedId)!=profession||kind!=SkillDefinition.supportedKind(expectedId))throw new IllegalArgumentException("Unsupported skill profession/kind");
         var display=source.getAsJsonObject("display");var unlock=source.getAsJsonObject("unlock");var cast=source.getAsJsonObject("cast");
@@ -173,7 +175,18 @@ public final class ContentCatalog {
         var weaponProfiles=strings(source,"weaponProfiles");
         Set<String> allowed=switch(profession){case WARRIOR->Set.of("two_handed_sword","sword_shield");case ARCHER->Set.of("bow","crossbow");case MAGE->Set.of("fan","ritual_sword");case ROGUE->Set.of("dual_axes","pirate_sword");};
         if(weaponProfiles.isEmpty()||new HashSet<>(weaponProfiles).size()!=weaponProfiles.size()||!allowed.containsAll(weaponProfiles))throw new IllegalArgumentException("Invalid skill weapon compatibility");
-        return new Skill(expectedId,version(source,"contentVersion"),profession,kind,name,description,weaponProfiles,level,points,maxRank,energy,cooldown);
+        var baseline=LegacySkills.VALUE.get(expectedId).getAsJsonObject("parameters");
+        var parameterSource=bundleSchema==3?source.getAsJsonObject("parameters"):baseline;
+        if(parameterSource==null||!parameterSource.keySet().equals(baseline.keySet()))throw new IllegalArgumentException("Skill parameter set differs from capability");
+        var parameters=new LinkedHashMap<String,RankValue>();
+        for(var entry:parameterSource.entrySet()){
+            var pair=entry.getValue().getAsJsonArray();if(pair.size()!=2)throw new IllegalArgumentException("Invalid rank endpoints");
+            var wrapper=new JsonObject();wrapper.add("first",pair.get(0));wrapper.add("last",pair.get(1));
+            double first=number(wrapper,"first"),last=number(wrapper,"last");
+            if(first>1_000_000||last>1_000_000||last<first||entry.getKey().endsWith("Ticks")&&(first<1||first!=Math.rint(first)||last!=Math.rint(last))||entry.getKey().endsWith("Bonus")&&(first>1||last>1)||entry.getKey().endsWith("Slow")&&last>1||entry.getKey().equals("aimReduction")&&last>=1||entry.getKey().equals("movementBlocks")&&(first<1||last>16))throw new IllegalArgumentException("Invalid skill effect values");
+            parameters.put(entry.getKey(),new RankValue(first,last));
+        }
+        return new Skill(expectedId,version(source,"contentVersion"),profession,kind,name,description,weaponProfiles,level,points,maxRank,energy,cooldown,parameters);
     }
     private static void references(JsonObject source,Map<String,Item> items,Set<String> skills,Map<String,Quest> quests){
         for(String id:strings(source,"itemRefs"))if(!items.containsKey(id)||(flag(source,"enabled")&&!items.get(id).enabled()))throw new IllegalArgumentException("Unknown/disabled item reference: "+id);

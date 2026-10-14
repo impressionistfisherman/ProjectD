@@ -739,7 +739,7 @@ public final class DalmaruNetworking {
 				player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "횡참을 아직 사용할 수 없습니다."));
 				return;
 			}
-			float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * kr.dalmaru.combat.CombatRules.sweepMultiplier(rank));
+			float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.warrior.sweep").parameter("damageMultiplier",rank));
 			player.swing(InteractionHand.MAIN_HAND, true);
 			((ServerLevel) player.level()).sendParticles(ParticleTypes.SWEEP_ATTACK, player.getX(), player.getY() + 1.0, player.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
 			for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), target -> RUN_RUNTIME.mayTarget(player,target) && player.hasLineOfSight(target) && target.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
@@ -756,12 +756,12 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useAdvance(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "진격을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		RUN_RUNTIME.move(player,3,false);
+		RUN_RUNTIME.move(player,COMBAT.skill(player.getUUID(),"skill.warrior.advance").parameter("movementBlocks",rank),false);
 		player.hurtMarked = true;
 		player.swing(InteractionHand.MAIN_HAND, true);
 		((ServerLevel) player.level()).sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.35, 0.15, 0.35, 0.1);
 		player.playSound(SoundEvents.PLAYER_ATTACK_STRONG, 1.0F, 1.15F);
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.85 + (rank - 1) * 0.075));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.warrior.advance").parameter("damageMultiplier",rank));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) rpgSkillDamage(player, target, damage);
 	}
@@ -776,10 +776,10 @@ public final class DalmaruNetworking {
 		player.swing(InteractionHand.MAIN_HAND, true);
 		((ServerLevel) player.level()).sendParticles(ParticleTypes.CRIT, player.getX(), player.getY() + 1.0, player.getZ(), 20, 0.45, 0.7, 0.45, 0.15);
 		player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 1.0F, 0.9F);
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.25 + (rank - 1) * 0.1125));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.warrior.rising_strike").parameter("damageMultiplier",rank));
 		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.25)) {
 			rpgSkillDamage(player, target, damage);
-			target.setDeltaMovement(target.getDeltaMovement().x, 0.45 + rank * 0.05, target.getDeltaMovement().z);
+			target.setDeltaMovement(target.getDeltaMovement().x, COMBAT.skill(player.getUUID(),"skill.warrior.rising_strike").parameter("knockUpVelocity",rank), target.getDeltaMovement().z);
 			target.hurtMarked = true;
 		}
 	}
@@ -807,7 +807,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		for (int distance = 1; distance <= 12; distance++) level.sendParticles(ParticleTypes.CRIT, player.getX() + direction.x * distance, player.getY() + 1.4 + direction.y * distance, player.getZ() + direction.z * distance, 2, 0.03, 0.03, 0.03, 0.0);
 		player.playSound(SoundEvents.ARROW_SHOOT, 1.0F, 1.0F);
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.archer.piercing_shot").parameter("damageMultiplier",rank));
 		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
 	}
 
@@ -822,7 +822,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		for (int distance = 1; distance <= 10; distance++) level.sendParticles(ParticleTypes.ENCHANT, player.getX() + direction.x * distance, player.getY() + 1.4 + direction.y * distance, player.getZ() + direction.z * distance, 4, 0.08, 0.08, 0.08, 0.02);
 		player.playSound(SoundEvents.EVOKER_CAST_SPELL, 0.8F, 1.4F);
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.mage.spirit_talisman").parameter("damageMultiplier",rank));
 		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96)) rpgSkillDamage(player, target, damage);
 	}
 
@@ -834,16 +834,16 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useAmbush(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "급습을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		RUN_RUNTIME.move(player,3,false);
+		RUN_RUNTIME.move(player,COMBAT.skill(player.getUUID(),"skill.rogue.ambush").parameter("movementBlocks",rank),false);
 		player.hurtMarked = true;
 		player.swing(InteractionHand.MAIN_HAND, true);
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 18, 0.35, 0.2, 0.35, 0.04);
 		player.playSound(SoundEvents.PLAYER_ATTACK_CRIT, 0.9F, 1.4F);
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (1.15 + (rank - 1) * 0.10));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.rogue.ambush").parameter("damageMultiplier",rank));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) {
-			if (target.getLookAngle().normalize().dot(player.position().subtract(target.position()).normalize()) < 0) damage *= 1.2F;
+			if (target.getLookAngle().normalize().dot(player.position().subtract(target.position()).normalize()) < 0) damage *= (float)(1+COMBAT.skill(player.getUUID(),"skill.rogue.ambush").parameter("flankBonus",rank));
 			rpgSkillDamage(player, target, damage);
 		}
 	}
@@ -856,12 +856,12 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useRetreatShot(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "후퇴 사격을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		RUN_RUNTIME.move(player,3,true);
+		RUN_RUNTIME.move(player,COMBAT.skill(player.getUUID(),"skill.archer.retreat_shot").parameter("movementBlocks",rank),true);
 		player.hurtMarked = true;
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1.0, player.getZ(), 10, 0.3, 0.1, 0.3, 0.05);
 		player.playSound(SoundEvents.ARROW_SHOOT, 0.9F, 1.25F);
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.85 + (rank - 1) * 0.075));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.archer.retreat_shot").parameter("damageMultiplier",rank));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) rpgSkillDamage(player, target, damage);
 	}
@@ -875,7 +875,7 @@ public final class DalmaruNetworking {
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "속박부를 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
 		ServerLevel level = (ServerLevel) player.level();
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.70 + (rank - 1) * 0.0875));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.mage.binding_talisman").parameter("damageMultiplier",rank));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(10.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
 		if (target != null) {
 			rpgSkillDamage(player, target, damage);
@@ -895,7 +895,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 45, 1.2, 0.7, 1.2, 0.05);
 		player.playSound(SoundEvents.FIRE_EXTINGUISH, 1.0F, 0.7F);
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(5.0), entity -> hostileCombatEntity(player,entity))) target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, kr.dalmaru.combat.CombatRules.smokeTicks(rank), 0, false, true, true));
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(5.0), entity -> hostileCombatEntity(player,entity))) target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, (int)Math.round(COMBAT.skill(player.getUUID(),"skill.rogue.smoke_bomb").parameter("durationTicks",rank)), 0, false, true, true));
 	}
 
 	private static void useShackleStrike(ServerPlayer player) {
@@ -907,9 +907,9 @@ public final class DalmaruNetworking {
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "족쇄격을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
 		ServerLevel level = (ServerLevel) player.level();
-		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.90 + (rank - 1) * 0.10));
+		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * COMBAT.skill(player.getUUID(),"skill.rogue.shackle_strike").parameter("damageMultiplier",rank));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) { rpgSkillDamage(player, target, damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, kr.dalmaru.combat.CombatRules.shackleTicks(rank), 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
+		if (target != null) { rpgSkillDamage(player, target, damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, (int)Math.round(COMBAT.skill(player.getUUID(),"skill.rogue.shackle_strike").parameter("durationTicks",rank)), 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
 		player.playSound(SoundEvents.CHAIN_HIT, 0.9F, 0.9F);
 	}
 
@@ -920,7 +920,8 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useEscape(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "긴급 이탈을 아직 사용할 수 없습니다.")); return; }
 		var direction = player.getLookAngle().normalize();
-		RUN_RUNTIME.move(player,3,true);
+        int rank=state.skillRanks.get("skill.rogue.escape");
+        RUN_RUNTIME.move(player,COMBAT.skill(player.getUUID(),"skill.rogue.escape").parameter("movementBlocks",rank),true);
 		player.hurtMarked = true;
 		player.removeEffect(MobEffects.SLOWNESS);
 		((ServerLevel) player.level()).sendParticles(ParticleTypes.CLOUD, player.getX(), player.getY() + 1.0, player.getZ(), 18, 0.45, 0.15, 0.45, 0.05);
@@ -935,7 +936,7 @@ public final class DalmaruNetworking {
 		CombatRuntime.SweepResult result = COMBAT.useTrackingMark(player.getUUID(), currentTick);
 		if (result != CombatRuntime.SweepResult.USED) { player.sendSystemMessage(Component.literal(result == CombatRuntime.SweepResult.STAMINA ? "기력이 부족합니다." : "추적 표식을 아직 사용할 수 없습니다.")); return; }
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) { rpgSkillDamage(player,target,(float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*kr.dalmaru.combat.CombatRules.rank(.6,.9,rank)));COMBAT.effects().mark(player.getUUID(),target.getUUID(),rank,currentTick);COMBAT.recordValidHit(player,currentTick);target.addEffect(new MobEffectInstance(MobEffects.GLOWING,160,0,false,true,true)); ((ServerLevel) player.level()).sendParticles(ParticleTypes.GLOW, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.3, 0.5, 0.3, 0.02); player.playSound(SoundEvents.ARROW_HIT_PLAYER, 0.8F, 1.2F); }
+        if (target != null) { rpgSkillDamage(player,target,(float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*COMBAT.skill(player.getUUID(),"skill.archer.tracking_mark").parameter("damageMultiplier",rank)));COMBAT.effects().mark(player.getUUID(),target.getUUID(),rank,currentTick,COMBAT.skill(player.getUUID(),"skill.archer.tracking_mark"));COMBAT.recordValidHit(player,currentTick);target.addEffect(new MobEffectInstance(MobEffects.GLOWING,(int)Math.round(COMBAT.skill(player.getUUID(),"skill.archer.tracking_mark").parameter("markTicks",rank)),0,false,true,true)); ((ServerLevel) player.level()).sendParticles(ParticleTypes.GLOW, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.3, 0.5, 0.3, 0.02); player.playSound(SoundEvents.ARROW_HIT_PLAYER, 0.8F, 1.2F); }
 	}
 
 	private static void useBindingShot(ServerPlayer player) {
@@ -943,7 +944,7 @@ public final class DalmaruNetworking {
 		if (state == null || state.activeProfile == null || !"ARCHER".equals(state.activeProfile.profession()) || state.skillRanks.getOrDefault("skill.archer.binding_shot", 0) < 1) return;
 		if (COMBAT.useBindingShot(player.getUUID(), currentTick) != CombatRuntime.SweepResult.USED) return;
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(12.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(player.getLookAngle()) > 0.96).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) { int rank=state.skillRanks.get("skill.archer.binding_shot"); rpgSkillDamage(player, target, (float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*(.7+(rank-1)*.075))); COMBAT.control(player,target,controlKind(target),false,rank,currentTick); ((ServerLevel)player.level()).sendParticles(ParticleTypes.CRIT,target.getX(),target.getY()+1,target.getZ(),12,.2,.4,.2,.02); }
+		if (target != null) { int rank=state.skillRanks.get("skill.archer.binding_shot"); rpgSkillDamage(player, target, (float)(player.getAttributeValue(Attributes.ATTACK_DAMAGE)*COMBAT.skill(player.getUUID(),"skill.archer.binding_shot").parameter("damageMultiplier",rank))); COMBAT.control(player,target,controlKind(target),false,rank,currentTick); ((ServerLevel)player.level()).sendParticles(ParticleTypes.CRIT,target.getX(),target.getY()+1,target.getZ(),12,.2,.4,.2,.02); }
 		player.playSound(SoundEvents.ARROW_HIT, .9F, .8F);
 	}
 	private static void useProtectiveTalisman(ServerPlayer player) {
@@ -952,7 +953,7 @@ public final class DalmaruNetworking {
 	}
 	private static void useShortStep(ServerPlayer player) {
 		ConnectionState state=CONNECTIONS.get(player.getUUID()); if(state==null||state.activeProfile==null||!"MAGE".equals(state.activeProfile.profession())||state.skillRanks.getOrDefault("skill.mage.short_step",0)<1||COMBAT.useShortStep(player.getUUID(),currentTick)!=CombatRuntime.SweepResult.USED)return;
-		var d=player.getLookAngle().normalize(); RUN_RUNTIME.move(player,5,false); player.hurtMarked=true; ((ServerLevel)player.level()).sendParticles(ParticleTypes.PORTAL,player.getX(),player.getY()+1,player.getZ(),24,.4,.5,.4,.08); player.playSound(SoundEvents.ENDERMAN_TELEPORT,.8F,1.3F);
+		int rank=state.skillRanks.get("skill.mage.short_step"); var d=player.getLookAngle().normalize(); RUN_RUNTIME.move(player,COMBAT.skill(player.getUUID(),"skill.mage.short_step").parameter("movementBlocks",rank),false); player.hurtMarked=true; ((ServerLevel)player.level()).sendParticles(ParticleTypes.PORTAL,player.getX(),player.getY()+1,player.getZ(),24,.4,.5,.4,.08); player.playSound(SoundEvents.ENDERMAN_TELEPORT,.8F,1.3F);
 	}
 
     private static void sendRunReviveState(ServerPlayer player){

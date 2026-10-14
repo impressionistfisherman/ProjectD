@@ -4,7 +4,7 @@ import java.util.*;
 
 /** Server tick based effects; values stay in RPG units until the final engine conversion. */
 public final class CombatEffects {
-    private record Mark(UUID target,int rank,long until) {}
+    private record Mark(UUID target,double bonus,long until) {}
     private record Control(String source,double slow,long until) {}
     private static final class Shield {
         final String source;final long order;long until;double remaining;
@@ -16,12 +16,16 @@ public final class CombatEffects {
     private long sequence;
 
     public void mark(UUID caster,UUID target,int rank,long tick) {
+        mark(caster,target,rank,tick,kr.dalmaru.content.ContentCatalog.current().skill("skill.archer.tracking_mark"));
+    }
+    public void mark(UUID caster,UUID target,int rank,long tick,kr.dalmaru.content.ContentCatalog.Skill definition) {
         if(rank<1||rank>5)throw new IllegalArgumentException("Invalid mark rank.");
-        marks.put(caster,new Mark(target,rank,tick+160));
+        if(!definition.id().equals("skill.archer.tracking_mark"))throw new IllegalArgumentException("Wrong mark definition.");
+        marks.put(caster,new Mark(target,definition.parameter("markBonus",rank),Math.addExact(tick,Math.round(definition.parameter("markTicks",rank)))));
     }
     public double markBonus(UUID caster,UUID target,long tick) {
         Mark mark=marks.get(caster);
-        return mark!=null&&mark.until>tick&&mark.target.equals(target)?CombatRules.rank(.04,.12,mark.rank):0;
+        return mark!=null&&mark.until>tick&&mark.target.equals(target)?mark.bonus:0;
     }
     public void control(UUID target,String source,double slow,long until) {
         if(!Double.isFinite(slow)||slow<0||slow>1)throw new IllegalArgumentException("Invalid slow.");
@@ -41,6 +45,11 @@ public final class CombatEffects {
         if(strongest==null)return false;effects.remove(strongest);return true;
     }
     public double shield(UUID target,String source,double amount,double maximumHealth,long tick) {
+        return shield(target,source,amount,maximumHealth,tick,160);
+    }
+    public double shield(UUID target,String source,double amount,double maximumHealth,long tick,long duration) {
+        if(duration<1)throw new IllegalArgumentException("Invalid shield duration.");
+        long until=Math.addExact(tick,duration);
         if(!Double.isFinite(amount)||amount<0||!Double.isFinite(maximumHealth)||maximumHealth<=0)throw new IllegalArgumentException("Invalid shield.");
         var effects=shields.computeIfAbsent(target,id->new ArrayList<>());expireShields(effects,tick);
         Shield same=effects.stream().filter(effect->effect.source.equals(source)).findFirst().orElse(null);
@@ -49,8 +58,8 @@ public final class CombatEffects {
         double others=effects.stream().filter(effect->effect!=same).mapToDouble(effect->effect.remaining).sum();
         double accepted=others==0?amount:Math.min(amount,Math.max(0,maximumHealth*.30-others));
         if(same!=null&&accepted<prior)return 0;
-        if(same!=null){same.remaining=accepted;same.until=tick+160;}
-        else if(accepted>0)effects.add(new Shield(source,accepted,tick+160,sequence++));
+        if(same!=null){same.remaining=accepted;same.until=until;}
+        else if(accepted>0)effects.add(new Shield(source,accepted,until,sequence++));
         return Math.max(0,accepted-prior);
     }
     public double absorb(UUID target,double damage,long tick) {

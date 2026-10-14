@@ -1,11 +1,11 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "contentVersion": "pilot-j02-1",
   "enabled": true,
   "skills": [
     {
       "id": "skill.warrior.sweep",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "횡참",
@@ -26,11 +26,17 @@
       "cast": {
         "energy": 20,
         "cooldownTicks": 90
+      },
+      "parameters": {
+        "damageMultiplier": [
+          1.1,
+          1.5
+        ]
       }
     },
     {
       "id": "skill.warrior.advance",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "진격",
@@ -51,11 +57,21 @@
       "cast": {
         "energy": 20,
         "cooldownTicks": 140
+      },
+      "parameters": {
+        "damageMultiplier": [
+          0.85,
+          1.15
+        ],
+        "movementBlocks": [
+          3,
+          3
+        ]
       }
     },
     {
       "id": "skill.warrior.rising_strike",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "승룡격",
@@ -76,11 +92,21 @@
       "cast": {
         "energy": 30,
         "cooldownTicks": 180
+      },
+      "parameters": {
+        "damageMultiplier": [
+          1.25,
+          1.7
+        ],
+        "knockUpVelocity": [
+          0.5,
+          0.7
+        ]
       }
     },
     {
       "id": "skill.warrior.battle_cry",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "기합",
@@ -101,11 +127,17 @@
       "cast": {
         "energy": 25,
         "cooldownTicks": 360
+      },
+      "parameters": {
+        "resistanceTicks": [
+          40,
+          80
+        ]
       }
     },
     {
       "id": "skill.warrior.body_training",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "신체 단련",
@@ -126,11 +158,17 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "maximumHealth": [
+          30,
+          130
+        ]
       }
     },
     {
       "id": "skill.warrior.martial_mastery",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "무예 숙련",
@@ -151,11 +189,17 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "damageBonus": [
+          0.04,
+          0.12
+        ]
       }
     },
     {
       "id": "skill.archer.piercing_shot",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "관통 사격",
@@ -176,11 +220,17 @@
       "cast": {
         "energy": 22,
         "cooldownTicks": 100
+      },
+      "parameters": {
+        "damageMultiplier": [
+          1.15,
+          1.55
+        ]
       }
     },
     {
       "id": "skill.archer.retreat_shot",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "후퇴 사격",
@@ -201,11 +251,21 @@
       "cast": {
         "energy": 18,
         "cooldownTicks": 140
+      },
+      "parameters": {
+        "damageMultiplier": [
+          0.85,
+          1.15
+        ],
+        "movementBlocks": [
+          3,
+          3
+        ]
       }
     },
     {
       "id": "skill.archer.tracking_mark",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "추적 표식",
@@ -226,11 +286,25 @@
       "cast": {
         "energy": 20,
         "cooldownTicks": 240
+      },
+      "parameters": {
+        "damageMultiplier": [
+          0.6,
+          0.9
+        ],
+        "markBonus": [
+          0.04,
+          0.12
+        ],
+        "markTicks": [
+          160,
+          160
+        ]
       }
     },
     {
       "id": "skill.archer.binding_shot",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "속박 사격",
@@ -251,11 +325,33 @@
       "cast": {
         "energy": 25,
         "cooldownTicks": 280
+      },
+      "parameters": {
+        "damageMultiplier": [
+          0.7,
+          1
+        ],
+        "normalTicks": [
+          30,
+          50
+        ],
+        "normalSlow": [
+          0.45,
+          0.45
+        ],
+        "restrictedTicks": [
+          20,
+          20
+        ],
+        "restrictedSlow": [
+          0.15,
+          0.15
+        ]
       }
     },
     {
       "id": "skill.archer.breath_control",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "호흡 조절",
@@ -276,11 +372,17 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "aimReduction": [
+          0.05,
+          0.2
+        ]
       }
     },
     {
       "id": "skill.archer.bow_crossbow_mastery",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "궁노 숙련",
@@ -301,11 +403,17 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "damageBonus": [
+          0.04,
+          0.12
+        ]
       }
     },
     {
       "id": "skill.mage.spirit_talisman",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "영부",
@@ -326,11 +434,17 @@
       "cast": {
         "energy": 20,
         "cooldownTicks": 80
+      },
+      "parameters": {
+        "damageMultiplier": [
+          1.15,
+          1.55
+        ]
       }
     },
     {
       "id": "skill.mage.binding_talisman",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "속박부",
@@ -351,11 +465,33 @@
       "cast": {
         "energy": 30,
         "cooldownTicks": 240
+      },
+      "parameters": {
+        "damageMultiplier": [
+          0.7,
+          1.05
+        ],
+        "normalTicks": [
+          40,
+          60
+        ],
+        "normalSlow": [
+          1,
+          1
+        ],
+        "restrictedTicks": [
+          40,
+          40
+        ],
+        "restrictedSlow": [
+          0.3,
+          0.3
+        ]
       }
     },
     {
       "id": "skill.mage.protective_talisman",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "호신부",
@@ -376,11 +512,25 @@
       "cast": {
         "energy": 35,
         "cooldownTicks": 280
+      },
+      "parameters": {
+        "shieldBase": [
+          70,
+          130
+        ],
+        "shieldAttackMultiplier": [
+          0.8,
+          1.4
+        ],
+        "shieldTicks": [
+          160,
+          160
+        ]
       }
     },
     {
       "id": "skill.mage.short_step",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "축지",
@@ -401,11 +551,17 @@
       "cast": {
         "energy": 25,
         "cooldownTicks": 240
+      },
+      "parameters": {
+        "movementBlocks": [
+          5,
+          5
+        ]
       }
     },
     {
       "id": "skill.mage.breath_meditation",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "운기조식",
@@ -426,11 +582,17 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "staminaRegeneration": [
+          0.4,
+          2
+        ]
       }
     },
     {
       "id": "skill.mage.talisman_mastery",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "부적 숙련",
@@ -451,11 +613,17 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "damageBonus": [
+          0.04,
+          0.12
+        ]
       }
     },
     {
       "id": "skill.rogue.ambush",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "급습",
@@ -476,11 +644,25 @@
       "cast": {
         "energy": 22,
         "cooldownTicks": 100
+      },
+      "parameters": {
+        "damageMultiplier": [
+          1.15,
+          1.55
+        ],
+        "movementBlocks": [
+          3,
+          3
+        ],
+        "flankBonus": [
+          0.2,
+          0.2
+        ]
       }
     },
     {
       "id": "skill.rogue.smoke_bomb",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "연막탄",
@@ -501,11 +683,17 @@
       "cast": {
         "energy": 25,
         "cooldownTicks": 320
+      },
+      "parameters": {
+        "durationTicks": [
+          50,
+          80
+        ]
       }
     },
     {
       "id": "skill.rogue.shackle_strike",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "족쇄격",
@@ -526,11 +714,21 @@
       "cast": {
         "energy": 20,
         "cooldownTicks": 140
+      },
+      "parameters": {
+        "damageMultiplier": [
+          0.9,
+          1.3
+        ],
+        "durationTicks": [
+          40,
+          60
+        ]
       }
     },
     {
       "id": "skill.rogue.escape",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "긴급 이탈",
@@ -551,11 +749,17 @@
       "cast": {
         "energy": 20,
         "cooldownTicks": 240
+      },
+      "parameters": {
+        "movementBlocks": [
+          3,
+          3
+        ]
       }
     },
     {
       "id": "skill.rogue.evasive_motion",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "회피 기동",
@@ -576,11 +780,21 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "speedBonus": [
+          0.1,
+          0.25
+        ],
+        "durationTicks": [
+          40,
+          40
+        ]
       }
     },
     {
       "id": "skill.rogue.expose_weakness",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "contentVersion": "pilot-1",
       "display": {
         "name": "허점 간파",
@@ -601,6 +815,12 @@
       "cast": {
         "energy": 0,
         "cooldownTicks": 0
+      },
+      "parameters": {
+        "damageBonus": [
+          0.04,
+          0.12
+        ]
       }
     }
   ],
