@@ -10,6 +10,10 @@ import kr.dalmaru.combat.DefenseState;
 
 public final class CombatConsistencyCheck {
     public static void main(String[]args)throws Exception {
+        protectionTimerBoundary();
+        require(!CombatRules.hostileAction(true,false,false,false),"R6 environment/non-hostile action");
+        require(CombatRules.hostileAction(true,true,false,false)&&CombatRules.hostileAction(true,false,true,false)&&CombatRules.hostileAction(true,false,false,true),"R6 monster/aggro/run action");
+        require(!CombatRules.hostileAction(false,true,true,true),"R6 party/player/cross-run boundary");
         require(CombatRules.remainingModeTicks(true,0,300,100)==200&&CombatRules.remainingModeTicks(true,0,300,200)==100,"R10 manual field countdown");
         require(CombatRules.remainingModeTicks(true,0,300,300)==0&&CombatRules.remainingModeTicks(true,0,0,100)==0,"R10 expiry and cancellation");
         require(CombatRules.remainingModeTicks(true,150,300,200)==150&&CombatRules.remainingModeTicks(true,50,300,200)==100,"R10 latest automatic/manual expiry wins");
@@ -72,6 +76,41 @@ public final class CombatConsistencyCheck {
             try(var loader=new URLClassLoader(new java.net.URL[]{temp.toUri().toURL()},ClassLoader.getPlatformClassLoader())){loader.loadClass("CombatProof").getMethod("check").invoke(null);}
         }finally{try(var paths=Files.walk(temp)){for(Path file:paths.sorted(java.util.Comparator.reverseOrder()).toList())Files.delete(file);}}
         System.out.println("C02/C03/C09-C14/C16 combat effects and J02 reward gate PASS");
+    }
+    private static void protectionTimerBoundary()throws Exception{
+        String source=Files.readString(Path.of("src/main/java/kr/dalmaru/combat/CombatRuntime.java"));
+        String body=method(source,"public double protect(").replace("net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD","\"bypass\"");
+        String fixture="""
+            import java.util.*;
+            import kr.dalmaru.combat.DefenseState;
+            import kr.dalmaru.combat.CombatEffects;
+            public class ProtectionProof {
+                static class Vec { Vec normalize(){return this;} Vec subtract(Vec v){return this;} double dot(Vec v){return 1;} }
+                static class ServerPlayer { final UUID id=UUID.randomUUID();UUID getUUID(){return id;} Vec getLookAngle(){return new Vec();} Vec position(){return new Vec();} }
+                static class DamageSource { Object entity;DamageSource(Object e){entity=e;} Object getEntity(){return entity;} Vec getSourcePosition(){return new Vec();} boolean is(Object tag){return false;} }
+                DefenseState defense=new DefenseState();CombatEffects effects=new CombatEffects();Map<UUID,Long> evasiveUntil=new HashMap<>();int hits;
+                DefenseState defenseState(UUID id){return defense;}boolean hasShield(UUID id){return true;}boolean resistsStagger(UUID id,long tick){return false;}
+                void recordValidHit(ServerPlayer p,long t){hits++;}void movementEffects(ServerPlayer p,long t){}
+                /* METHOD */
+                static void checkCase(boolean valid)throws Exception{
+                    var p=new ServerPlayer();var source=new DamageSource(new Object());
+                    var proof=new ProtectionProof();proof.defense.guard(true,0);
+                    if(proof.protect(p,source,100,0,valid)!=0||proof.hits!=(valid?1:0))throw new AssertionError("R6 full guard timer");
+                    proof=new ProtectionProof();proof.defense.dodge(0,true);
+                    if(proof.protect(p,source,100,1,valid)!=0||proof.hits!=(valid?1:0)||proof.evasiveUntil.containsKey(p.id)!=valid)throw new AssertionError("R6 dodge/environment timer or passive");
+                    proof=new ProtectionProof();proof.effects.shield(p.id,"shield",100,1000,0);
+                    if(proof.protect(p,source,100,1,valid)!=0||proof.hits!=(valid?1:0))throw new AssertionError("R6 full shield timer");
+                    proof=new ProtectionProof();if(proof.protect(p,source,0,1,valid)!=0||proof.hits!=0)throw new AssertionError("R6 zero damage timer");
+                }
+                public static void check()throws Exception{checkCase(false);checkCase(true);}
+            }
+            """.replace("/* METHOD */",body);
+        Path temp=Files.createTempDirectory("dalmaru-protection-proof");
+        try{
+            Path file=temp.resolve("ProtectionProof.java");Files.writeString(file,fixture);
+            require(ToolProvider.getSystemJavaCompiler().run(null,null,null,"-classpath",System.getProperty("java.class.path"),"-d",temp.toString(),file.toString())==0,"R6 protection fixture compilation");
+            try(var loader=new URLClassLoader(new java.net.URL[]{temp.toUri().toURL()},CombatConsistencyCheck.class.getClassLoader())){loader.loadClass("ProtectionProof").getMethod("check").invoke(null);}
+        }finally{try(var paths=Files.walk(temp)){for(Path p:paths.sorted(java.util.Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}
     }
     private static String method(String s,String signature){int start=s.indexOf(signature),open=s.indexOf('{',start),end=open+1,depth=1;for(;depth>0;end++){char c=s.charAt(end);if(c=='{')depth++;else if(c=='}')depth--;}return s.substring(start,end);}
     private static void require(boolean ok,String message){if(!ok)throw new AssertionError(message);}

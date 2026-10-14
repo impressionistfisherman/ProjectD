@@ -3,6 +3,9 @@ package kr.dalmaru.combat;
 /** Pilot rank values shared by server effects and deterministic checks. */
 public final class CombatRules {
     private CombatRules() {}
+    public static boolean hostileAction(boolean allowedTarget,boolean monster,boolean attacksPlayer,boolean runMob) {
+        return allowedTarget&&(monster||attacksPlayer||runMob);
+    }
     public static int remainingModeTicks(boolean field,int combatTicks,long manualUntil,long tick) {
         return field?Math.max(Math.max(0,combatTicks),(int)Math.clamp(manualUntil-tick,0,200)):0;
     }

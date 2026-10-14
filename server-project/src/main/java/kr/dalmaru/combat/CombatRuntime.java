@@ -46,15 +46,16 @@ public final class CombatRuntime {
         double bonus=evasiveUntil.getOrDefault(player.getUUID(),0L)>tick?CombatRules.rank(.10,.25,rank(player.getUUID(),"skill.rogue.evasive_motion")):0;
         if(bonus>0)speed.addOrUpdateTransientModifier(new AttributeModifier(EVASIVE_SPEED,bonus,AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));else speed.removeModifier(EVASIVE_SPEED);
     }
-    public double protect(ServerPlayer player,DamageSource source,double damage,long tick){
+    public double protect(ServerPlayer player,DamageSource source,double damage,long tick,boolean validCombat){
         var defense=defenseState(player.getUUID());
-        if(defense.dodgeImmune(tick)&&damage>0)evasiveUntil.put(player.getUUID(),tick+40);
+        if(validCombat&&defense.dodgeImmune(tick)&&damage>0)evasiveUntil.put(player.getUUID(),tick+40);
         var origin=source.getSourcePosition();boolean front=origin!=null&&player.getLookAngle().normalize().dot(origin.subtract(player.position()).normalize())>=.5;
         boolean blockable=source.getEntity()!=null&&!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD);
         double cost=damage>=180?60:damage>=130?40:damage>=100?20:10;
         double reduced=defense.reduce(damage,tick,blockable,front,hasShield(player.getUUID()),cost,resistsStagger(player.getUUID(),tick));
-        if(damage>0&&reduced<damage){recordValidHit(player,tick);if(source.getEntity() instanceof ServerPlayer attacker)recordValidHit(attacker,tick);}
-        movementEffects(player,tick);return effects.absorb(player.getUUID(),reduced,tick);
+        reduced=effects.absorb(player.getUUID(),reduced,tick);
+        if(validCombat&&damage>0&&reduced<damage){recordValidHit(player,tick);if(source.getEntity() instanceof ServerPlayer attacker)recordValidHit(attacker,tick);}
+        movementEffects(player,tick);return reduced;
     }
     public void ranks(UUID player,Map<String,Integer> ranks){skillRanks.put(player,Map.copyOf(ranks));}
     private int rank(UUID player,String id){return skillRanks.getOrDefault(player,Map.of()).getOrDefault(id,0);}

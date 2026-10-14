@@ -166,3 +166,9 @@
 - PASS: --no-daemon verifyCombatConsistency compileClientJava (17s; compileJava/testClasses executed).
 - R10 cases: 200-tick manual entry, decay, expiry/cancel, automatic/manual overlap, fixed-mode suppression, expired long-tick deadline.
 - PASS: git diff --check. No live server/DB access, dungeon entry, M8Oscar use, or migration. No GUI/manual play verification; independent QA pending. Single-use Gradle daemon exits after build.
+
+## 2026-10-14 MDF-P1 S02/R6
+- PASS: --no-daemon verifyCombatConsistency compileClientJava (11s; compileJava/testClasses included).
+- Hostile classification covers monster, targeted neutral, run-tagged entity and denied domain/passive/environment policy.
+- Actual protect method extracted into a fixture with real DefenseState/CombatEffects: valid/invalid full guard, dodge/passive, shield absorption, zero damage (8 cases). Existing combat and S01 checks preserved.
+- PASS: git diff --check. No live damage/event invocation, server/DB use, M8Oscar or dungeon entry; independent QA pending. No migration.
