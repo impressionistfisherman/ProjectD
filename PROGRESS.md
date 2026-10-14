@@ -207,3 +207,10 @@
 - PilotEquipment overload consumes supplied item/bonus/enhancement tables. Existing party entry installs all runtime owners then refreshes profiles with existing health/stamina-ratio preservation; field equip API remains current catalog.
 - PASS actual provider-backed16 casts, archived energy21 vs current20, actual run pin/changed rejection/closed fallback, archived item+bonus+scale stats77/6 vs current69/4, combat/runtime/catalog/DB gates and compile26s.
 - No migration/protocol/production changes. Remaining O27 common display metadata/validation before O28; P1 PARTIAL and independent QA pending. Live world/profile attribute installation not tested.
+
+## 2026-10-15 MDF-P1 S10c4
+- Common ID/schema/revision/display/enabled metadata validated for bundle/equipment templates/quest/run/mob/enhancement;69 generated equipment labels and quest/run UI use catalog display. Unknown/legacy item IDs retain original labels.
+- schema4 expands metadata while schemas1-3 retain old display behavior. New content revision pilot-j02-2 and corrected smoke/shackle skill revisions pilot-2 distinguish changed definitions from historical pilot-j02-1; legacy rows/snapshots untouched and quest pilot-1 retained.
+- Reject duplicate/missing/blank/mismatched metadata, unsupported critical-table/part disable and skill weapon subset unsupported by current handlers. GUI quest fixed width360 overflow at320x180 replaced with existing adaptive-width pattern.
+- PASS definitions30 invalid cases/skill metadata-effects-archive/server-client compile, DB version/archive/immutability, actual five screen layouts320x180~960x540. Fixture accounts0/runs0.
+- O27 code slices complete for assigned J02 definition/version/display scope; independent QA pending. O28 next, then M08/M11/M12/M13/M14. Whole P1 PARTIAL; existing posture-model limitation recorded separately.

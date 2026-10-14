@@ -21,11 +21,11 @@ public final class RunContentSnapshotCheck {
             var repository=new RunRepository();
             var run=repository.enter(account,session.connectionGeneration(),3,RunDifficulty.FIRST_STEP,List.of(character));ownedRuns.add(run.runId());
             var frozen=repository.frozenContent(run.runId());
-            check(frozen.version().equals("pilot-j02-1")&&frozen.items().equals(ContentCatalog.current().items()),"New snapshot differs");
+            check(frozen.version().equals("pilot-j02-2")&&frozen.items().equals(ContentCatalog.current().items()),"New snapshot differs");
             var replay=repository.enter(account,session.connectionGeneration(),3,RunDifficulty.FIRST_STEP,List.of(character));
             check(replay.replayed()&&replay.runId().equals(run.runId())&&repository.frozenContent(run.runId()).snapshot().equals(frozen.snapshot()),"Replay changed content");
             execute("UPDATE dalmaru.run_instances SET state='PAUSED' WHERE run_id=?",run.runId());
-            rejectSql(()->execute("UPDATE dalmaru.run_instances SET content_version='pilot-j02-2' WHERE run_id=?",run.runId()));
+            rejectSql(()->execute("UPDATE dalmaru.run_instances SET content_version='pilot-j02-3' WHERE run_id=?",run.runId()));
             rejectSql(()->execute("UPDATE dalmaru.run_instances SET content_snapshot='{}'::jsonb WHERE run_id=?",run.runId()));
             rejectSql(()->execute("UPDATE dalmaru.run_instances SET content_id='run.changed' WHERE run_id=?",run.runId()));
             UUID legacy=UUID.randomUUID();ownedRuns.add(legacy);insert(legacy,null,null);
@@ -50,9 +50,9 @@ public final class RunContentSnapshotCheck {
             try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement("SELECT content_version,content_snapshot FROM dalmaru.run_instances WHERE run_id=?")){
                 q.setObject(1,legacy);try(var row=q.executeQuery()){check(row.next()&&row.getString(1).equals("pilot-1")&&row.getString(2)==null,"Migration stamped legacy content");}
             }
-            var next=JsonParser.parseString(frozen.snapshot()).getAsJsonObject();next.addProperty("contentVersion","pilot-j02-2");next.getAsJsonArray("runs").get(0).getAsJsonObject().addProperty("version","pilot-j02-2");
+            var next=JsonParser.parseString(frozen.snapshot()).getAsJsonObject();next.addProperty("contentVersion","pilot-j02-3");next.getAsJsonArray("runs").get(0).getAsJsonObject().addProperty("version","pilot-j02-3");next.getAsJsonArray("runs").get(0).getAsJsonObject().addProperty("contentVersion","pilot-j02-3");
             next.getAsJsonObject("equipment").getAsJsonArray("weapons").get(0).getAsJsonObject().getAsJsonArray("attack").set(0,new com.google.gson.JsonPrimitive(42));
-            UUID archived=UUID.randomUUID();ownedRuns.add(archived);insert(archived,"pilot-j02-2",next.toString());
+            UUID archived=UUID.randomUUID();ownedRuns.add(archived);insert(archived,"pilot-j02-3",next.toString());
             check(repository.frozenContent(archived).items().get("pilot.weapon.two_handed_sword.10").attack()==42&&repository.frozenContent(run.runId()).items().get("pilot.weapon.two_handed_sword.10").attack()==41,"Frozen reader used current bundle");
             UUID mismatch=UUID.randomUUID();ownedRuns.add(mismatch);insert(mismatch,"pilot-j02-1",next.toString());reject(()->repository.frozenContent(mismatch));
             rejectSql(()->insert(UUID.randomUUID(),"pilot-j02-1","[]"));

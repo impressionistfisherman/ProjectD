@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 3,
-  "contentVersion": "pilot-j02-1",
+  "schemaVersion": 4,
+  "contentVersion": "pilot-j02-2",
   "enabled": true,
   "skills": [
     {
@@ -663,7 +663,7 @@
     {
       "id": "skill.rogue.smoke_bomb",
       "schemaVersion": 2,
-      "contentVersion": "pilot-1",
+      "contentVersion": "pilot-2",
       "display": {
         "name": "연막탄",
         "description": "기력 25 / 재사용 16초 / 1~5랭크: 일반 원거리 적의 새 조준 차단 2.5 → 4초"
@@ -694,7 +694,7 @@
     {
       "id": "skill.rogue.shackle_strike",
       "schemaVersion": 2,
-      "contentVersion": "pilot-1",
+      "contentVersion": "pilot-2",
       "display": {
         "name": "족쇄격",
         "description": "기력 20 / 재사용 7초 / 1~5랭크: 물리 90% → 130%, 일반 적 둔화 2 → 3초"
@@ -862,7 +862,13 @@
         "basicTicks": 20,
         "magical": false,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 양손검",
+          "description": "훈련 양손검 시험 정의"
+        }
       },
       {
         "id": "sword_shield",
@@ -875,7 +881,13 @@
         "basicTicks": 16,
         "magical": false,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 검·방패",
+          "description": "훈련 검·방패 시험 정의"
+        }
       },
       {
         "id": "bow",
@@ -888,7 +900,13 @@
         "basicTicks": 18,
         "magical": false,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 활",
+          "description": "훈련 활 시험 정의"
+        }
       },
       {
         "id": "crossbow",
@@ -901,7 +919,13 @@
         "basicTicks": 30,
         "magical": false,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 석궁",
+          "description": "훈련 석궁 시험 정의"
+        }
       },
       {
         "id": "fan",
@@ -914,7 +938,13 @@
         "basicTicks": 20,
         "magical": true,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 부채",
+          "description": "훈련 부채 시험 정의"
+        }
       },
       {
         "id": "ritual_sword",
@@ -927,7 +957,13 @@
         "basicTicks": 18,
         "magical": true,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 의식검",
+          "description": "훈련 의식검 시험 정의"
+        }
       },
       {
         "id": "dual_axes",
@@ -940,7 +976,13 @@
         "basicTicks": 10,
         "magical": false,
         "basicMultiplier": 0.55,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 쌍도끼",
+          "description": "훈련 쌍도끼 시험 정의"
+        }
       },
       {
         "id": "pirate_sword",
@@ -953,7 +995,13 @@
         "basicTicks": 16,
         "magical": false,
         "basicMultiplier": 1,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "훈련 해적검",
+          "description": "훈련 해적검 시험 정의"
+        }
       }
     ],
     "armor": [
@@ -969,7 +1017,13 @@
           38,
           50
         ],
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "중갑",
+          "description": "중갑 시험 정의"
+        }
       },
       {
         "id": "light",
@@ -983,7 +1037,13 @@
           60,
           80
         ],
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "경갑",
+          "description": "경갑 시험 정의"
+        }
       },
       {
         "id": "cloth",
@@ -997,48 +1057,108 @@
           75,
           100
         ],
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "천갑",
+          "description": "천갑 시험 정의"
+        }
       }
     ],
     "parts": [
       {
         "id": "head",
         "slot": 2,
-        "share": 0.2
+        "share": 0.2,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "enabled": true,
+        "display": {
+          "name": "머리",
+          "description": "머리 시험 정의"
+        }
       },
       {
         "id": "body",
         "slot": 3,
-        "share": 0.4
+        "share": 0.4,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "enabled": true,
+        "display": {
+          "name": "몸통",
+          "description": "몸통 시험 정의"
+        }
       },
       {
         "id": "arms",
         "slot": 4,
-        "share": 0.2
+        "share": 0.2,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "enabled": true,
+        "display": {
+          "name": "팔",
+          "description": "팔 시험 정의"
+        }
       },
       {
         "id": "feet",
         "slot": 5,
-        "share": 0.2
+        "share": 0.2,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "enabled": true,
+        "display": {
+          "name": "발",
+          "description": "발 시험 정의"
+        }
       }
     ],
     "accessories": [
       {
         "id": "neck",
         "slot": 6,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "목걸이",
+          "description": "목걸이 시험 정의"
+        }
       },
       {
         "id": "ring",
         "slot": 7,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "반지",
+          "description": "반지 시험 정의"
+        }
       },
       {
         "id": "charm",
         "slot": 8,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-1",
+        "display": {
+          "name": "부적",
+          "description": "부적 시험 정의"
+        }
       }
-    ]
+    ],
+    "id": "equipment.pilot",
+    "schemaVersion": 1,
+    "contentVersion": "pilot-1",
+    "enabled": true,
+    "display": {
+      "name": "시험 장비",
+      "description": "직업별 무기와 방어구·장신구"
+    }
   },
   "quests": [
     {
@@ -1050,7 +1170,13 @@
       "enabled": true,
       "requires": [],
       "itemRefs": [],
-      "skillRefs": []
+      "skillRefs": [],
+      "schemaVersion": 1,
+      "contentVersion": "pilot-1",
+      "display": {
+        "name": "좀비 토벌",
+        "description": "수락 후 좀비를 처치하는 의뢰"
+      }
     }
   ],
   "enhancement": {
@@ -1100,18 +1226,32 @@
         "copper": 36,
         "ironstone": 2
       }
-    ]
+    ],
+    "id": "enhancement.pilot",
+    "schemaVersion": 1,
+    "contentVersion": "pilot-1",
+    "enabled": true,
+    "display": {
+      "name": "시험 강화",
+      "description": "목표 단계별 비용·성공률·실패 보정"
+    }
   },
   "runs": [
     {
       "id": "run.bongsudae",
-      "version": "pilot-j02-1",
+      "version": "pilot-j02-2",
       "minPlayers": 1,
       "maxPlayers": 4,
       "enabled": true,
       "requires": [],
       "itemRefs": [],
-      "skillRefs": []
+      "skillRefs": [],
+      "schemaVersion": 1,
+      "contentVersion": "pilot-j02-2",
+      "display": {
+        "name": "폐봉수대",
+        "description": "1~4인 파티 공략"
+      }
     }
   ],
   "encounter": {
@@ -1127,7 +1267,13 @@
         "interval": 32,
         "magic": false,
         "range": 3,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-j02-1",
+        "display": {
+          "name": "파수 잔영",
+          "description": "파수 잔영 전투 정의"
+        }
       },
       {
         "id": "mob.beacon.archer",
@@ -1140,7 +1286,13 @@
         "interval": 40,
         "magic": true,
         "range": 12,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-j02-1",
+        "display": {
+          "name": "혼백 궁수",
+          "description": "혼백 궁수 전투 정의"
+        }
       },
       {
         "id": "mob.beacon.ember",
@@ -1153,7 +1305,13 @@
         "interval": 40,
         "magic": true,
         "range": 8,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-j02-1",
+        "display": {
+          "name": "불씨 잔영",
+          "description": "불씨 잔영 전투 정의"
+        }
       },
       {
         "id": "mob.beacon.shield",
@@ -1166,7 +1324,13 @@
         "interval": 40,
         "magic": false,
         "range": 3,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-j02-1",
+        "display": {
+          "name": "방패 잔영",
+          "description": "방패 잔영 전투 정의"
+        }
       },
       {
         "id": "mob.beacon.soldier",
@@ -1179,7 +1343,13 @@
         "interval": 30,
         "magic": false,
         "range": 3,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-j02-1",
+        "display": {
+          "name": "잿빛 군졸",
+          "description": "잿빛 군졸 전투 정의"
+        }
       },
       {
         "id": "mob.beacon.commander",
@@ -1192,7 +1362,13 @@
         "interval": 40,
         "magic": false,
         "range": 3,
-        "enabled": true
+        "enabled": true,
+        "schemaVersion": 1,
+        "contentVersion": "pilot-j02-1",
+        "display": {
+          "name": "망령 지휘자",
+          "description": "망령 지휘자 전투 정의"
+        }
       }
     ],
     "groups": [
@@ -1241,5 +1417,10 @@
     ],
     "gatekeeperHealth": 10800,
     "finalBossHealth": 14400
+  },
+  "id": "content.pilot",
+  "display": {
+    "name": "달마루 시험 콘텐츠",
+    "description": "달마루 1~20레벨 시험 정의"
   }
 }

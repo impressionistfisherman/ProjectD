@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 final class DalmaruRunScreen extends Screen {
     private Button status;
     private Button firstStep, training,ready;
-    DalmaruRunScreen() { super(Component.literal("폐봉수대")); }
+    DalmaruRunScreen() { super(Component.literal(kr.dalmaru.content.ContentCatalog.current().display("run.bongsudae").name())); }
     @Override protected void init() {
         int contentWidth=Math.min(360,width-20),left=(width-contentWidth)/2;
         status = addRenderableWidget(Button.builder(Component.literal(ClientRunState.status()), ignored -> { }).bounds(left, height / 2 - 45, contentWidth, 20).build()); status.active = false;

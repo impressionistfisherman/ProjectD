@@ -240,3 +240,10 @@
 - Actual cast accessor+content provider execute changed archived sweep energy21 (stamina300->279) against current20, preserving all16 cast gates. Actual runtime content returns pinned party energy21, rejects changed snapshot, returns current catalog after close.
 - Real PilotEquipment supplied-catalog calculation uses changed attack/primary bonus/enhancement scale:77 attack/6 primary vs69/4 current. Existing owner/slot/level guards retained.
 - No SQL migration/protocol/live exchange/dungeon entry or actual Minecraft profile attributes; independent QA needed. No production PID/DB/JAR/settings changes.
+
+## 2026-10-15 MDF-P1 S10c4
+- Initial metadata/skill/GUI/runtime gates PASS, DB archive fixture FAIL29s because new required display/content revision was not updated in synthetic archive. Updated both fields; catalog/skill/GUI/DB/compile PASS24s.
+- Added exact supported weapon-profile coverage; targeted skill/compile PASS16s. Metadata30 rejection inputs include duplicate IDs, missing display, blank names, version mismatch and disabled critical table/part. Known generated labels/localized descriptions, unknown legacy IDs and schema3 original labels verified.
+- Extended actual quest init fixture: first fixture compile FAIL11s from missing Component.empty stub; corrected, then RED12s reproduced Clipped action320x180. Adaptive quest width fixed; actual skill/run/quest/profile/equipment bounds/paging and compile PASS15s.
+- Bumped current definition to pilot-j02-2, kept historic pilot-j02-1 and quest pilot-1. Catalog+skill PASS18s; DB immutability fixture FAIL because it wrote identical newly-current version2, correctly allowed. Changed negative case to different version3; final DB+compile PASS16s. Final fixture accounts0/runs0.
+- No live rendering/attribute/network/dungeon entry, SQL migration/protocol/deployment/production changes. Independent Creed/Jim QA pending.

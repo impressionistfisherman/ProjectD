@@ -13,7 +13,7 @@ public final class SkillContentCheck {
     public static void main(String[] args)throws Exception {
         String source=Files.readString(Path.of("src/main/resources/content/pilot.json"));
         var current=ContentCatalog.current();check(current.skills().size()==24,"Skill set incomplete");
-        var legacy=JsonParser.parseString(source).getAsJsonObject();legacy.addProperty("schemaVersion",1);
+        var legacy=JsonParser.parseString(source).getAsJsonObject();legacy.addProperty("schemaVersion",1);legacy.addProperty("contentVersion","pilot-j02-1");legacy.getAsJsonArray("runs").get(0).getAsJsonObject().addProperty("version","pilot-j02-1");
         var refs=new JsonArray();for(var skill:current.skills()){var ref=new JsonObject();ref.addProperty("id",skill.id());ref.addProperty("enabled",true);refs.add(ref);}legacy.add("skills",refs);
         for(var skill:current.skills()){var old=ContentCatalog.parse(legacy.toString()).skill(skill.id());check(old.name().equals(skill.name())&&old.description().equals(skill.description())&&old.energy()==skill.energy()&&old.cooldownTicks()==skill.cooldownTicks(),"Schema1 changed historical metadata");}
         var changed=JsonParser.parseString(source).getAsJsonObject();var first=changed.getAsJsonArray("skills").get(0).getAsJsonObject();
@@ -29,6 +29,7 @@ public final class SkillContentCheck {
         reject(source,s->s.getAsJsonObject("cast").addProperty("cooldownTicks",0));
         reject(source,s->s.getAsJsonObject("unlock").addProperty("maxRank",6));
         reject(source,s->s.getAsJsonArray("weaponProfiles").add("fan"));
+        reject(source,s->s.getAsJsonArray("weaponProfiles").remove(0));
         reject(source,s->s.getAsJsonArray("weaponProfiles").add("sword_shield"));
         reject(source,s->s.addProperty("contentVersion","bad/version"));
         var passive=JsonParser.parseString(source).getAsJsonObject();passive.getAsJsonArray("skills").get(4).getAsJsonObject().getAsJsonObject("cast").addProperty("energy",1);rejectCatalog(passive);
@@ -43,7 +44,7 @@ public final class SkillContentCheck {
         check(current.skill("skill.rogue.smoke_bomb").parameter("durationTicks",5)==80&&current.skill("skill.rogue.shackle_strike").parameter("durationTicks",5)==60,"New duration correction lost");
         var old=ContentCatalog.parse(legacy.toString());check(old.skill("skill.rogue.smoke_bomb").parameter("durationTicks",5)==90&&old.skill("skill.rogue.shackle_strike").parameter("durationTicks",5)==80,"Schema1 used newer balance");
         var schema2=JsonParser.parseString(source).getAsJsonObject();schema2.addProperty("schemaVersion",2);
-        for(var entry:schema2.getAsJsonArray("skills")){var definition=entry.getAsJsonObject();definition.addProperty("schemaVersion",1);definition.remove("parameters");}
+        for(var entry:schema2.getAsJsonArray("skills")){var definition=entry.getAsJsonObject();definition.addProperty("schemaVersion",1);definition.addProperty("contentVersion","pilot-1");definition.remove("parameters");}
         check(ContentCatalog.parse(schema2.toString()).skills().equals(old.skills()),"Metadata-only schema2 changed old effects");
         reject(source,s->s.getAsJsonObject("parameters").remove("damageMultiplier"));
         reject(source,s->s.getAsJsonObject("parameters").add("unknown",new JsonArray()));
