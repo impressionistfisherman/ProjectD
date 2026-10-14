@@ -19,11 +19,17 @@ final class ClientProfileState {
 	private static long nextSkillRequestId = 1;
 	private static long currentSkillRequestId;
 	private static boolean skillWaiting;
+	private static java.util.UUID character;
+	private static int resetDeadline,professionDeadline,skillDeadline;
+	private static DalmaruPayloads.CharacterStatResetRequest resetRequest;
+	private static DalmaruPayloads.CharacterProfessionRequest professionRequest;
+	private static DalmaruPayloads.SkillLearnRequest skillRequest;
 
 	private ClientProfileState() { }
 
 	static void resetForConnection() {
 		current = null;
+		character=null;resetRequest=null;professionRequest=null;skillRequest=null;
 		nextInvestmentRequestId = 1;
 		currentInvestmentRequestId = 0;
 		investmentWaiting = false;
@@ -40,7 +46,8 @@ final class ClientProfileState {
 		currentSkillRequestId = 0;
 		skillWaiting = false;
 	}
-	static void accept(DalmaruPayloads.CharacterProfileResponse response) { current = response; }
+	static void selected(java.util.UUID selected){character=selected;current=null;investmentWaiting=false;resetWaiting=false;professionWaiting=false;skillWaiting=false;status="";}
+	static void accept(DalmaruPayloads.CharacterProfileResponse response) { if(character!=null&&!character.equals(response.characterId()))return;character=response.characterId();current = response; }
 	static boolean beginInvestment() {
 		if (current == null || current.profile().unspentStatPoints() < 1 || investmentWaiting) return false;
 		currentInvestmentRequestId = nextInvestmentRequestId++;
@@ -59,6 +66,7 @@ final class ClientProfileState {
 		if (current == null || !current.profile().freeResetAvailable() || resetWaiting || investmentWaiting) return false;
 		currentResetRequestId = nextResetRequestId++;
 		resetWaiting = true;
+		resetDeadline=tick+100;resetRequest=new DalmaruPayloads.CharacterStatResetRequest(currentResetRequestId,current.characterId());
 		status = "무료 초기화를 처리하는 중입니다.";
 		return true;
 	}
@@ -68,10 +76,11 @@ final class ClientProfileState {
 		status = response.status();
 		if (response.accepted()) current = new DalmaruPayloads.CharacterProfileResponse(response.characterId(), response.profile());
 	}
-	static boolean beginProfession() {
+	static boolean beginProfession(String profession) {
 		if (current == null || !current.profile().profession().isBlank() || professionWaiting || investmentWaiting || resetWaiting) return false;
 		currentProfessionRequestId = nextProfessionRequestId++;
 		professionWaiting = true;
+		professionDeadline=tick+100;professionRequest=new DalmaruPayloads.CharacterProfessionRequest(currentProfessionRequestId,profession);
 		status = "전직을 선택하는 중입니다.";
 		return true;
 	}
@@ -82,10 +91,11 @@ final class ClientProfileState {
 		if (response.accepted() && current != null) current = new DalmaruPayloads.CharacterProfileResponse(current.characterId(), response.profile());
 	}
 	static long currentProfessionRequestId() { return currentProfessionRequestId; }
-	static boolean beginSkill() {
+	static boolean beginSkill(String skillId) {
 		if (current == null || current.profile().profession().isBlank() || current.profile().unspentSkillPoints() < 1 || skillWaiting) return false;
 		currentSkillRequestId = nextSkillRequestId++;
 		skillWaiting = true;
+		skillDeadline=tick+100;skillRequest=new DalmaruPayloads.SkillLearnRequest(currentSkillRequestId,skillId);
 		status = "기술을 습득하는 중입니다.";
 		return true;
 	}
@@ -103,6 +113,10 @@ final class ClientProfileState {
 			status = "능력치 투자 응답 시간이 초과되었습니다. 다시 시도하세요.";
 		}
 	}
+	static DalmaruPayloads.CharacterStatResetRequest retryReset(){if(!resetWaiting||tick<resetDeadline)return null;resetDeadline=tick+100;return resetRequest;}
+	static DalmaruPayloads.CharacterProfessionRequest retryProfession(){if(!professionWaiting||tick<professionDeadline)return null;professionDeadline=tick+100;return professionRequest;}
+	static DalmaruPayloads.SkillLearnRequest retrySkill(){if(!skillWaiting||tick<skillDeadline)return null;skillDeadline=tick+100;return skillRequest;}
+	static boolean canLearn(){return current!=null&&current.profile().unspentSkillPoints()>0&&!skillWaiting;}
 	static DalmaruPayloads.CharacterProfileResponse current() { return current; }
 	static long currentInvestmentRequestId() { return currentInvestmentRequestId; }
 	static long currentResetRequestId() { return currentResetRequestId; }

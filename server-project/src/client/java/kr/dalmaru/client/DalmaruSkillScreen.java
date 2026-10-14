@@ -38,7 +38,7 @@ final class DalmaruSkillScreen extends Screen {
         for(int i=0;i<learnButtons.size();i++){
             var skill=skills.get(i);int rank=ClientSkillState.rank(skill.id());var button=learnButtons.get(i);
             button.setMessage(Component.literal(skill.koreanName()+" "+rank+"/5 "+(rank>=5?"[최대]":"[+1]")));
-            button.active=rank<5;
+            button.active=rank<5&&ClientProfileState.canLearn();
             button.setTooltip(Tooltip.create(Component.literal(skill.description())));
         }
         var current=ClientLoadoutState.current();

@@ -10,7 +10,7 @@ public final class ClientReplyRecoveryCheck {
         Path dir=Files.createTempDirectory("client-reply-recovery-");
         try{
             var compilerArgs=new ArrayList<String>(List.of("-d",dir.toString()));
-            for(String name:List.of("ClientLoadoutState","ClientSkillState")){
+            for(String name:List.of("ClientLoadoutState","ClientSkillState","ClientProfileState")){
                 String source=Files.readString(Path.of("src/client/java/kr/dalmaru/client/"+name+".java")).replace("package kr.dalmaru.client;","").replace("import kr.dalmaru.network.DalmaruPayloads;","");
                 Path file=dir.resolve(name+".java");Files.writeString(file,source);compilerArgs.add(file.toString());
             }
@@ -26,6 +26,15 @@ public final class ClientReplyRecoveryCheck {
             record LoadoutResponse(long requestId,UUID characterId,long revision,List<String> slots,boolean editable,String status){}
             record SkillRank(String skillId,int rank){}
             record SkillRanksResponse(long requestId,List<SkillRank> ranks){}
+            record ProfileData(int unspentStatPoints,int unspentSkillPoints,boolean freeResetAvailable,String profession){}
+            record CharacterProfileResponse(UUID characterId,ProfileData profile){}
+            record CharacterStatResetRequest(long requestId,UUID characterId){}
+            record CharacterProfessionRequest(long requestId,String profession){}
+            record SkillLearnRequest(long requestId,String skillId){}
+            record CharacterStatInvestmentResponse(long requestId,UUID characterId,boolean accepted,String status,ProfileData profile){}
+            record CharacterStatResetResponse(long requestId,UUID characterId,boolean accepted,String status,ProfileData profile){}
+            record CharacterProfessionResponse(long requestId,boolean accepted,String status,ProfileData profile){}
+            record SkillLearnResponse(long requestId,boolean accepted,String status,ProfileData profile){}
         }
         public class ReplyHarness{
             static void check(boolean value){if(!value)throw new AssertionError("Client reply recovery differs");}
@@ -50,6 +59,25 @@ public final class ClientReplyRecoveryCheck {
                 long pending=ClientSkillState.nextRequestId();for(int i=0;i<99;i++)check(!ClientSkillState.tick());check(ClientSkillState.tick());
                 long retry=ClientSkillState.nextRequestId();ClientSkillState.accept(new DalmaruPayloads.SkillRanksResponse(pending,List.of(new DalmaruPayloads.SkillRank("s",4))));check(ClientSkillState.rank("s")==0);
                 ClientSkillState.accept(new DalmaruPayloads.SkillRanksResponse(retry,List.of(new DalmaruPayloads.SkillRank("s",5))));check(ClientSkillState.rank("s")==5&&!ClientSkillState.tick());
+                ClientProfileState.resetForConnection();ClientProfileState.selected(a);
+                var profile=new DalmaruPayloads.ProfileData(5,2,true,"WARRIOR");
+                ClientProfileState.accept(new DalmaruPayloads.CharacterProfileResponse(a,profile));
+                check(ClientProfileState.canLearn()&&ClientProfileState.beginSkill("s"));check(!ClientProfileState.canLearn()&&!ClientProfileState.beginSkill("other"));
+                long skill=ClientProfileState.currentSkillRequestId();for(int i=0;i<99;i++){ClientProfileState.tick();check(ClientProfileState.retrySkill()==null);}
+                ClientProfileState.tick();var skillRetry=ClientProfileState.retrySkill();check(skillRetry.requestId()==skill&&skillRetry.skillId().equals("s"));
+                for(int i=0;i<100;i++)ClientProfileState.tick();check(ClientProfileState.retrySkill()==skillRetry);
+                ClientProfileState.acceptSkill(new DalmaruPayloads.SkillLearnResponse(skill+1,true,"wrong",profile));check(!ClientProfileState.canLearn());
+                ClientProfileState.acceptSkill(new DalmaruPayloads.SkillLearnResponse(skill,true,"done",new DalmaruPayloads.ProfileData(5,1,true,"WARRIOR")));check(ClientProfileState.canLearn()&&ClientProfileState.retrySkill()==null);
+                check(ClientProfileState.beginSkill("s2"));long skill2=ClientProfileState.currentSkillRequestId();ClientProfileState.selected(b);
+                ClientProfileState.acceptSkill(new DalmaruPayloads.SkillLearnResponse(skill2,true,"old character",profile));ClientProfileState.accept(new DalmaruPayloads.CharacterProfileResponse(a,profile));check(ClientProfileState.current()==null&&ClientProfileState.retrySkill()==null);
+                ClientProfileState.accept(new DalmaruPayloads.CharacterProfileResponse(b,profile));check(ClientProfileState.current().characterId().equals(b));
+                check(ClientProfileState.beginReset());long reset=ClientProfileState.currentResetRequestId();for(int i=0;i<100;i++)ClientProfileState.tick();var resetRetry=ClientProfileState.retryReset();check(resetRetry.requestId()==reset&&resetRetry.characterId().equals(b));
+                for(int i=0;i<100;i++)ClientProfileState.tick();check(ClientProfileState.retryReset()==resetRetry);
+                ClientProfileState.acceptReset(new DalmaruPayloads.CharacterStatResetResponse(reset,b,true,"reset",new DalmaruPayloads.ProfileData(5,2,false,"WARRIOR")));check(!ClientProfileState.canReset()&&ClientProfileState.retryReset()==null);
+                ClientProfileState.accept(new DalmaruPayloads.CharacterProfileResponse(b,new DalmaruPayloads.ProfileData(5,2,false,"")));
+                check(ClientProfileState.beginProfession("WARRIOR")&&!ClientProfileState.beginProfession("MAGE"));long profession=ClientProfileState.currentProfessionRequestId();for(int i=0;i<100;i++)ClientProfileState.tick();var professionRetry=ClientProfileState.retryProfession();check(professionRetry.requestId()==profession&&professionRetry.profession().equals("WARRIOR"));
+                ClientProfileState.acceptProfession(new DalmaruPayloads.CharacterProfessionResponse(profession,true,"profession",profile));check(ClientProfileState.retryProfession()==null&&!ClientProfileState.beginProfession("MAGE"));
+                ClientProfileState.accept(new DalmaruPayloads.CharacterProfileResponse(b,new DalmaruPayloads.ProfileData(5,0,false,"WARRIOR")));check(!ClientProfileState.canLearn()&&!ClientProfileState.beginSkill("s"));
             }
         }
         """;

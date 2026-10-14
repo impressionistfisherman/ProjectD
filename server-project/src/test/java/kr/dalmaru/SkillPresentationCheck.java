@@ -61,6 +61,7 @@ public final class SkillPresentationCheck {
         class Tooltip {Component text;static Tooltip create(Component text){var t=new Tooltip();t.text=text;return t;}}
         class Button {Component message;boolean active=true;Tooltip tooltip;void setMessage(Component message){this.message=message;}void setTooltip(Tooltip tooltip){this.tooltip=tooltip;}}
         class ClientSkillState {static int rank;static int rank(String id){return rank;}}
+        class ClientProfileState {static boolean available=true;static boolean canLearn(){return available;}}
         record Loadout(List<String> slots,boolean editable){}
         class ClientLoadoutState {static Loadout value;static Loadout current(){return value;}static boolean waiting(){return false;}}
         public class PresentationHarness {
@@ -73,6 +74,7 @@ public final class SkillPresentationCheck {
                 for(var button:h.learnButtons)if(button.active||!button.message.text.contains("최대")||button.tooltip==null||button.tooltip.text.text.isBlank())throw new AssertionError("Maximum rank/tooltip missing");
                 ClientSkillState.rank=4;h.tick();
                 for(var button:h.learnButtons)if(!button.active||!button.message.text.contains("4/5 [+1]"))throw new AssertionError("Rank update did not re-enable learning");
+                ClientProfileState.available=false;h.tick();for(var button:h.learnButtons)if(button.active)throw new AssertionError("Pending/no-point learning is enabled");ClientProfileState.available=true;
                 ClientSkillState.rank=0;h.tick();
                 for(var button:h.learnButtons)if(!button.active||!button.message.text.contains("0/5"))throw new AssertionError("Unlearned skill cannot be learned");
                 ClientLoadoutState.value=new Loadout(List.of("skill.warrior.sweep","skill.warrior.advance","skill.warrior.rising_strike","skill.warrior.battle_cry",""),true);

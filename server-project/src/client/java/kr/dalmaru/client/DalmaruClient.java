@@ -75,7 +75,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();requestLoadout();requestSkillRanks();
+                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientProfileState.selected(payload.characterId());requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -141,6 +141,9 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 			ClientCharacterState.tick();
 			if (ClientCharacterState.shouldRetryList()) requestCharacterList();
 			ClientProfileState.tick();
+            var resetRetry=ClientProfileState.retryReset();if(resetRetry!=null)ClientPlayNetworking.send(resetRetry);
+            var professionRetry=ClientProfileState.retryProfession();if(professionRetry!=null)ClientPlayNetworking.send(professionRetry);
+            var skillRetry=ClientProfileState.retrySkill();if(skillRetry!=null)ClientPlayNetworking.send(skillRetry);
             if(ClientLoadoutState.tick())requestLoadout();
             if(ClientSkillState.tick())requestSkillRanks();
 			if (client.player != null && client.screen == null && ClientCharacterState.requiresSelection()) {
@@ -185,11 +188,11 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 	}
 
 	public static void requestProfession(String profession) {
-		if (ClientProfileState.beginProfession()) ClientPlayNetworking.send(new DalmaruPayloads.CharacterProfessionRequest(ClientProfileState.currentProfessionRequestId(), profession));
+		if (ClientProfileState.beginProfession(profession)) ClientPlayNetworking.send(new DalmaruPayloads.CharacterProfessionRequest(ClientProfileState.currentProfessionRequestId(), profession));
 	}
 
 	public static void requestSkill(String skillId) {
-		if (ClientProfileState.beginSkill()) ClientPlayNetworking.send(new DalmaruPayloads.SkillLearnRequest(ClientProfileState.currentSkillRequestId(), skillId));
+		if (ClientProfileState.beginSkill(skillId)) ClientPlayNetworking.send(new DalmaruPayloads.SkillLearnRequest(ClientProfileState.currentSkillRequestId(), skillId));
 	}
 
 	public static void requestSkillRanks() {
