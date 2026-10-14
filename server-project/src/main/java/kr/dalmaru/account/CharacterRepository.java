@@ -436,16 +436,27 @@ public final class CharacterRepository {
 		}
 	}
 
+    public record ProfessionResult(CharacterProfession profession,CharacterProfile profile,boolean replayed,RequestJournal.Receipt receipt) {}
 	public CharacterProfession selectProfession(UUID accountId, long connectionGeneration, long requestId, UUID characterId, CharacterProfession profession) throws SQLException {
+        return selectProfessionJournaled(accountId,connectionGeneration,requestId,characterId,profession,null).profession();
+    }
+
+    public ProfessionResult selectProfessionJournaled(UUID accountId,long connectionGeneration,long requestId,UUID characterId,CharacterProfession profession,RequestEnvelope envelope)throws SQLException {
 		if (connectionGeneration < 1 || requestId < 1) throw new IllegalArgumentException("Invalid profession request.");
+        if(characterId==null||profession==null)throw new IllegalArgumentException("Invalid profession request.");
+        var body=new JsonObject();body.addProperty("profession",profession.name());
+        if(envelope==null)envelope=RequestEnvelope.legacy(accountId,connectionGeneration,characterId,"select_profession",requestId,body);
+        if(envelope.connectionGeneration()!=connectionGeneration||!envelope.activeCharacterId().equals(characterId)||!envelope.operation().equals("select_profession")||!envelope.payload().equals(body))throw new IllegalArgumentException("Profession envelope does not match session/body");
+        if(password==null||password.isBlank())throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
 		try (var connection = DriverManager.getConnection(url, username, password)) {
 			connection.setAutoCommit(false);
 			try {
-				try (var account = connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id = ? AND connection_generation = ? FOR UPDATE")) { account.setObject(1, accountId); account.setLong(2, connectionGeneration); try (var result = account.executeQuery()) { if (!result.next() || !characterId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Active character does not match this request."); } }
+                var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
+                if(stored.result()!=null){var selected=CharacterProfession.valueOf(stored.result().get("profession").getAsString());var current=profileForUpdate(connection,characterId);connection.commit();return new ProfessionResult(selected,current,true,stored.receipt());}
 				try (var profile = connection.prepareStatement("SELECT level FROM dalmaru.character_profiles WHERE character_id = ? FOR UPDATE")) { profile.setObject(1, characterId); try (var result = profile.executeQuery()) { if (!result.next() || result.getInt(1) < 10) throw new IllegalArgumentException("Level 10 is required for a profession."); } }
 				try (var quest = connection.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id = ? AND quest_id = 'pilot1.zombie_hunt' AND content_version = 'pilot-1' AND state = 'REWARDED'")) { quest.setObject(1, characterId); try (var result = quest.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Profession quest is not complete."); } }
 				try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_professions (character_id, base_job) VALUES (?, ?) ON CONFLICT (character_id) DO NOTHING")) { insert.setObject(1, characterId); insert.setString(2, profession.name()); if (insert.executeUpdate() == 1) try (var reward = connection.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_skill_points = unspent_skill_points + 6 WHERE character_id = ?")) { reward.setObject(1, characterId); reward.executeUpdate(); } }
-				try (var selected = connection.prepareStatement("SELECT base_job FROM dalmaru.character_professions WHERE character_id = ?")) { selected.setObject(1, characterId); try (var result = selected.executeQuery()) { result.next(); CharacterProfession saved = CharacterProfession.valueOf(result.getString(1)); if (saved != profession) throw new IllegalArgumentException("Profession was already selected."); connection.commit(); return saved; } }
+				try (var selected = connection.prepareStatement("SELECT base_job FROM dalmaru.character_professions WHERE character_id = ?")) { selected.setObject(1, characterId); try (var result = selected.executeQuery()) { result.next(); CharacterProfession saved = CharacterProfession.valueOf(result.getString(1)); if (saved != profession) throw new IllegalArgumentException("Profession was already selected."); var outcome=new JsonObject();outcome.addProperty("profession",saved.name());var receipt=RequestJournal.confirm(connection,stored,outcome);var current=profileForUpdate(connection,characterId);connection.commit();return new ProfessionResult(saved,current,false,receipt); } }
 			} catch (Exception exception) { connection.rollback(); throw exception; }
 		}
 	}

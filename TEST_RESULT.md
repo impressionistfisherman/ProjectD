@@ -275,3 +275,7 @@
 ## MDF-P1 S09e4 (2026-10-15)
 - PASS: --no-daemon verifyResetWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifyResetJournal compileClientJava (24초). 실제 초기화 receipt parser의 replay/reject/틀린 correlation/잘못된 초기화 수치·정수·무료자격, typed→common 단일 재시도 및 기존 client 복구·UUID 경계/fixture 초기화 롤백.
 - 실제 패킷 왕복·인게임 및 M11 실제 world ACK/reconnect는 미검증/미완료. 독립 QA 요청.
+
+## MDF-P1 S09f1 (2026-10-15)
+- PASS: --no-daemon verifyProfessionJournal verifyCharacterProfession (15초). UUID/다른 correlation/동시 요청/legacy 반복 초기점수 한 번 지급, replay 최신 점수, 레벨·의뢰 선행조건/다른 직업·본문·세대 거부, 직업 INSERT 이후 점수 UPDATE 실패 시 직업·보상·저널 전체 롤백.
+- 운영·인게임 미실행. 독립 QA 요청 대상입니다.
