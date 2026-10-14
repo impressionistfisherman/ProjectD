@@ -75,7 +75,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());requestLoadout();requestSkillRanks();
+                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -141,6 +141,8 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 			ClientCharacterState.tick();
 			if (ClientCharacterState.shouldRetryList()) requestCharacterList();
 			ClientProfileState.tick();
+            if(ClientLoadoutState.tick())requestLoadout();
+            if(ClientSkillState.tick())requestSkillRanks();
 			if (client.player != null && client.screen == null && ClientCharacterState.requiresSelection()) {
 				client.setScreen(new DalmaruCharacterScreen());
 			}
@@ -223,8 +225,8 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if(client.player==null||client.screen!=null||combat==null||!combat.combatMode())return false;
         var loadout=ClientLoadoutState.current();if(loadout!=null)ClientPlayNetworking.send(new DalmaruPayloads.SkillUseRequest(ClientLoadoutState.next(),loadout.characterId(),loadout.revision(),slot));return true;
     }
-    static void requestLoadout(){ClientPlayNetworking.send(new DalmaruPayloads.LoadoutRequest(ClientLoadoutState.next()));}
-    static void updateLoadout(java.util.List<String> slots){var current=ClientLoadoutState.current();if(current==null||!current.editable()||ClientLoadoutState.waiting())return;ClientLoadoutState.pending();ClientPlayNetworking.send(new DalmaruPayloads.LoadoutUpdate(ClientLoadoutState.next(),current.characterId(),current.revision(),slots));}
+    static void requestLoadout(){long requestId=ClientLoadoutState.next();ClientLoadoutState.queried(requestId);ClientPlayNetworking.send(new DalmaruPayloads.LoadoutRequest(requestId));}
+    static void updateLoadout(java.util.List<String> slots){var current=ClientLoadoutState.current();if(current==null||!current.editable()||ClientLoadoutState.waiting())return;long requestId=ClientLoadoutState.next();ClientLoadoutState.pending(requestId);ClientPlayNetworking.send(new DalmaruPayloads.LoadoutUpdate(requestId,current.characterId(),current.revision(),slots));}
     static void readyRun(){if(!ClientRunState.preparing()||ClientRunState.preparationId()==null)return;ClientPlayNetworking.send(new DalmaruPayloads.RunReadyRequest(ClientRunState.preparationId(),true));}
 
 }
