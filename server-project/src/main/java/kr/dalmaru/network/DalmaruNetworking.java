@@ -895,7 +895,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		level.sendParticles(ParticleTypes.LARGE_SMOKE, player.getX(), player.getY() + 1.0, player.getZ(), 45, 1.2, 0.7, 1.2, 0.05);
 		player.playSound(SoundEvents.FIRE_EXTINGUISH, 1.0F, 0.7F);
-		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(5.0), entity -> hostileCombatEntity(player,entity))) target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 40 + rank * 10, 0, false, true, true));
+		for (LivingEntity target : player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(5.0), entity -> hostileCombatEntity(player,entity))) target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, kr.dalmaru.combat.CombatRules.smokeTicks(rank), 0, false, true, true));
 	}
 
 	private static void useShackleStrike(ServerPlayer player) {
@@ -909,7 +909,7 @@ public final class DalmaruNetworking {
 		ServerLevel level = (ServerLevel) player.level();
 		float damage = (float) (player.getAttributeValue(Attributes.ATTACK_DAMAGE) * (0.90 + (rank - 1) * 0.10));
 		LivingEntity target = player.level().getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(3.0), entity -> hostileCombatEntity(player,entity) && player.hasLineOfSight(entity) && entity.position().subtract(player.position()).normalize().dot(direction) > 0.35).stream().min(java.util.Comparator.comparingDouble(entity -> entity.distanceToSqr(player))).orElse(null);
-		if (target != null) { rpgSkillDamage(player, target, damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 30 + rank * 10, 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
+		if (target != null) { rpgSkillDamage(player, target, damage); target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, kr.dalmaru.combat.CombatRules.shackleTicks(rank), 2, false, true, true)); level.sendParticles(ParticleTypes.CRIT, target.getX(), target.getY() + 1.0, target.getZ(), 16, 0.25, 0.5, 0.25, 0.04); }
 		player.playSound(SoundEvents.CHAIN_HIT, 0.9F, 0.9F);
 	}
 

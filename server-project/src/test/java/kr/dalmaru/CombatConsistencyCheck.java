@@ -23,6 +23,11 @@ public final class CombatConsistencyCheck {
         require(!CombatRewards.excludesRewardTags(java.util.Set.of("dalmaru.run.other"))&&CombatRewards.experienceForDescriptionId("entity.minecraft.zombie")==25,"Field/boss rewards changed");
         java.util.UUID caster=java.util.UUID.randomUUID(),target=java.util.UUID.randomUUID(),other=java.util.UUID.randomUUID();
         var effects=new CombatEffects();effects.mark(caster,target,5,0);
+        require(CombatRules.smokeTicks(1)==50&&CombatRules.smokeTicks(5)==80,"Smoke duration differs from pilot spec");
+        require(CombatRules.shackleTicks(1)==40&&CombatRules.shackleTicks(5)==60,"Shackle duration differs from pilot spec");
+        require(CombatRules.bindingTicks(CombatRules.TargetKind.BOSS,false,5)==20&&CombatRules.bindingTicks(CombatRules.TargetKind.NORMAL,false,1)==30&&CombatRules.bindingTicks(CombatRules.TargetKind.NORMAL,true,5)==60,"Other control duration changed");
+        effects.control(target,"shackle",.45,CombatRules.shackleTicks(5));
+        require(effects.slow(target,59)==.45&&effects.slow(target,60)==0,"Shackle effect expiry");
         require(effects.markBonus(caster,target,159)==.12&&effects.markBonus(other,target,10)==0&&effects.markBonus(caster,target,160)==0,"C12 mark ownership/expiry");
         effects.control(target,"slow",.3,40);effects.control(target,"root",1,20);
         require(effects.slow(target,10)==1&&effects.slow(target,20)==.3,"C14 strongest effect expiry");

@@ -22,6 +22,8 @@ public final class CombatRules {
         return roll<Math.max(0,Math.min(.60,chance));
     }
     public enum TargetKind { NORMAL,ELITE,BOSS }
+    public static int smokeTicks(int rank){return (int)Math.round(rank(50,80,rank));}
+    public static int shackleTicks(int rank){return (int)Math.round(rank(40,60,rank));}
     public static double bindingSlow(TargetKind kind,boolean talisman) {
         return talisman?(kind==TargetKind.NORMAL?1:.30):(kind==TargetKind.BOSS||kind==TargetKind.ELITE?.15:.45);
     }

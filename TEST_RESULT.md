@@ -223,3 +223,8 @@
 -24 original names/descriptions/kinds/order, schema1 reference-only metadata fidelity, changed schema2 display/energy independence, immutable weapon list;12 invalid metadata/profession/kind/cost/cooldown/unlock/weapon/revision cases.
 - Extracted16 actual cast bodies and shared helper execute baseline energy/cooldown values, no duplicate charge, insufficient stamina, exact expiry and absent state. Existing actual UI max-rank/tooltip and runtime lifecycle/movement/death tests PASS.
 - No live packet exchange/GUI/world play or deployment; effect coefficient/per-run equipment and skill definition consumption remains subsequent slices. No schema SQL/protocol/production changes.
+
+## 2026-10-14 MDF-P1 O27 duration correction
+- PASS --no-daemon verifyCombatConsistency compileClientJava23s: smoke rank1/5=50/80ticks; shackle40/60ticks; unchanged binding normal/elite-boss policies and effect expiry59/60.
+- Initial investigation wrongly inferred shackle reused archer control. Actual source uses a separate vanilla Slowness30+rank*10; corrected diagnosis and restored original binding callbacks/control signature before final23s gate. Intermediate17s gate not evidence of the final routing.
+- No DB/migration/protocol/live cast/human play. Effects data extraction follows; this correction changes the two rank-duration endpoints to match PILOT_CONTENT_SPEC.

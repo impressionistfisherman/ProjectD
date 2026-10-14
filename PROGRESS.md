@@ -189,3 +189,8 @@
 - Content schema2 adds full metadata; schema1 pilot-j02-1 snapshots resolve fixed schema1-skills.json baseline rather than newer display/tuning. Old resources/data preserved; unknown schema1 revision rejects.
 - PASS skill metadata/schema1/12 invalid inputs/16 actual cost-cooldown boundaries, presentation24, catalog, combat/runtime/DB snapshot regressions and compile. No DB migration/protocol/live change.
 - O27 effects and wider display/per-run routing remain S10c2+; O28/M08/M11-M14 follow. P1 PARTIAL, independent QA requested. S10b1/S10b2 Creed and Jim group5 PASS received.
+
+## 2026-10-14 MDF-P1 O27 duration correction
+- Before effect-definition extraction, found actual rank5 smoke90ticks vs specification80ticks and shackle80ticks vs specification60ticks. Corrected only duration interpolation; retain existing target filters/control mechanism/amplifier and binding skill behavior.
+- PASS combat consistency/server-client compile23s and diff check. Endpoints smoke50/80 and shackle40/60 plus timed control expiry tested; live vanilla event/GUI not tested.
+- O27 definitions/per-run consumers and later P1 stages still in progress. Separate correction commit, no DB/protocol/deployment change.
