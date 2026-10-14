@@ -5,6 +5,7 @@ import net.minecraft.world.entity.EntityType;
 /** Server-owned pilot rewards for ordinary field enemies. */
 public final class CombatRewards {
 	private CombatRewards() { }
+    public static boolean excludesRewardTags(java.util.Set<String> tags) { return tags.stream().anyMatch(tag->tag.startsWith("dalmaru.mob.")); }
 
 	public static int experienceFor(EntityType<?> entityType) {
 		return experienceForDescriptionId(entityType.getDescriptionId());

@@ -1,0 +1,6 @@
+allprojects { afterEvaluate { p ->
+ p.loom.runs.client.runDir = 'C:/Users/gusdl/AppData/Local/Temp/oscar-mdf16-qa/clientRun'
+ p.loom.runs.client.vmArg '-Dfabric.addMods=C:/Users/gusdl/AppData/Local/Temp/oscar-mdf16-qa/clientFixture'
+ p.tasks.register('compileClientLive',JavaCompile){source=p.files('C:/Users/gusdl/AppData/Local/Temp/oscar-mdf16-qa/ClientLiveCheck.java');classpath=p.sourceSets.client.compileClasspath+p.sourceSets.main.output+p.sourceSets.client.output;destinationDirectory=p.file('C:/Users/gusdl/AppData/Local/Temp/oscar-mdf16-qa/clientFixture');options.release=25;dependsOn 'clientClasses'}
+ p.tasks.named('runClient') { dependsOn 'compileClientLive'; args '--username','Q16Client' }
+} }

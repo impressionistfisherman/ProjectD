@@ -82,6 +82,8 @@ public final class ReviewRegressionCheck {
         class MinecraftServer{Path path;ServerLevel level;MinecraftServer(Path p){path=p;level=new ServerLevel();level.server=this;}Path getWorldPath(String ignored){return path;}ServerLevel getLevel(ResourceKey key){return level;}MinecraftServer getPlayerList(){return this;}void saveAll(){ReviewHarness.savedMode=ReviewHarness.player.mode;}}
         class BeaconTowerMap{static void restore(ServerLevel l,Map<BlockPos,BlockState> terrain){l.blocks.putAll(terrain);}}
         public class ReviewHarness {
+            static void clearFieldRevive(ServerPlayer player){}
+            static void cancelPreparation(UUID id,String reason){}
             static Map<UUID,ConnectionState>CONNECTIONS=new HashMap<>();static CharacterProfile combat;static GameType savedMode;
             static ServerPlayer player;static MinecraftServer server;static java.util.concurrent.Executor LIFECYCLE_DB=Runnable::run;static Runs RUNS=new Runs();static Combat COMBAT=new Combat();static Runtime RUN_RUNTIME=new Runtime();static Log LOGGER=new Log();
             static ConnectionState stateFor(UUID id){return CONNECTIONS.computeIfAbsent(id,k->new ConnectionState());}static void refreshCombat(ServerPlayer p,CharacterProfile profile){combat=profile;}static CharacterProfile profileData(CharacterProfile p){return p;}static MinecraftServer serverFor(ServerPlayer p){return server;}

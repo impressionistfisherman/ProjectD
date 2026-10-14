@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "scope": "four real network bots; test-only player-attributed scripted damage and actor protection; not balanced manual play",
+  "runId": "d321eef2-ff44-4bb3-a794-a2331d437752",
+  "characters": [
+    "324a8e78-c3da-4f25-b744-cfa8b2c431cc",
+    "9c57f5dc-63b7-49d9-8ac0-ba1c8c2e5f92",
+    "bbcb6441-ee38-4c8a-904a-3475043db341",
+    "58466097-3609-4153-a8ce-1f42d7e5635d"
+  ],
+  "requiredKills": 26,
+  "policyZombieKills": 1,
+  "checks": [
+    "dungeon revival resources/location/immunity",
+    "tagged zombie XP/quest/loot/orb exclusion",
+    "G0/G1/gatekeeper/G2/brazier/G3/finalboss",
+    "required clear and four-second two-person brazier",
+    "one-shot2 summons",
+    "four personal grants once",
+    "weekly count once",
+    "world/terrain/return cleanup"
+  ],
+  "bossScaleObserved": []
+}

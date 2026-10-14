@@ -348,6 +348,11 @@ public final class CharacterRepository {
             query.setString(1,dimension);query.setInt(2,x);query.setInt(3,y);query.setInt(4,z);try(var row=query.executeQuery()){return row.next();}
         }
     }
+    public java.util.List<TownZone> towns()throws SQLException{
+        try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT dimension,x,y,z,radius FROM dalmaru.town_safe_zones");var rows=q.executeQuery()){
+            var zones=new java.util.ArrayList<TownZone>();while(rows.next())zones.add(new TownZone(rows.getString(1),rows.getInt(2),rows.getInt(3),rows.getInt(4),rows.getInt(5)));return java.util.List.copyOf(zones);
+        }
+    }
     public void registerTown(String name,String dimension,int x,int y,int z,int radius) throws SQLException {
         if(radius<1||radius>128)throw new IllegalArgumentException("Invalid town radius.");
         try(var connection=DriverManager.getConnection(url,username,password);var insert=connection.prepareStatement("INSERT INTO dalmaru.town_safe_zones VALUES(?,?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET dimension=EXCLUDED.dimension,x=EXCLUDED.x,y=EXCLUDED.y,z=EXCLUDED.z,radius=EXCLUDED.radius")) {

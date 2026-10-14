@@ -12,7 +12,7 @@
 	},
 	"license": "CC0-1.0",
 	"environment": "*",
-	"mixins": ["dalmaru.mixins.json"],
+	"mixins": ["dalmaru.mixins.json", {"config":"dalmaru.client.mixins.json","environment":"client"}],
 	"entrypoints": {
 		"main": [
 			"kr.dalmaru.DalmaruMod"

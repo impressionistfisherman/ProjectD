@@ -282,3 +282,23 @@ publishing {
 		// retrieving dependencies.
 	}
 }
+
+ tasks.register('verifyCombatConsistency', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.CombatConsistencyCheck' }
+
+ tasks.register('verifyLoadoutDatabase', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.LoadoutDatabaseCheck' }
+
+tasks.register('verifyBeaconTowerMobs', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BeaconTowerMobsCheck' }
+
+tasks.register('verifySafetyDatabase', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.SafetyDatabaseCheck' }
+
+tasks.register('verifyReadyBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ReadyBoundaryCheck' }
+
+tasks.register('verifyClientScreenBounds', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientScreenBoundsCheck' }
+
+tasks.register('verifyFieldReviveBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.FieldReviveBoundaryCheck' }
+
+tasks.register('verifyReviewFixBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ReviewFixBoundaryCheck' }
+
+tasks.register('verifyRunEntryCancellation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunEntryCancellationCheck' }
+
+tasks.register('verifyRunLifecycleOwnership', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunLifecycleOwnershipCheck' }

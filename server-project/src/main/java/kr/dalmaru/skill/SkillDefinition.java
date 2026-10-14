@@ -4,6 +4,14 @@ import java.util.List;
 import kr.dalmaru.account.CharacterProfession;
 
 public record SkillDefinition(String id, CharacterProfession profession, String koreanName) {
+    public enum Kind { ACTIVE,PASSIVE,ULTIMATE }
+    public Kind kind() {
+        return switch(id){
+            case "skill.warrior.body_training","skill.warrior.martial_mastery","skill.archer.breath_control","skill.archer.bow_crossbow_mastery",
+                 "skill.mage.breath_meditation","skill.mage.talisman_mastery","skill.rogue.evasive_motion","skill.rogue.expose_weakness" -> Kind.PASSIVE;
+            default -> Kind.ACTIVE;
+        };
+    }
 	private static final List<SkillDefinition> ALL = List.of(
 		new SkillDefinition("skill.warrior.sweep", CharacterProfession.WARRIOR, "횡참"),
 		new SkillDefinition("skill.warrior.advance", CharacterProfession.WARRIOR, "진격"),

@@ -209,10 +209,14 @@ public record QuestResponse(long requestId, String status) implements CustomPack
 	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
 
-public record CombatStateResponse(int currentStamina, int maximumStamina, boolean inCombat) implements CustomPacketPayload {
-	public static final CustomPacketPayload.Type<CombatStateResponse> TYPE = DalmaruPayloads.type("combat_state_response");
-	public static final StreamCodec<RegistryFriendlyByteBuf, CombatStateResponse> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_INT, CombatStateResponse::currentStamina, ByteBufCodecs.VAR_INT, CombatStateResponse::maximumStamina, ByteBufCodecs.BOOL, CombatStateResponse::inCombat, CombatStateResponse::new);
-	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+public record CombatStateResponse(int currentStamina,int maximumStamina,boolean inCombat,boolean combatMode,int remainingCombatTicks,List<Integer> cooldowns,List<String> slots,int dodgeCharges,int guardMeter) implements CustomPacketPayload {
+    public CombatStateResponse(int current,int maximum,boolean combat){this(current,maximum,combat,combat,0,List.of(0,0,0,0,0),List.of("","","","",""),2,100);}
+    public static final Type<CombatStateResponse> TYPE=DalmaruPayloads.type("combat_state_response");
+    public static final StreamCodec<RegistryFriendlyByteBuf,CombatStateResponse> CODEC=new StreamCodec<>(){
+        public CombatStateResponse decode(RegistryFriendlyByteBuf b){int current=b.readVarInt(),max=b.readVarInt();boolean combat=b.readBoolean(),mode=b.readBoolean();int remaining=b.readVarInt();var cooldowns=new ArrayList<Integer>();var slots=new ArrayList<String>();for(int i=0;i<5;i++){cooldowns.add(b.readVarInt());slots.add(b.readUtf(128));}return new CombatStateResponse(current,max,combat,mode,remaining,cooldowns,slots,b.readVarInt(),b.readVarInt());}
+        public void encode(RegistryFriendlyByteBuf b,CombatStateResponse p){b.writeVarInt(p.currentStamina);b.writeVarInt(p.maximumStamina);b.writeBoolean(p.inCombat);b.writeBoolean(p.combatMode);b.writeVarInt(p.remainingCombatTicks);for(int i=0;i<5;i++){b.writeVarInt(p.cooldowns.get(i));b.writeUtf(p.slots.get(i));}b.writeVarInt(p.dodgeCharges);b.writeVarInt(p.guardMeter);}
+    };
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
 
 public record SweepRequest() implements CustomPacketPayload {
@@ -371,4 +375,55 @@ public record CharacterCreateRequest(long requestId, int slot, String displayNam
 	private static <T extends CustomPacketPayload> CustomPacketPayload.Type<T> type(String path) {
 		return new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(DalmaruMod.MOD_ID, path));
 	}
+ public record LoadoutRequest(long requestId) implements CustomPacketPayload {
+    public static final Type<LoadoutRequest> TYPE=DalmaruPayloads.type("loadout_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,LoadoutRequest> CODEC=StreamCodec.composite(ByteBufCodecs.VAR_LONG,LoadoutRequest::requestId,LoadoutRequest::new);
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+ public record LoadoutUpdate(long requestId,UUID characterId,long revision,List<String> slots) implements CustomPacketPayload {
+    public static final Type<LoadoutUpdate> TYPE=DalmaruPayloads.type("loadout_update");
+    public static final StreamCodec<RegistryFriendlyByteBuf,LoadoutUpdate> CODEC=new StreamCodec<>(){
+        public LoadoutUpdate decode(RegistryFriendlyByteBuf b){long request=b.readVarLong();UUID character=b.readUUID();long revision=b.readVarLong();var slots=new ArrayList<String>();for(int i=0;i<5;i++)slots.add(b.readUtf(128));return new LoadoutUpdate(request,character,revision,slots);}
+        public void encode(RegistryFriendlyByteBuf b,LoadoutUpdate p){if(p.slots.size()!=5)throw new IllegalArgumentException("Invalid slots");b.writeVarLong(p.requestId);b.writeUUID(p.characterId);b.writeVarLong(p.revision);p.slots.forEach(b::writeUtf);}
+    };
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+ public record LoadoutResponse(long requestId,UUID characterId,long revision,List<String> slots,boolean editable,String status) implements CustomPacketPayload {
+    public static final Type<LoadoutResponse> TYPE=DalmaruPayloads.type("loadout_response");
+    public static final StreamCodec<RegistryFriendlyByteBuf,LoadoutResponse> CODEC=new StreamCodec<>(){
+        public LoadoutResponse decode(RegistryFriendlyByteBuf b){long req=b.readVarLong();UUID character=b.readUUID();long revision=b.readVarLong();var slots=new ArrayList<String>();for(int i=0;i<5;i++)slots.add(b.readUtf(128));return new LoadoutResponse(req,character,revision,slots,b.readBoolean(),b.readUtf(512));}
+        public void encode(RegistryFriendlyByteBuf b,LoadoutResponse p){b.writeVarLong(p.requestId);b.writeUUID(p.characterId);b.writeVarLong(p.revision);p.slots.forEach(b::writeUtf);b.writeBoolean(p.editable);b.writeUtf(p.status);}
+    };
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+ public record SkillUseRequest(long requestId,UUID characterId,long revision,int slot) implements CustomPacketPayload {
+    public static final Type<SkillUseRequest> TYPE=DalmaruPayloads.type("skill_use_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,SkillUseRequest> CODEC=new StreamCodec<>(){
+        public SkillUseRequest decode(RegistryFriendlyByteBuf b){return new SkillUseRequest(b.readVarLong(),b.readUUID(),b.readVarLong(),b.readVarInt());}
+        public void encode(RegistryFriendlyByteBuf b,SkillUseRequest p){b.writeVarLong(p.requestId);b.writeUUID(p.characterId);b.writeVarLong(p.revision);b.writeVarInt(p.slot);}
+    };
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+ public record CombatModeRequest(boolean combat) implements CustomPacketPayload {
+    public static final Type<CombatModeRequest> TYPE=DalmaruPayloads.type("combat_mode_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,CombatModeRequest> CODEC=StreamCodec.composite(ByteBufCodecs.BOOL,CombatModeRequest::combat,CombatModeRequest::new);
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+ public record RunReadyRequest(UUID preparationId,boolean ready) implements CustomPacketPayload {
+    public static final Type<RunReadyRequest> TYPE=DalmaruPayloads.type("run_ready_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,RunReadyRequest> CODEC=StreamCodec.composite(ByteBufCodecs.VAR_LONG,r->r.preparationId().getMostSignificantBits(),ByteBufCodecs.VAR_LONG,r->r.preparationId().getLeastSignificantBits(),ByteBufCodecs.BOOL,RunReadyRequest::ready,(most,least,ready)->new RunReadyRequest(new UUID(most,least),ready));
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+
+ public record DodgeRequest(int direction) implements CustomPacketPayload {
+    public static final Type<DodgeRequest> TYPE=DalmaruPayloads.type("dodge_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,DodgeRequest> CODEC=StreamCodec.composite(ByteBufCodecs.VAR_INT,DodgeRequest::direction,DodgeRequest::new);
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+ public record GuardRequest(boolean guard) implements CustomPacketPayload {
+    public static final Type<GuardRequest> TYPE=DalmaruPayloads.type("guard_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,GuardRequest> CODEC=StreamCodec.composite(ByteBufCodecs.BOOL,GuardRequest::guard,GuardRequest::new);
+    public Type<? extends CustomPacketPayload> type(){return TYPE;}
+ }
+
 }

@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "runId": "bdcc9975-02d2-4b1c-9108-b51e30323de6",
+  "characters": [
+    "133e0ea0-3d6d-4f98-9af8-32b073e47ccb",
+    "13b52479-51bc-4663-b0a0-6f3ead4242df",
+    "79130b3b-f50d-428d-9353-6cff671ef934",
+    "d288aeaa-f0f6-43be-bf1a-b18c51d52042"
+  ],
+  "checks": [
+    "protocol28",
+    "four READY",
+    "stale preparation rejected",
+    "loadout resets READY",
+    "four ACTIVE broadcast",
+    "frozen loadout",
+    "ACTIVE edit rejected",
+    "slot1 cast and duplicate request"
+  ]
+}

@@ -41,7 +41,7 @@ public final class EquipmentRespawnCheck {
             static class ConnectionState {
                 AccountSession accountSession;
                 CharacterProfile activeProfile;
-                long equipmentRevision;
+                long equipmentRevision;Map<String,Integer> skillRanks=Map.of();
             }
             static class ServerPlayer {
                 final UUID id;
@@ -66,7 +66,7 @@ public final class EquipmentRespawnCheck {
                 }
             }
             static class Combat {
-                ServerPlayer appliedTo;
+                ServerPlayer appliedTo;void ranks(UUID id,Map<String,Integer> ranks){}
                 void clearEquipment(ServerPlayer player, CharacterProfile profile) { }
                 void equipment(ServerPlayer player, CharacterProfile profile, List<String> records) {
                     double ratio = player.health / player.maximumHealth;

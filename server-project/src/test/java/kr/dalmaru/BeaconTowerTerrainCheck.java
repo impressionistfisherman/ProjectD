@@ -83,7 +83,7 @@ public final class BeaconTowerTerrainCheck {
                 BeaconTowerMap.build(level,origin);
                 for (int x=-8;x<=8;x++) for(int z=-6;z<=74;z++) for(int y=1;y<=4;y++) {
                     String expected=Set.of(-6,74).contains(z)?"DEEPSLATE_BRICKS":"AIR";
-                    if (Math.abs(x)<=2 && Set.of(27,45,64).contains(z) && y<=3) expected="IRON_BARS";
+                    if (Set.of(27,45,64).contains(z)) expected="IRON_BARS";
                     if (Math.abs(x)==6 && Set.of(9,21,48,60).contains(z) && y<=3) expected="POLISHED_DEEPSLATE";
                     require(level.getBlockState(origin.offset(x,y,z)).name().equals(expected),"Interior terrain not cleared or map obstacle changed.");
                 }
@@ -96,6 +96,7 @@ public final class BeaconTowerTerrainCheck {
                 for(int x=-9;x<=9;x++)for(int z=-6;z<=74;z++)require(level.getBlockState(origin.offset(x,5,z)).name().equals("DEEPSLATE_BRICKS"),"J21 roof not closed");
                 BeaconTowerMap.open(level,origin,27);
                 require(level.getBlockState(origin.offset(0,1,27)).name().equals("AIR"),"Gate opening changed.");
+                require(level.getBlockState(origin.offset(8,1,27)).name().equals("IRON_BARS"),"Gate side bypass reopened");
                 BeaconTowerMap.restore(level,saved);
                 for(int x=-9;x<=9;x++)for(int z=-6;z<=74;z++)for(int y=0;y<=5;y++)require(level.getBlockState(origin.offset(x,y,z)).name().equals("STONE"),"J21 terrain restoration incomplete");
                 System.out.println("J21 occupied-block rejection/restoration and solid-terrain spawn/corridor clearing and floor/wall/gate/pillar boundaries PASS (production builder, stubbed blocks).");

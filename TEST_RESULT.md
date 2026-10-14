@@ -117,3 +117,47 @@
 - 2026-10-08 MDF-8 A안 완료: 실제 장착 장비·RPG 체력/피해·기본 공격/기술/보스 경로 연결. 컴파일·장비/계산 assertions PASS, 서버측 체력 경계 540/720/993.6 및 피해 2.6 PASS. 서버 exit 0·Java 0·설정값 보존 확인. 실제 완주·다인·회복/보호막 미검증, Jim QA·Creed 리뷰 대기. 상세: verification-mdf3/MDF8.md.
 
 - 2026-10-08 MDF-8 보안 후속: tools/autoplay/server-run.js의 DB 비밀번호 폴백 제거. DALMARU_DB_PASSWORD 미설정/빈 값이면 로그 생성·서버 실행 전에 명확한 오류로 종료. node tools/autoplay/server-run.test.js PASS(exit 0): 기존 JAR 차단 및 환경변수 누락/빈 값 검증, 실제 서버 미기동. 이력 재작성·push 없음; 과거 이력 처리는 사람 결정 대기.
+
+- 2026-10-13 MDF16 1단계: compileJava compileClientJava verifyCombatConsistency PASS(exit0/13초). 실제제품 tick/useSweep/recordValidHit를 대역 실행해 전투중회복·offline동결·clamp·허공타이머·반복비용 검사, 횡참5랭크·필드보상유지/던전태그보상차단 검사. 실제 mixin loot 취소/실전 GUI·몹은 후속헤드리스검증 예정.
+
+- 2026-10-13 MDF16 체크포인트: compileJava compileClientJava verifyCombatConsistency 최종PASS(exit0/9초), 모델효과/충전/방어/면역 및 실제제품기력/허공메서드대역 검사. verifyLoadoutDatabase PASS(exit0/9초, 임시PG57700) owner/세대/revision/replay/kind/ACTIVE/reconnect/history. V023 임시만/V024 미적용. 전체회귀·실제mixin/headless·몹spawn·C05/6 안전위치/DB/GUI 미검증. 임시PG 정상종료/운영PID4936 미조작. 상세 공유 hive/research/MDF16_J02_IMPLEMENTATION.md. PARTIAL.
+- 2026-10-13 최종 MDF16/J02: verifyBeaconTowerMobs PASS(4초): 실제 정의 6종/24마리 roster/인원배율. verifySafetyDatabase PASS(3초): V024 임시PG57700 persistence/owner/stale-generation. verifyReadyBoundary PASS(실제 READY 메서드): pending-write/전원준비/세션·roster·town·disconnect, 후속 준비UUID 불일치 차단 검사 PASS.
+- 전체회귀 1회(build + 18 verify,19초): 6개 기존 source-extraction fixture가 새 필드·메서드/문기대값 불일치로 FAIL. 시험대역 갱신 후 해당6개(EquipmentRespawn/BeaconTowerTerrain/ManualPlayRegression/PremergeRuntime/ReviewRegression/SessionLifecycle)만 재실행 PASS(10초). 나머지 verifyEnhancementRules/RunEncounterRules/PartyRuntime/CombatRewards/CombatCalculator/SoloCombatDefinitions/SelectionBoundary/CombatConsistency/LoadoutDatabase/PremergeDatabase/ReviewDatabase/LifecycleDatabase PASS. 전체성공으로 원래 실패 실행을 덮어쓰지 않음.
+- 격리 Minecraft57702 + 임시DB57700 헤드리스: 첫 부팅은 성공이나 별도 runtime 시험구성이 global entity hook에서 discard되어 FAIL. 실제 global runtime으로 시험구성 수정 후 재검증 PASS(16초): 실제 G0/G1→첫보스/G2/G3 roster, elite tag, 지휘자 HP50% 소환2/재소환0, 종료 개체·registry·지형복구, 문을 넘지 않는 안전바닥. common mixin 부팅도 확인. 실제 피해·loot·XP 취소/화로4초 상호작용/부활resource·타이밍/클라이언트mixin·GUI·실제packet은 검증범위 밖.
+- 최종 READY 취소 UI/준비UUID packet 변경 후 verifyReadyBoundary + verifyManualPlayRegression + compileClientJava PASS, assemble PASS. git diff --check PASS. 운영JAR SHA256 1B180A3C90FEF48521ADD06EB086AC2DF38E6A5D2BCC541BB74A5D6F298E6539 불변. 임시PG data_directory 소유경로 확인 후 정상종료.
+
+- 2026-10-13 후속QA: verifyClientScreenBounds/verifyFieldReviveBoundary/verifyReadyBoundary/verifyReviewRegression/verifySessionLifecycle/compileJava/compileClientJava/assemble PASS. 실제4인protocol28/READYUUID/장착초기화/ACTIVE/frozen/ACTIVEedit거부/slot중복비용 PASS. 실제client렌더+주입키handle경로/Grave·Alt기본값/문자키제거 PASS(상태snapshot,물리키미시험). 실제fieldcheckpoint15.5,101,0.5/2900ms/HP12of24/다음HUD기력55of100/생활복귀 PASS. 초기fixture실패·실제checkpoint덮어쓰기결함원인수정경위는verification-mdf16/QA.md 참조. 운영JARhash불변/운영DB미접근/추가배포없음.
+
+- 2026-10-13 fullrun.js 첫실행PASS(격리server57702/PG57700): run d321eef2-ff44-4bb3-a794-a2331d437752 COMPLETED4/4,requiredKills26+정책fixtureZombie1. guaranteedDiamond loot0/orb0/필드XP·quest0, 일반몹grant0. 실제부활/피해차단·화로80tick/2인·소환1회 PASS. 개인cleargrant70/3/1/상자15,ledger4,주간clear1,return_pending0,cleanup개체0/지형복원true. 기존bossXP/quest는리더50/2 유지,최종XP리더550·타인500. 실제키·보스인원배율/수동밸런스미검증. 제품추가수정없으므로성공전체회귀/빌드반복없음. 상세 verification-mdf16/FULLRUN.md.
+
+
+## 2026-10-13 MDF16 ?? ?? ?? ??
+
+- PASS: `compileJava compileClientJava` (?? ?? ???).
+- PASS: `verifyReviewFixBoundary` (R1-R5 production ?? guard ??). ? ??? R1 ?? ???? ?? ???? ?? ??? assertion? ?? ? ??????.
+- ??: ?? ??? ?? ???? ?? ????/? AI? ???? ????. R6-R9? ?? ?????.
+
+
+## 2026-10-13 ??? N1
+
+- PASS: `verifyRunEntryCancellation` (cancel?disconnect, disconnect?cancel, stale generation ???). ?? DB `oscar_fixture`/57700/V024?? ?? ? ?? ?? PostgreSQL? ?? ??????.
+- PASS: `git diff --check`.
+
+- N1 ??: `verifyRunEntryCancellation` ??? PASS. cancel ?? ??? ??? ? ?? ??? ???? ??. ?? ??? ?? ??? ??(CharacterRecord ??)? ?? ? ??????.
+
+- Review3 ?? N1/N2: `verifyRunEntryCancellation` PASS (cancel?disconnect, disconnect?cancel, reconnect ? ?? ?? ??, ??? generation tuple ??). N2 cleanup? production `.whenComplete` ?? ???? ?? ?? spawn ?? ?? ??? ???? ????.
+
+## 2026-10-13 MDF16 Review4 N1-N3
+- PASS: `verifyRunLifecycleOwnership`
+- PASS: `compileJava compileClientJava`
+- PASS: `git diff --check`
+- ACTIVE replay는 owner tuple과 현재 파티 전체의 runtime participant 일치를 확인한 뒤 응답한다. replay 거절은 활성 런 정리(close) 경로로 보내지 않는다.
+- 제한: 실서버 다중 접속/경합 QA 미실행. 운영 DB·서버 접속, 배포 없음.
+
+## 2026-10-13 MDF16 Review5 N4/N5
+- PASS: `verifyRunLifecycleOwnership`
+- PASS: `compileJava compileClientJava`
+- PASS: `git diff --check`
+- JOIN restore catch no longer closes the shared run; it rejects only the failing connection.
+- Runtime shutdown cleanup continues for each run and DB cancellation is attempted independently.
+- No live server/DB test or deployment; multi-client and shutdown-failure QA remains outstanding.

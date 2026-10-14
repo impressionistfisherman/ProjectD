@@ -42,9 +42,14 @@ public final class RunRepository {
                 for (UUID characterId : participants) reserveAvailable(connection, characterId, difficulty, week);
                 UUID runId = UUID.randomUUID();
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_instances (run_id, content_id, difficulty, week_id, party_size, scaling_tier, state) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')")) { insert.setObject(1, runId); insert.setString(2, CONTENT); insert.setString(3, difficulty.name()); insert.setObject(4, week); insert.setInt(5, participants.size()); insert.setInt(6, tier); insert.executeUpdate(); }
-                try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_participants (run_id, character_id) VALUES (?, ?)")) { for (UUID characterId : participants) { insert.setObject(1, runId); insert.setObject(2, characterId); insert.addBatch(); } insert.executeBatch(); }
+                try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_participants (run_id, character_id,frozen_loadout,loadout_revision) VALUES (?, ?,?::jsonb,?)")) { for (UUID characterId : participants) { var loadout=kr.dalmaru.skill.LoadoutRepository.load(connection,characterId); insert.setObject(1, runId); insert.setObject(2, characterId); insert.setString(3,kr.dalmaru.skill.LoadoutRepository.encode(loadout.slots()));insert.setLong(4,loadout.revision());insert.addBatch(); } insert.executeBatch(); }
                 request(connection, accountId, generation, requestId, "ENTER", runId, "ACTIVE"); connection.commit(); return new RunRecord(runId, difficulty, participants.size(), tier, "ACTIVE", false);
             } catch (Exception exception) { connection.rollback(); throw exception; }
+        }
+    }
+    public kr.dalmaru.skill.SkillLoadout frozenLoadout(UUID run,UUID character)throws SQLException {
+        try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT frozen_loadout::text,loadout_revision FROM dalmaru.run_participants WHERE run_id=? AND character_id=?")){
+            q.setObject(1,run);q.setObject(2,character);try(var row=q.executeQuery()){if(!row.next()||row.getString(1)==null)throw new IllegalArgumentException("Legacy run lacks frozen loadout.");return new kr.dalmaru.skill.SkillLoadout(character,row.getLong(2),kr.dalmaru.skill.LoadoutRepository.decode(row.getString(1)));}
         }
     }
     public RunRecord finish(UUID accountId, long generation, long requestId, UUID runId, boolean success) throws SQLException {
@@ -86,8 +91,10 @@ public final class RunRepository {
             connection.commit(); return new RunRecord(run.runId(), run.difficulty(), run.partySize(), run.scalingTier(), "ACTIVE", false);
         } catch (Exception exception) { connection.rollback(); throw exception; } }
     }
-    public void cancelNewEntry(UUID runId) throws SQLException {
-        try(var connection=DriverManager.getConnection(url,username,password);var update=connection.prepareStatement("UPDATE dalmaru.run_instances SET state='FAILED',finished_at=CURRENT_TIMESTAMP WHERE run_id=? AND state='ACTIVE'")){update.setObject(1,runId);update.executeUpdate();}
+    public boolean cancelNewEntry(UUID runId,UUID accountId,long generation,long requestId) throws SQLException {
+        try(var connection=DriverManager.getConnection(url,username,password);var update=connection.prepareStatement("UPDATE dalmaru.run_instances r SET state='FAILED',finished_at=CURRENT_TIMESTAMP WHERE r.run_id=? AND r.state IN ('ACTIVE','PAUSED') AND EXISTS (SELECT 1 FROM dalmaru.run_requests q WHERE q.run_id=r.run_id AND q.account_id=? AND q.connection_generation=? AND q.request_id=? AND q.action='ENTER')")){
+            update.setObject(1,runId);update.setObject(2,accountId);update.setLong(3,generation);update.setLong(4,requestId);return update.executeUpdate()==1;
+        }
     }
     public void cancelUnfinished() throws SQLException {
         try(var connection=DriverManager.getConnection(url,username,password);var update=connection.prepareStatement("UPDATE dalmaru.run_instances SET state='FAILED',finished_at=CURRENT_TIMESTAMP WHERE state IN ('ACTIVE','PAUSED')")){update.executeUpdate();}

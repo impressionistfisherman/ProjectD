@@ -35,6 +35,6 @@ final class BeaconTowerMap {
     }
 
     private static void close(ServerLevel level, BlockPos origin, int z) {
-        for (int x = -2; x <= 2; x++) for (int y = 1; y <= 3; y++) level.setBlock(origin.offset(x, y, z), Blocks.IRON_BARS.defaultBlockState(), 3);
+        for (int x = -8; x <= 8; x++) for (int y = 1; y <= 4; y++) level.setBlock(origin.offset(x, y, z), Blocks.IRON_BARS.defaultBlockState(), 3);
     }
 }

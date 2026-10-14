@@ -24,36 +24,9 @@ public final class DalmaruClient implements ClientModInitializer {
 		"key.dalmaru.open_quests", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, CATEGORY));
 	private static final KeyMapping OPEN_EQUIPMENT = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_equipment", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_E, CATEGORY));
 	private static final KeyMapping OPEN_RUN = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_run", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F6, CATEGORY));
-	private static final KeyMapping SWEEP = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.sweep", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, CATEGORY));
-	private static final KeyMapping ADVANCE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.advance", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY));
-	private static final KeyMapping RISING_STRIKE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.rising_strike", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, CATEGORY));
-	private static final KeyMapping BATTLE_CRY = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.battle_cry", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY));
-	private static final KeyMapping PIERCING_SHOT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.piercing_shot", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, CATEGORY));
-	private static final KeyMapping SPIRIT_TALISMAN = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.spirit_talisman", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY));
-	private static final KeyMapping AMBUSH = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.ambush", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY));
-	private static final KeyMapping RETREAT_SHOT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.retreat_shot", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Z, CATEGORY));
-	private static final KeyMapping BINDING_TALISMAN = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.binding_talisman", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, CATEGORY));
-	private static final KeyMapping SMOKE_BOMB = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.smoke_bomb", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_Y, CATEGORY));
-	private static final KeyMapping SHACKLE_STRIKE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.shackle_strike", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY));
-	private static final KeyMapping ESCAPE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.escape", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_I, CATEGORY));
-	private static final KeyMapping TRACKING_MARK = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.tracking_mark", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, CATEGORY));
-	private static final KeyMapping BINDING_SHOT = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-		"key.dalmaru.binding_shot", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_L, CATEGORY));
-	private static final KeyMapping PROTECTIVE_TALISMAN = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.protective_talisman", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F, CATEGORY));
-	private static final KeyMapping SHORT_STEP = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.short_step", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_T, CATEGORY));
+	private static boolean guardKeyDown;
+    private static final KeyMapping DODGE=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.dodge",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_LEFT_ALT,CATEGORY));
+    private static final KeyMapping TOGGLE_MODE=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.toggle_mode",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_GRAVE_ACCENT,CATEGORY));
 	private static boolean profileKeyDown;
 
 	@Override
@@ -67,8 +40,8 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 		ClientSkillState.resetForConnection();
 		ClientEquipmentState.resetForConnection();
-		ClientRunState.resetForConnection();
-			profileKeyDown = false;
+		ClientRunState.resetForConnection();ClientLoadoutState.reset();
+			profileKeyDown = false;guardKeyDown=false;
 			ClientPlayNetworking.send(new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION));
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -79,8 +52,8 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 			ClientSkillState.resetForConnection();
 			ClientEquipmentState.resetForConnection();
-			ClientRunState.resetForConnection();
-			profileKeyDown = false;
+			ClientRunState.resetForConnection();ClientLoadoutState.reset();
+			profileKeyDown = false;guardKeyDown=false;
 		});
 
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Welcome.TYPE,
@@ -89,7 +62,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> ClientConnectionState.acceptProbeResponse(payload.requestId(), payload.rateLimited()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterSelectionReady.TYPE, (payload, context) -> {
 			if (!payload.ready()) return;
-			ClientCharacterState.markSelectionReady();
+			ClientCharacterState.markSelectionReady();requestLoadout();
 			context.client().setScreen(new DalmaruCharacterScreen());
 			requestCharacterList();
 		});
@@ -99,6 +72,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
+                    ClientLoadoutState.selected(payload.characterId());requestLoadout();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -114,7 +88,7 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterProfessionResponse.TYPE,
 			(payload, context) -> ClientProfileState.acceptProfession(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnResponse.TYPE,
-			(payload, context) -> ClientProfileState.acceptSkill(payload));
+			(payload, context) -> {ClientProfileState.acceptSkill(payload);requestSkillRanks();requestLoadout();});
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksResponse.TYPE,
 			(payload, context) -> ClientSkillState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListResponse.TYPE,
@@ -122,9 +96,10 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceResponse.TYPE,
 			(payload, context) -> ClientEquipmentState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunResponse.TYPE,
-			(payload, context) -> { if (ClientRunState.accept(payload) && context.client().screen instanceof DalmaruRunScreen) context.client().setScreen(null); });
+			(payload, context) -> { if(ClientRunState.prepare(payload)){if(context.client().screen==null)context.client().setScreen(new DalmaruRunScreen());}else if (ClientRunState.accept(payload) && context.client().screen instanceof DalmaruRunScreen) context.client().setScreen(null); });
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.QuestResponse.TYPE,
 			(payload, context) -> ClientQuestState.accept(payload));
+ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE,(payload,context)->ClientLoadoutState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CombatStateResponse.TYPE,
 			(payload, context) -> ClientCombatState.accept(payload));
 
@@ -145,23 +120,14 @@ public final class DalmaruClient implements ClientModInitializer {
 			if (client.screen == null && OPEN_RUN.consumeClick()) {
 				client.setScreen(new DalmaruRunScreen());
 			}
-			if (client.screen == null && SWEEP.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.SweepRequest());
-			if (client.screen == null && ADVANCE.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.AdvanceRequest());
-			if (client.screen == null && RISING_STRIKE.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.RisingStrikeRequest());
-			if (client.screen == null && BATTLE_CRY.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.BattleCryRequest());
-			if (client.screen == null && PIERCING_SHOT.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.PiercingShotRequest());
-			if (client.screen == null && SPIRIT_TALISMAN.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.SpiritTalismanRequest());
-			if (client.screen == null && AMBUSH.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.AmbushRequest());
-			if (client.screen == null && RETREAT_SHOT.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.RetreatShotRequest());
-			if (client.screen == null && BINDING_TALISMAN.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.BindingTalismanRequest());
-			if (client.screen == null && SMOKE_BOMB.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.SmokeBombRequest());
-			if (client.screen == null && SHACKLE_STRIKE.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.ShackleStrikeRequest());
-			if (client.screen == null && ESCAPE.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.EscapeRequest());
-			if (client.screen == null && TRACKING_MARK.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.TrackingMarkRequest());
-			if (client.screen == null && BINDING_SHOT.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.BindingShotRequest());
-			if (client.screen == null && PROTECTIVE_TALISMAN.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.ProtectiveTalismanRequest());
-			if (client.screen == null && SHORT_STEP.consumeClick()) ClientPlayNetworking.send(new DalmaruPayloads.ShortStepRequest());
-			boolean profilePressed = InputConstants.isKeyDown(client.getWindow(), GLFW.GLFW_KEY_J);
+            if(client.screen==null&&TOGGLE_MODE.consumeClick())ClientPlayNetworking.send(new DalmaruPayloads.CombatModeRequest(ClientCombatState.current()==null||!ClientCombatState.current().combatMode()));
+			if(client.player!=null){
+                if(client.screen==null&&DODGE.consumeClick()&&ClientCombatState.current()!=null&&ClientCombatState.current().combatMode()){
+                    int direction=client.options.keyDown.isDown()?1:client.options.keyLeft.isDown()?2:client.options.keyRight.isDown()?3:0;ClientPlayNetworking.send(new DalmaruPayloads.DodgeRequest(direction));
+                }
+                boolean guard=client.screen==null&&client.options.keyUse.isDown();if(guard!=guardKeyDown){guardKeyDown=guard;ClientPlayNetworking.send(new DalmaruPayloads.GuardRequest(guard));}
+            }
+            boolean profilePressed = InputConstants.isKeyDown(client.getWindow(), GLFW.GLFW_KEY_J);
 			if (profilePressed && !profileKeyDown && client.screen == null) {
 				client.setScreen(new DalmaruProfileScreen());
 			}
@@ -247,4 +213,13 @@ public final class DalmaruClient implements ClientModInitializer {
 		long requestId = ClientRunState.nextRequestId();
 		if (requestId > 0) ClientPlayNetworking.send(new DalmaruPayloads.RunEnterRequest(requestId, difficulty));
 	}
+    public static boolean combatHotbar(int slot){
+        var client=net.minecraft.client.Minecraft.getInstance();var combat=ClientCombatState.current();
+        if(client.player==null||client.screen!=null||combat==null||!combat.combatMode())return false;
+        var loadout=ClientLoadoutState.current();if(loadout!=null)ClientPlayNetworking.send(new DalmaruPayloads.SkillUseRequest(ClientLoadoutState.next(),loadout.characterId(),loadout.revision(),slot));return true;
+    }
+    static void requestLoadout(){ClientPlayNetworking.send(new DalmaruPayloads.LoadoutRequest(ClientLoadoutState.next()));}
+    static void updateLoadout(java.util.List<String> slots){var current=ClientLoadoutState.current();if(current==null||!current.editable()||ClientLoadoutState.waiting())return;ClientLoadoutState.pending();ClientPlayNetworking.send(new DalmaruPayloads.LoadoutUpdate(ClientLoadoutState.next(),current.characterId(),current.revision(),slots));}
+    static void readyRun(){if(!ClientRunState.preparing()||ClientRunState.preparationId()==null)return;ClientPlayNetworking.send(new DalmaruPayloads.RunReadyRequest(ClientRunState.preparationId(),true));}
+
 }

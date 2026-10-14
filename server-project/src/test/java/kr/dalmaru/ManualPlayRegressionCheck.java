@@ -36,7 +36,7 @@ public final class ManualPlayRegressionCheck {
     private static final String HARNESS = """
         import java.util.*;
         /* STATE */
-        class DalmaruPayloads { record RunResponse(long requestId, boolean accepted, String status) {} }
+        class DalmaruPayloads { record RunResponse(long requestId, boolean accepted, String status, String state, UUID runId) { RunResponse(long id,boolean accepted,String status){this(id,accepted,status,"ACTIVE",UUID.randomUUID());} } }
         class Component { static String literal(String text) { return text; } }
         class Button {
             boolean active = true; int x,y,w,h;
@@ -93,6 +93,7 @@ public final class ManualPlayRegressionCheck {
                 require(request>0 && ClientRunState.nextRequestId()==0,"Duplicate entry sent while waiting");
                 require(!ClientRunState.accept(new DalmaruPayloads.RunResponse(request+1,true,"stale")) && !ClientRunState.canRequest(),"Unmatched response changed pending request");
                 require(ClientRunState.accept(new DalmaruPayloads.RunResponse(request,true,"entered")) && ClientRunState.canRequest(),"Accepted entry did not finish waiting");
+                UUID preparation=UUID.randomUUID();require(ClientRunState.prepare(new DalmaruPayloads.RunResponse(99,true,"ready","READY",preparation)),"READY ignored");ClientRunState.accept(new DalmaruPayloads.RunResponse(99,false,"cancelled","CANCELLED",preparation));require(!ClientRunState.preparing(),"Cancellation kept READY UI");
                 long second=ClientRunState.nextRequestId(); require(second>request,"Request ID reused");
                 require(!ClientRunState.accept(new DalmaruPayloads.RunResponse(second,false,"denied")) && ClientRunState.canRequest(),"Denial did not allow retry");
                 require(runEntryStatus(new java.util.concurrent.CompletionException(new IllegalArgumentException("Character already has an active run."))).contains("진행 중"),"Active run denial hidden");

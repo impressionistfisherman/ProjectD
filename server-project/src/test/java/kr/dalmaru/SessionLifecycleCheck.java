@@ -40,6 +40,8 @@ public final class SessionLifecycleCheck {
         class Characters{CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);volatile boolean block;void recoverVanilla(UUID id,long generation,String state,java.util.function.Consumer<String>install){entered.countDown();if(block)try{if(!release.await(3,TimeUnit.SECONDS))throw new IllegalStateException("fixture timeout");}catch(InterruptedException e){throw new RuntimeException(e);}if(generation!=SessionHarness.ACCOUNTS.generation.get())throw new IllegalStateException("stale generation");install.accept("recovered-"+generation);}}
         class VanillaCharacterState{static String capture(ServerPlayer p){return p.inventory;}static void restore(ServerPlayer p,String state){p.inventory=state;}}
         public class SessionHarness {
+            static void clearFieldRevive(ServerPlayer player){}
+            static void cancelPreparation(UUID id,String reason){}
             static Map<UUID,ConnectionState>CONNECTIONS=new HashMap<>();static ExecutorService LIFECYCLE_DB;static Accounts ACCOUNTS;static Characters CHARACTERS;static RuntimeState RUN_RUNTIME=new RuntimeState();static RunRepository RUNS=new RunRepository();static Combat COMBAT=new Combat();static Log LOGGER=new Log();static long currentTick;
             /* PREDICATE */
             static void joined(Handler handler,Object sender,MinecraftServer server) /* JOIN */
