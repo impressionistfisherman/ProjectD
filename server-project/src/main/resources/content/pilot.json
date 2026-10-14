@@ -101,9 +101,21 @@
     }
   ],
   "equipment": {
-    "primary": [5, 8, 12],
-    "vitality": [4, 6, 8],
-    "spirit": [3, 4, 6],
+    "primary": [
+      5,
+      8,
+      12
+    ],
+    "vitality": [
+      4,
+      6,
+      8
+    ],
+    "spirit": [
+      3,
+      4,
+      6
+    ],
     "levels": [
       10,
       15,
@@ -377,5 +389,133 @@
       "itemRefs": [],
       "skillRefs": []
     }
-  ]
+  ],
+  "encounter": {
+    "mobs": [
+      {
+        "id": "mob.beacon.guard",
+        "kind": "GUARD",
+        "label": "파수 잔영",
+        "health": 330,
+        "physicalDefense": 30,
+        "magicDefense": 20,
+        "damage": 75,
+        "interval": 32,
+        "magic": false,
+        "range": 3,
+        "enabled": true
+      },
+      {
+        "id": "mob.beacon.archer",
+        "kind": "ARCHER",
+        "label": "혼백 궁수",
+        "health": 280,
+        "physicalDefense": 15,
+        "magicDefense": 35,
+        "damage": 65,
+        "interval": 40,
+        "magic": true,
+        "range": 12,
+        "enabled": true
+      },
+      {
+        "id": "mob.beacon.ember",
+        "kind": "EMBER",
+        "label": "불씨 잔영",
+        "health": 310,
+        "physicalDefense": 20,
+        "magicDefense": 25,
+        "damage": 58,
+        "interval": 40,
+        "magic": true,
+        "range": 8,
+        "enabled": true
+      },
+      {
+        "id": "mob.beacon.shield",
+        "kind": "SHIELD",
+        "label": "방패 잔영",
+        "health": 520,
+        "physicalDefense": 70,
+        "magicDefense": 35,
+        "damage": 85,
+        "interval": 40,
+        "magic": false,
+        "range": 3,
+        "enabled": true
+      },
+      {
+        "id": "mob.beacon.soldier",
+        "kind": "SOLDIER",
+        "label": "잿빛 군졸",
+        "health": 360,
+        "physicalDefense": 25,
+        "magicDefense": 25,
+        "damage": 72,
+        "interval": 30,
+        "magic": false,
+        "range": 3,
+        "enabled": true
+      },
+      {
+        "id": "mob.beacon.commander",
+        "kind": "COMMANDER",
+        "label": "망령 지휘자",
+        "health": 3000,
+        "physicalDefense": 55,
+        "magicDefense": 55,
+        "damage": 95,
+        "interval": 40,
+        "magic": false,
+        "range": 3,
+        "enabled": true
+      }
+    ],
+    "groups": [
+      [
+        "GUARD",
+        "GUARD",
+        "GUARD",
+        "ARCHER",
+        "ARCHER"
+      ],
+      [
+        "GUARD",
+        "GUARD",
+        "SHIELD",
+        "SHIELD",
+        "ARCHER"
+      ],
+      [
+        "EMBER",
+        "EMBER",
+        "EMBER",
+        "SOLDIER",
+        "SOLDIER",
+        "SOLDIER",
+        "SOLDIER",
+        "ARCHER",
+        "ARCHER"
+      ],
+      [
+        "COMMANDER",
+        "SHIELD",
+        "SHIELD",
+        "SOLDIER",
+        "SOLDIER"
+      ]
+    ],
+    "healthScales": [
+      1,
+      1.8,
+      3.25
+    ],
+    "damageScales": [
+      1,
+      1.12,
+      1.25
+    ],
+    "gatekeeperHealth": 10800,
+    "finalBossHealth": 14400
+  }
 }

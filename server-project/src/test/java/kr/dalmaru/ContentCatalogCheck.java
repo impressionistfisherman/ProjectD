@@ -35,6 +35,20 @@ public final class ContentCatalogCheck {
             check(stats.attack()==Math.round(63*scale)&&stats.primary()==Math.round(12*.30*scale)&&stats.vitality()==Math.round(8*.30*scale)&&stats.spirit()==Math.round(6*.30*scale),"Equipment bonus/scaling changed");
         }
         check(EnhancementRules.chance(14,Integer.MAX_VALUE)==100,"Pity calculation overflow");
+        String[] kinds={"GUARD","ARCHER","EMBER","SHIELD","SOLDIER","COMMANDER"};
+        int[] health={330,280,310,520,360,3000},physicalDefense={30,15,20,70,25,55},magicDefense={20,35,25,35,25,55},damage={75,65,58,85,72,95},interval={32,40,40,40,30,40},range={3,12,8,3,3,3};
+        for(int i=0;i<kinds.length;i++){
+            var mob=catalog.encounter().mob(kinds[i]);
+            check(mob.health()==health[i]&&mob.physicalDefense()==physicalDefense[i]&&mob.magicDefense()==magicDefense[i]&&mob.damage()==damage[i]&&mob.interval()==interval[i]&&mob.range()==range[i]&&mob.magic()==(i==1||i==2),"J02 mob values changed");
+        }
+        check(catalog.encounter().gatekeeperHealth()==10800&&catalog.encounter().finalBossHealth()==14400,"Boss health changed");
+        var changed=JsonParser.parseString(source).getAsJsonObject();var encounter=changed.getAsJsonObject("encounter");
+        encounter.getAsJsonArray("mobs").get(0).getAsJsonObject().addProperty("health",999);
+        encounter.getAsJsonArray("groups").get(0).getAsJsonArray().set(0,new JsonPrimitive("SOLDIER"));
+        encounter.getAsJsonArray("healthScales").set(0,new JsonPrimitive(2));
+        var archived=ContentCatalog.parse(changed.toString());
+        check(archived.encounter().mob("GUARD").health()==999&&kr.dalmaru.run.BeaconTowerMobs.group(archived,0).getFirst()==kr.dalmaru.run.BeaconTowerMobs.Kind.SOLDIER&&kr.dalmaru.run.BeaconTowerMobs.healthScale(archived,1)==2&&catalog.encounter().mob("GUARD").health()==330,"Archived encounter used current definitions");
+        try{archived.encounter().groups().get(0).clear();throw new AssertionError("Mutable roster");}catch(UnsupportedOperationException expected){}
         reject(source,root->root.addProperty("schemaVersion",2));reject(source,root->root.addProperty("enabled",false));
         reject(source,root->root.getAsJsonArray("skills").add(root.getAsJsonArray("skills").get(0).deepCopy()));
         reject(source,root->root.getAsJsonArray("skills").get(0).getAsJsonObject().addProperty("id","skill.unknown"));
@@ -47,6 +61,13 @@ public final class ContentCatalogCheck {
         reject(source,root->root.getAsJsonObject("equipment").getAsJsonArray("primary").remove(0));
         reject(source,root->root.getAsJsonObject("enhancement").addProperty("failureBonus",101));
         reject(source,root->root.getAsJsonObject("enhancement").addProperty("statIncreaseLater",-1));
+        reject(source,root->root.getAsJsonObject("encounter").getAsJsonArray("mobs").get(0).getAsJsonObject().addProperty("interval",0));
+        reject(source,root->root.getAsJsonObject("encounter").getAsJsonArray("mobs").get(0).getAsJsonObject().addProperty("enabled",false));
+        reject(source,root->root.getAsJsonObject("encounter").getAsJsonArray("mobs").add(root.getAsJsonObject("encounter").getAsJsonArray("mobs").get(0).deepCopy()));
+        reject(source,root->root.getAsJsonObject("encounter").getAsJsonArray("groups").get(0).getAsJsonArray().add("UNKNOWN"));
+        reject(source,root->root.getAsJsonObject("encounter").getAsJsonArray("groups").get(0).getAsJsonArray().add("COMMANDER"));
+        reject(source,root->root.getAsJsonObject("encounter").getAsJsonArray("healthScales").set(0,new JsonPrimitive(0)));
+        reject(source,root->root.getAsJsonObject("encounter").addProperty("gatekeeperHealth",0));
         reject(source,root->root.getAsJsonObject("equipment").getAsJsonArray("weapons").get(0).getAsJsonObject().addProperty("profession","UNKNOWN"));
         reject(source,root->root.getAsJsonObject("equipment").getAsJsonArray("weapons").get(0).getAsJsonObject().getAsJsonArray("attack").set(0,new JsonPrimitive(1.5)));
         reject(source,root->root.getAsJsonObject("equipment").getAsJsonArray("weapons").add(root.getAsJsonObject("equipment").getAsJsonArray("weapons").get(0).deepCopy()));
@@ -56,7 +77,7 @@ public final class ContentCatalogCheck {
         disabled.getAsJsonArray("quests").get(0).getAsJsonObject().getAsJsonArray("itemRefs").add("pilot.weapon.two_handed_sword.10");try{ContentCatalog.parse(disabled.toString());throw new AssertionError("Active reference to disabled item accepted");}catch(IllegalArgumentException expected){}
         try{catalog.items().clear();throw new AssertionError("Catalog is mutable");}catch(UnsupportedOperationException expected){}
         check(ContentCatalog.parse(catalog.snapshot()).items().equals(catalog.items()),"Snapshot roundtrip changed definitions");
-        System.out.println("Versioned pilot definitions,69 item legacy values, equipment scaling, consumers and17 invalid-definition cases PASS");
+        System.out.println("Versioned pilot definitions,69 items,6 J02 mobs, archived consumers and24 invalid-definition cases PASS");
     }
     private static void reject(String source,Consumer<JsonObject> change){var root=JsonParser.parseString(source).getAsJsonObject();change.accept(root);try{ContentCatalog.parse(root.toString());}catch(IllegalArgumentException expected){return;}throw new AssertionError("Invalid content definition accepted");}
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}

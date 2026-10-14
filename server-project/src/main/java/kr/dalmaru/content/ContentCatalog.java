@@ -12,6 +12,13 @@ public final class ContentCatalog {
     public record Item(int level,int slot,String requirement,int attack,double physical,double magic,double budget,boolean magical,double basicMultiplier,int basicTicks,boolean enabled){}
     public record Quest(String id,String version,String target,int goal,int experience,boolean enabled,List<String> requires){}
     public record Run(String id,String version,int minPlayers,int maxPlayers,boolean enabled,List<String> requires){}
+    public record Mob(String id,String kind,String label,int health,int physicalDefense,int magicDefense,int damage,int interval,boolean magic,int range,boolean enabled){}
+    public record EncounterDefinition(Map<String,Mob> mobs,List<List<String>> groups,List<Double> healthScales,List<Double> damageScales,int gatekeeperHealth,int finalBossHealth){
+        public EncounterDefinition {mobs=Map.copyOf(mobs);groups=groups.stream().map(List::copyOf).toList();healthScales=List.copyOf(healthScales);damageScales=List.copyOf(damageScales);}
+        public Mob mob(String kind){var value=mobs.get(kind);if(value==null||!value.enabled())throw new IllegalArgumentException("Unknown/disabled encounter mob");return value;}
+    }
+    private final EncounterDefinition encounter;
+    public EncounterDefinition encounter(){return encounter;}
     private final String version,snapshot;
     private final Map<String,Item> items;
     private final Map<String,Quest> quests;
@@ -22,8 +29,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy){
-        this.bonuses=bonuses;this.enhancementPolicy=enhancementPolicy;
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter){
+        this.encounter=encounter;this.bonuses=bonuses;this.enhancementPolicy=enhancementPolicy;
         this.version=version;this.snapshot=snapshot;this.items=Map.copyOf(items);this.quests=Map.copyOf(quests);this.runs=Map.copyOf(runs);this.chances=List.copyOf(chances);this.costs=List.copyOf(costs);
     }
     private static final class Current{static final ContentCatalog VALUE=load();}
@@ -102,12 +109,33 @@ public final class ContentCatalog {
                 var run=element.getAsJsonObject();String id=id(run,"id");unique(all,id);int min=integer(run,"minPlayers"),max=integer(run,"maxPlayers");if(min<1||max<min||max>4)throw new IllegalArgumentException("Unsupported run party size");
                 String runVersion=version(run,"version");if(!runVersion.equals(version))throw new IllegalArgumentException("Run version differs from bundle");references(run,items,skills,quests);runs.put(id,new Run(id,runVersion,min,max,flag(run,"enabled"),strings(run,"requires")));
             }
+            var encounterSource=root.getAsJsonObject("encounter");var mobs=new LinkedHashMap<String,Mob>();
+            for(var element:array(encounterSource,"mobs")){
+                var mob=element.getAsJsonObject();String id=id(mob,"id"),kind=text(mob,"kind");unique(all,id);
+                if(!Set.of("GUARD","ARCHER","EMBER","SHIELD","SOLDIER","COMMANDER").contains(kind))throw new IllegalArgumentException("Unsupported mob kind");
+                var definition=new Mob(id,kind,text(mob,"label"),integer(mob,"health"),integer(mob,"physicalDefense"),integer(mob,"magicDefense"),integer(mob,"damage"),integer(mob,"interval"),flag(mob,"magic"),integer(mob,"range"),flag(mob,"enabled"));
+                if(definition.health()<1||definition.damage()<1||definition.interval()<1||definition.range()<1||mobs.putIfAbsent(kind,definition)!=null)throw new IllegalArgumentException("Invalid/duplicate mob definition");
+            }
+            if(mobs.size()!=6)throw new IllegalArgumentException("Pilot mob definitions incomplete");
+            var groups=new ArrayList<List<String>>();int totalMobs=0,commanders=0;
+            for(var group:array(encounterSource,"groups")){
+                var names=new ArrayList<String>();
+                for(var entry:group.getAsJsonArray()){
+                    if(!entry.isJsonPrimitive()||!entry.getAsJsonPrimitive().isString())throw new IllegalArgumentException("Invalid mob reference");
+                    String kind=entry.getAsString();var mob=mobs.get(kind);if(mob==null||!mob.enabled())throw new IllegalArgumentException("Unknown/disabled mob reference");
+                    if(kind.equals("COMMANDER")){if(groups.size()!=3)throw new IllegalArgumentException("Commander must be in final group");commanders++;}names.add(kind);
+                }
+                if(names.isEmpty())throw new IllegalArgumentException("Empty encounter group");totalMobs+=names.size();groups.add(List.copyOf(names));
+            }
+            int gatekeeper=integer(encounterSource,"gatekeeperHealth"),finalBoss=integer(encounterSource,"finalBossHealth");
+            if(groups.size()!=4||totalMobs>64||commanders!=1||gatekeeper<1||finalBoss<1||!mobs.get("SOLDIER").enabled())throw new IllegalArgumentException("Invalid encounter roster/bosses");
+            var encounter=new EncounterDefinition(mobs,groups,scales(encounterSource,"healthScales"),scales(encounterSource,"damageScales"),gatekeeper,finalBoss);
             var enhancement=root.getAsJsonObject("enhancement");var chances=integers(enhancement,"chances");if(chances.size()!=15||chances.stream().anyMatch(value->value>100))throw new IllegalArgumentException("Invalid enhancement probabilities");
             var costs=new ArrayList<EnhancementRules.Cost>();for(var element:array(enhancement,"costs")){var cost=element.getAsJsonObject();if(integer(cost,"target")!=costs.size()+1)throw new IllegalArgumentException("Enhancement cost tiers out of order");costs.add(new EnhancementRules.Cost(integer(cost,"copper"),integer(cost,"ironstone")));}
             if(costs.isEmpty()||costs.size()>15)throw new IllegalArgumentException("Pilot cost tiers incomplete");
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy);
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter);
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static void references(JsonObject source,Map<String,Item> items,Set<String> skills,Map<String,Quest> quests){
@@ -125,6 +153,12 @@ public final class ContentCatalog {
     private static int integer(JsonObject value,String key){return integer(value.get(key));}
     private static int integer(JsonElement value){if(value==null||!value.isJsonPrimitive()||!value.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Expected integer");int number=new java.math.BigDecimal(value.getAsString()).intValueExact();if(number<0)throw new IllegalArgumentException("Negative content value");return number;}
     private static double number(JsonObject value,String key){var field=value.get(key);if(field==null||!field.isJsonPrimitive()||!field.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Expected number: "+key);double number=field.getAsDouble();if(!Double.isFinite(number)||number<0)throw new IllegalArgumentException("Invalid numeric content value");return number;}
+    private static List<Double> scales(JsonObject source,String key){
+        var values=new ArrayList<Double>();for(var entry:array(source,key)){
+            if(!entry.isJsonPrimitive()||!entry.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Invalid encounter scale");
+            double value=entry.getAsDouble();if(!Double.isFinite(value)||value<=0||value>100)throw new IllegalArgumentException("Invalid encounter scale");values.add(value);
+        }if(values.size()!=3)throw new IllegalArgumentException("Encounter scale tiers incomplete");return List.copyOf(values);
+    }
     private static JsonArray array(JsonObject value,String key){var field=value.get(key);if(field==null||!field.isJsonArray())throw new IllegalArgumentException("Missing list: "+key);return field.getAsJsonArray();}
     private static List<Integer> integers(JsonObject value,String key){var result=new ArrayList<Integer>();for(var entry:array(value,key))result.add(integer(entry));return List.copyOf(result);}
     private static List<String> strings(JsonObject value,String key){var result=new ArrayList<String>();for(var entry:array(value,key)){if(!entry.isJsonPrimitive()||!entry.getAsJsonPrimitive().isString())throw new IllegalArgumentException("Invalid reference list");result.add(entry.getAsString());}return List.copyOf(result);}

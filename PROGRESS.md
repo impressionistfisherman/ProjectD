@@ -175,3 +175,10 @@
 - V012 already has content_version NOT NULL DEFAULT pilot-1 (earlier summary was incorrect). V026 preserves that label and NULL legacy snapshots, adds snapshot and immutable ID/version/snapshot trigger; no backfill/contraction.
 - PASS fixture reservation/replay/archived read/immutability/state update/missing and mismatch rejection/legacy preservation/migration rerun plus compile (31s). oscar_p1_fixture schema26 only; production unchanged.
 - Runtime snapshot consumption/J02 mob data are S10b2; M10/O27 and independent QA remain PARTIAL.
+
+## 2026-10-14 MDF-P1 S10b2
+- J02 six mob archetypes/24 roster/party scales/boss HP now versioned JSON; entry loads the stored DB catalog on the lifecycle executor and pins it in Encounter before world mutations. Group/spawn/defense/attack/boss consumers read that snapshot; changed snapshot on existing encounter rejects.
+- Preserve old numeric values/AI archetype behavior/loot and XP rules. Immutable deep rosters; invalid kinds, disabled refs, zero timing/scales/boss HP and commander placement rejected.
+- S10b1 Creed PASS received. Review condition handled: resume safely fails legacy ACTIVE/PAUSED with snapshot NULL, retains return checkpoint and prior rewards; terminal records do not need frozenContent. No guessed definitions/backfill.
+- PASS catalog24 invalid inputs/current and archived values, J02 roster/scaling, actual runtime lifecycle/pin/change rejection, DB legacy return/ACK/finished record/reward preservation and migration rerun, server/client compile. Fixture accounts0/runs0/schema26.
+- No new migration/protocol/live change. O27 full skill/display definitions and broader per-run equipment/skill definition consumers remain; M10/P1 PARTIAL pending remaining scope and independent QA. Missing legacy return mode remains pre-existing manual recovery requirement; no invented return mode/coordinates.

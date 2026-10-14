@@ -209,3 +209,10 @@
 - V026 initial fixture apply and corrected compatibility apply PASS; rerun with actual legacy pilot-1/NULL snapshot preserves row unchanged. Reject JSON-array snapshot. All test-owned runs and account removed in finally.
 - Initial migration draft assumed missing content_version from summary; source V012 proves existing default. Corrected before commit; fixture initially had no legacy rows, no production changes. Final test exercises real legacy row during rerun.
 - No live dungeon entry, runtime mob consumption, deployment/production DB or old-JAR rollout check; follow S10b2 and independent QA.
+
+## 2026-10-14 MDF-P1 S10b2
+- PASS --no-daemon verifyContentCatalog verifyBeaconTowerMobs verifyPremergeRuntime verifyRunContentSnapshot compileClientJava (41s); catalog/runtime/DB gates rerun after added invalid-input/range checks PASS37s.
+- Actual six baseline mobs'HP/defenses/damage/timing/range/type and boss HP preserved; archived variant changes mob HP/group/scale independently of current. Deep roster immutable,24 invalid-definition cases rejected.
+- Actual entry method pins catalog identity and rejects changed snapshot on same encounter; existing movement/ownership/death/reconnect/lifecycle regressions PASS. Minecraft world spawning/rendering/manual play not run.
+- New god review condition: actual DB legacy ACTIVE/PAUSED safe-fail + exact return coordinates/survival mode + account-owned ACK, existing reward17 copper/2 ironstone/1 token preserved; terminal completed/failed reads/finish unaffected. Final verifyRunContentSnapshot compileClientJava PASS29s after reward-preservation assertion; prior condition gate PASS34s. Migration rerun preserves pilot-1/NULL legacy row.
+- Final fixture accounts0/runs0/schema26. Production DB/PID/JAR/protocol/online-mode untouched; no world/dungeon entry. Creed/Jim S10b2 QA pending.

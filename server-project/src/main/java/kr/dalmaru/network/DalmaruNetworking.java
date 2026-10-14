@@ -662,7 +662,7 @@ public final class DalmaruNetworking {
 		return characters;
 	}
 
-    private static void enterPartyRun(MinecraftServer server,java.util.List<UUID> players,kr.dalmaru.run.RunRecord run,kr.dalmaru.run.RunLifecycle.Owner owner){
+    private static void enterPartyRun(MinecraftServer server,java.util.List<UUID> players,kr.dalmaru.run.RunRecord run,kr.dalmaru.run.RunLifecycle.Owner owner,kr.dalmaru.content.ContentCatalog content){
         if(!RUN_RUNTIME.preparing(run.runId(),owner))throw new IllegalStateException("Run entry owner is no longer preparing.");
         for(UUID id:players){
             ServerPlayer member=server.getPlayerList().getPlayer(id);ConnectionState state=CONNECTIONS.get(id);
@@ -671,7 +671,7 @@ public final class DalmaruNetworking {
             try{RUNS.saveReturn(run.runId(),characterId,member.level().dimension().identifier().toString(),member.getX(),member.getY(),member.getZ(),member.gameMode.getGameModeForPlayer().getName());}
             catch(Exception error){throw new IllegalStateException("Cannot save safe run return.",error);}
         }
-        for(UUID id:players){ServerPlayer member=server.getPlayerList().getPlayer(id);if(member!=null)RUN_RUNTIME.enter(member,run.runId(),run.difficulty(),run.partySize(),owner);}
+        for(UUID id:players){ServerPlayer member=server.getPlayerList().getPlayer(id);if(member!=null)RUN_RUNTIME.enter(member,run.runId(),run.difficulty(),run.partySize(),owner,content);}
     }
     private static void resumeRuntime(ServerPlayer player,kr.dalmaru.run.RunRecord run){
         if(!RUN_RUNTIME.joinable(run.runId()))return;
@@ -1174,7 +1174,7 @@ public final class DalmaruNetworking {
     private static final kr.dalmaru.skill.LoadoutRepository LOADOUTS=new kr.dalmaru.skill.LoadoutRepository();
     private static volatile java.util.List<kr.dalmaru.account.TownZone> TOWNS=java.util.List.of();
     private static final Map<UUID,PreparedRun> PREPARATIONS=new java.util.HashMap<>();
-    private record StartedRun(kr.dalmaru.run.RunRecord run,java.util.Map<UUID,kr.dalmaru.skill.SkillLoadout> loadouts,kr.dalmaru.run.RunLifecycle.Owner owner){}
+    private record StartedRun(kr.dalmaru.run.RunRecord run,kr.dalmaru.content.ContentCatalog content,java.util.Map<UUID,kr.dalmaru.skill.SkillLoadout> loadouts,kr.dalmaru.run.RunLifecycle.Owner owner){}
     private static final class EntryFailure extends RuntimeException{final UUID runId;final kr.dalmaru.run.RunLifecycle.Owner owner;EntryFailure(UUID runId,kr.dalmaru.run.RunLifecycle.Owner owner,Throwable cause){super(cause);this.runId=runId;this.owner=owner;}}
     private static final class PreparedRun {
         final UUID preparationId=UUID.randomUUID();final DalmaruPayloads.RunEnterRequest payload;final ServerPlayNetworking.Context context;final java.util.List<UUID> players;final java.util.List<AccountSession> sessions;final java.util.Set<UUID> ready=new java.util.HashSet<>();
@@ -1270,7 +1270,7 @@ public final class DalmaruNetworking {
                     var frozen=new java.util.HashMap<UUID,kr.dalmaru.skill.SkillLoadout>();
                     for(UUID character:characters)frozen.put(character,RUNS.frozenLoadout(run.runId(),character));
                     if(!RUN_RUNTIME.ownsEntry(run.runId(),owner))throw new IllegalStateException("Run preparation was invalidated.");
-                    return new StartedRun(run,frozen,owner);
+                    return new StartedRun(run,RUNS.frozenContent(run.runId()),frozen,owner);
                 }catch(Exception error){throw new EntryFailure(run.runId(),owner,error);}
             },LIFECYCLE_DB).thenAccept(started->context.server().execute(()->{
                 var run=started.run();
@@ -1290,7 +1290,7 @@ public final class DalmaruNetworking {
                     if(!RUN_RUNTIME.preparing(run.runId(),started.owner()))throw new IllegalStateException("Run is no longer preparing.");
                     for(UUID id:players){var member=CONNECTIONS.get(id);var frozen=started.loadouts().get(member.accountSession.activeCharacterId());if(frozen==null||!frozen.characterId().equals(member.accountSession.activeCharacterId()))throw new IllegalStateException("Entry snapshot owner changed.");}
                     for(UUID id:players){var member=CONNECTIONS.get(id);member.loadout=started.loadouts().get(member.accountSession.activeCharacterId());}
-                    enterPartyRun(context.server(),players,run,started.owner());clearStarting(prep);
+                    enterPartyRun(context.server(),players,run,started.owner(),started.content());clearStarting(prep);
                     for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"???? ??? ??????."));
                 }catch(Exception error){failPreparedRun(context.server(),prep,session,payload.requestId(),run.runId(),started.owner(),error);}
             })).exceptionally(error->{

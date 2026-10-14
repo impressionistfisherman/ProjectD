@@ -46,10 +46,13 @@ public final class RunRuntime {
     public boolean preparing(UUID runId,RunLifecycle.Owner owner){RunLifecycle state=lifecycles.get(runId);return state!=null&&state.preparing(owner);}
     public boolean joinable(UUID runId){RunLifecycle state=lifecycles.get(runId);return state!=null&&state.joinable();}
     public RunLifecycle.Phase lifecycle(UUID runId){RunLifecycle state=lifecycles.get(runId);return state==null?null:state.phase();}
-    public void enter(ServerPlayer player, UUID runId, RunDifficulty difficulty, int partySize,RunLifecycle.Owner owner) {
+    public void enter(ServerPlayer player, UUID runId, RunDifficulty difficulty, int partySize,RunLifecycle.Owner owner,kr.dalmaru.content.ContentCatalog content) {
         RunLifecycle lifecycle=lifecycles.get(runId);
         if(lifecycle==null||!lifecycle.owns(owner))throw new IllegalStateException("Run entry owner is missing or stale.");
         if(lifecycle.phase()==RunLifecycle.Phase.CLOSING||lifecycle.phase()==RunLifecycle.Phase.CLOSED)throw new IllegalStateException("Run is closing.");
+        if(!content.run("run.bongsudae").enabled())throw new IllegalStateException("Run content disabled.");
+        Encounter pinned=encounters.get(runId);
+        if(pinned!=null&&!pinned.content.snapshot().equals(content.snapshot()))throw new IllegalStateException("Run content changed.");
         State previous=playerRuns.get(player.getUUID());
         if(previous!=null){
             if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");
@@ -66,7 +69,7 @@ public final class RunRuntime {
             if(!lifecycle.preparing(owner))throw new IllegalStateException("Run is not preparing.");
             BlockPos position=floor(runId);
             for(Encounter occupied:encounters.values())if(position.equals(occupied.floor))throw new IllegalStateException("Run region is occupied.");
-            encounter=new Encounter(runId,difficulty,position,(ServerLevel)player.level(),partySize);
+            encounter=new Encounter(runId,difficulty,position,(ServerLevel)player.level(),partySize,content);
             if(!encounter.level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class,bounds(encounter),entity->!(entity instanceof ServerPlayer)).isEmpty())throw new IllegalStateException("Occupied entities in run region.");
             encounter.terrain=BeaconTowerMap.capture(encounter.level,position);
             RunTerrainRecovery.prepare(encounter.level,runId,encounter.floor,encounter.terrain);
@@ -313,7 +316,7 @@ public final class RunRuntime {
     public int revivesRemaining(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? 0 : state.revivesRemaining; }
     public boolean isBoss(UUID id){return encounters.values().stream().anyMatch(e->id.equals(e.bossId));}
     public int bossDefense(UUID bossId, boolean magic) {
-        for(Encounter encounter:encounters.values()){var kind=encounter.mobs.get(bossId);if(kind!=null)return (magic?kind.magicDefense:kind.physicalDefense)+(encounter.difficulty==RunDifficulty.TRAINING?20:0);}
+        for(Encounter encounter:encounters.values()){var kind=encounter.mobs.get(bossId);if(kind!=null)return (magic?encounter.content.encounter().mob(kind.name()).magicDefense():encounter.content.encounter().mob(kind.name()).physicalDefense())+(encounter.difficulty==RunDifficulty.TRAINING?20:0);}
         for (Encounter encounter : encounters.values()) if (bossId.equals(encounter.bossId)) {
             int base = magic && encounter.stage == Stage.GATEKEEPER ? 55 : 80;
             return base + (encounter.difficulty == RunDifficulty.TRAINING ? 20 : 0);
@@ -333,23 +336,24 @@ public final class RunRuntime {
     private void spawnFinalBoss(Encounter encounter) {
         encounter.stage = Stage.BEACON;
         BeaconTowerMap.open(encounter.level, encounter.floor, 45);
-        encounter.bossId = spawnBoss(encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", health(encounter.difficulty, 14400));
+        encounter.bossId = spawnBoss(encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", health(encounter.difficulty, encounter.content.encounter().finalBossHealth()));
         BeaconTowerBosses.style(encounter.level, encounter.bossId, true);
     }
 
     private void spawnGroup(Encounter encounter,int group) {
         encounter.group=group;
         int index=0;
-        for(var kind:BeaconTowerMobs.group(group))spawnMob(encounter,kind,index++);
+        for(var kind:BeaconTowerMobs.group(encounter.content,group))spawnMob(encounter,kind,index++);
     }
     private void spawnMob(Encounter encounter,BeaconTowerMobs.Kind kind,int index) {
+        var definition=encounter.content.encounter().mob(kind.name());
         int z=switch(encounter.group){case 0->6;case 1->18;case 2->31;default->49;};
         Mob mob=EntityType.HUSK.create(encounter.level,EntitySpawnReason.EVENT);
         if(mob==null)throw new IllegalStateException("Dungeon mob could not spawn.");
-        float hp=kr.dalmaru.combat.CombatUnits.maximumHealth(health(encounter.difficulty,kind.health)*BeaconTowerMobs.healthScale(encounter.partySize));
+        float hp=kr.dalmaru.combat.CombatUnits.maximumHealth(health(encounter.difficulty,definition.health())*BeaconTowerMobs.healthScale(encounter.content,encounter.partySize));
         mob.getAttribute(Attributes.MAX_HEALTH).setBaseValue(hp);mob.setHealth(hp);
         mob.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(0);
-        mob.setNoAi(true);mob.setPersistenceRequired();mob.setCustomName(Component.literal(kind.label));mob.setCustomNameVisible(true);
+        mob.setNoAi(true);mob.setPersistenceRequired();mob.setCustomName(Component.literal(definition.label()));mob.setCustomNameVisible(true);
         mob.addTag("dalmaru.mob."+kind.name().toLowerCase(java.util.Locale.ROOT));mob.addTag("dalmaru.run."+encounter.runId);
         if(kind==BeaconTowerMobs.Kind.COMMANDER)mob.addTag("dalmaru.kind.elite");
         if(kind==BeaconTowerMobs.Kind.SHIELD)mob.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD));
@@ -366,9 +370,9 @@ public final class RunRuntime {
             if(!(entity instanceof Mob mob)||mob.isRemoved())continue;
             if(mob.isDeadOrDying()){mobDied(mob);continue;}
             if(!bounds(encounter).deflate(1).contains(mob.position()))mob.teleportTo(encounter.floor.getX()+.5,encounter.floor.getY()+1,encounter.floor.getZ()+(encounter.group<2?10:encounter.group==2?35:52)+.5);
-            var kind=entry.getValue();
+            var kind=entry.getValue();var definition=encounter.content.encounter().mob(kind.name());
             if(kind==BeaconTowerMobs.Kind.COMMANDER&&!encounter.summoned&&mob.getHealth()<=mob.getMaxHealth()*.5F){encounter.summoned=true;spawnMob(encounter,BeaconTowerMobs.Kind.SOLDIER,5);spawnMob(encounter,BeaconTowerMobs.Kind.SOLDIER,6);}
-            if(participants.isEmpty()||(kind.magic&&mob.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)))continue;
+            if(participants.isEmpty()||(definition.magic()&&mob.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)))continue;
             var target=participants.stream().min(java.util.Comparator.comparingDouble(p->p.distanceToSqr(mob))).orElseThrow();
             mob.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,target.getEyePosition());
             double distance=target.distanceToSqr(mob);
@@ -377,15 +381,15 @@ public final class RunRuntime {
                 var position=mob.position().add(direction);
                 if(bounds(encounter).deflate(1).contains(position)&&encounter.level.noCollision(mob,mob.getBoundingBox().move(direction)))mob.teleportTo(position.x,position.y,position.z);
             }
-            if(encounter.mobTicks%kind.interval==0&&distance<=kind.range*kind.range&&mob.hasLineOfSight(target)){
-                bossDamage.hit(target,mob,(float)(attack(encounter,kind.damage)*BeaconTowerMobs.damageScale(encounter.partySize)),kind.magic);
-                if(kind.magic)encounter.level.sendParticles(kind==BeaconTowerMobs.Kind.EMBER?ParticleTypes.FLAME:ParticleTypes.SOUL,target.getX(),target.getY()+1,target.getZ(),8,.2,.2,.2,.01);
+            if(encounter.mobTicks%definition.interval()==0&&distance<=(double)definition.range()*definition.range()&&mob.hasLineOfSight(target)){
+                bossDamage.hit(target,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.damageScale(encounter.content,encounter.partySize)),definition.magic());
+                if(definition.magic())encounter.level.sendParticles(kind==BeaconTowerMobs.Kind.EMBER?ParticleTypes.FLAME:ParticleTypes.SOUL,target.getX(),target.getY()+1,target.getZ(),8,.2,.2,.2,.01);
             }
         }
         if(!encounter.mobs.isEmpty())return;
         if(encounter.stage==Stage.GATEKEEPER&&encounter.bossId==null){
             if(encounter.group==0){spawnGroup(encounter,1);return;}
-            encounter.bossId=spawnBoss(encounter.level,encounter.floor.offset(0,1,22),"철문수장",health(encounter.difficulty,10800));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);
+            encounter.bossId=spawnBoss(encounter.level,encounter.floor.offset(0,1,22),"철문수장",health(encounter.difficulty,encounter.content.encounter().gatekeeperHealth()));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);
         }else if(encounter.stage==Stage.APPROACH)spawnFinalBoss(encounter);
     }
 
@@ -463,10 +467,10 @@ public final class RunRuntime {
     private enum Stage { GATEKEEPER, BRAZIER, APPROACH, BEACON, COMPLETED }
     private static final class State { private final UUID runId; private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt,deathTick; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
     private static final class Encounter {
-        private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
+        private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
         private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
-        private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize) { this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize); }
+        private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize); }
     }
 }

@@ -98,6 +98,10 @@ public final class RunRepository {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
         try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try {
             RunRecord run=activeForUpdate(connection,characterId);if(run==null){connection.commit();return null;}
+            // Legacy definitions cannot be reconstructed; keep return checkpoints and earned rewards.
+            try(var legacy=connection.prepareStatement("UPDATE dalmaru.run_instances SET state='FAILED',finished_at=CURRENT_TIMESTAMP WHERE run_id=? AND content_snapshot IS NULL AND state IN ('ACTIVE','PAUSED')")){
+                legacy.setObject(1,run.runId());if(legacy.executeUpdate()==1){connection.commit();return null;}
+            }
             try(var expiry=connection.prepareStatement("SELECT 1 FROM dalmaru.run_instances WHERE run_id=? AND deadline_at>CURRENT_TIMESTAMP AND (state='ACTIVE' OR pause_expires_at>CURRENT_TIMESTAMP)")){
                 expiry.setObject(1,run.runId());try(var row=expiry.executeQuery()){if(!row.next())throw new IllegalArgumentException("Run has expired.");}
             }

@@ -30,6 +30,22 @@ public final class RunContentSnapshotCheck {
             rejectSql(()->execute("UPDATE dalmaru.run_instances SET content_id='run.changed' WHERE run_id=?",run.runId()));
             UUID legacy=UUID.randomUUID();ownedRuns.add(legacy);insert(legacy,null,null);
             reject(()->repository.frozenContent(legacy));reject(()->repository.frozenContent(UUID.randomUUID()));
+            execute("UPDATE dalmaru.run_instances SET state='FAILED' WHERE run_id=?",run.runId());
+            try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement("INSERT INTO dalmaru.run_participants(run_id,character_id) VALUES(?,?)")){q.setObject(1,legacy);q.setObject(2,character);q.executeUpdate();}
+            try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement("INSERT INTO dalmaru.run_reward_grants(run_id,character_id,copper,ironstone,beacon_token) VALUES(?,?,17,2,1)")){q.setObject(1,legacy);q.setObject(2,character);q.executeUpdate();}
+            var savedRewards=repository.rewards(legacy);
+            repository.saveReturn(legacy,character,"minecraft:overworld",32.5,77,-63.5,"survival");
+            for(String state:List.of("ACTIVE","PAUSED")){
+                execute("UPDATE dalmaru.run_instances SET state='"+state+"' WHERE run_id=?",legacy);
+                execute("UPDATE dalmaru.run_participants SET return_pending=TRUE WHERE run_id=?",legacy);
+                check(repository.resume(character)==null,"Legacy run resumed with current definitions");
+                var position=repository.pendingReturn(character);
+                check(position!=null&&position.runId().equals(legacy)&&position.x()==32.5&&position.y()==77&&position.z()==-63.5&&position.mode().equals("survival"),"Legacy close lost return checkpoint");
+                check(repository.finish(account,session.connectionGeneration(),4,legacy,false).state().equals("FAILED")&&repository.rewards(legacy).equals(savedRewards),"Legacy finish/rewards blocked");
+                check(repository.acknowledgeReturn(account,session.connectionGeneration(),character,legacy)&&repository.pendingReturn(character)==null,"Legacy return ACK blocked");
+            }
+            execute("UPDATE dalmaru.run_instances SET state='COMPLETED' WHERE run_id=?",legacy);
+            check(repository.resume(character)==null&&repository.finish(account,session.connectionGeneration(),5,legacy,true).state().equals("COMPLETED")&&repository.rewards(legacy).equals(savedRewards)&&savedRewards.size()==1&&savedRewards.getFirst().copper()==17,"Legacy completed record/reward changed");
             try(var c=EnhancementReplayCheck.connection();var s=c.createStatement()){s.execute(Files.readString(Path.of("database/migrations/V026__run_content_snapshot.sql")));}
             try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement("SELECT content_version,content_snapshot FROM dalmaru.run_instances WHERE run_id=?")){
                 q.setObject(1,legacy);try(var row=q.executeQuery()){check(row.next()&&row.getString(1).equals("pilot-1")&&row.getString(2)==null,"Migration stamped legacy content");}
