@@ -36,7 +36,7 @@ public final class RunDeathScreenCheck {
                 DalmaruClient.status=new Status(true,2,100,300,false);h.dalmaru$reviveButton(null);check(!button.active&&button.text.contains("5초"));
                 DalmaruClient.status=new Status(true,2,1,201,false);h.dalmaru$reviveButton(null);check(!button.active&&button.text.contains("1초"));
                 DalmaruClient.status=new Status(true,2,0,200,false);h.dalmaru$reviveButton(null);check(button.active&&button.text.equals("부활"));
-                for(int[] size:new int[][]{{320,240},{427,240},{640,360},{960,540}}){
+                for(int[] size:new int[][]{{320,180},{320,240},{427,240},{640,360},{960,540}}){
                     h.width=size[0];h.height=size[1];var g=new GuiGraphicsExtractor();h.dalmaru$reviveInfo(g,0,0,0,null);
                     check(g.texts.get(0).contains("2회")&&g.texts.get(1).contains("10초"));
                     for(var p:g.positions)check(p[0]>=0&&p[0]+p[2]<=h.width&&p[1]>=h.height/4+116&&p[1]+9<=h.height);

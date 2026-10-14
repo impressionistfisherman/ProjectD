@@ -20,24 +20,24 @@ final class DalmaruProfileScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int buttonWidth = Math.min(360, width - 16), left = (width - buttonWidth) / 2, top = (height - 220) / 2;
-		statusButton = addRenderableWidget(Button.builder(Component.literal("프로필을 불러오는 중입니다."), button -> { }).bounds(left, top, buttonWidth, 20).build());
+		int buttonWidth = Math.min(360, width - 16), left = (width - buttonWidth) / 2, step=Math.min(25,(height-20)/9),buttonHeight=Math.min(20,step-2),top=(height-(8*step+buttonHeight))/2;
+		statusButton = addRenderableWidget(Button.builder(Component.literal("프로필을 불러오는 중입니다."), button -> { }).bounds(left, top, buttonWidth, buttonHeight).build());
 		strengthButton = statButton("힘", 0, 25);
 		dexterityButton = statButton("재주", 1, 50);
 		arcanaButton = statButton("도력", 2, 75);
 		vitalityButton = statButton("체력", 3, 100);
 		spiritButton = statButton("정신", 4, 125);
-		resetButton = addRenderableWidget(Button.builder(Component.literal(""), button -> DalmaruClient.requestCharacterStatReset()).bounds(left, top + 150, buttonWidth, 20).build());
-		professionButton = addRenderableWidget(Button.builder(Component.literal("전직 선택"), button -> minecraft.setScreen(new DalmaruProfessionScreen(this))).bounds(left, top + 175, buttonWidth, 20).build());
-		skillButton = addRenderableWidget(Button.builder(Component.literal("기술 습득"), button -> minecraft.setScreen(new DalmaruSkillScreen(this))).bounds(left, top + 200, buttonWidth, 20).build());
+		resetButton = addRenderableWidget(Button.builder(Component.literal(""), button -> DalmaruClient.requestCharacterStatReset()).bounds(left, top + 6*step, buttonWidth, buttonHeight).build());
+		professionButton = addRenderableWidget(Button.builder(Component.literal("전직 선택"), button -> minecraft.setScreen(new DalmaruProfessionScreen(this))).bounds(left, top + 7*step, buttonWidth, buttonHeight).build());
+		skillButton = addRenderableWidget(Button.builder(Component.literal("기술 습득"), button -> minecraft.setScreen(new DalmaruSkillScreen(this))).bounds(left, top + 8*step, buttonWidth, buttonHeight).build());
 		statusButton.active = false;
 		resetButton.active = false;
 	}
 
 	private Button statButton(String name, int statId, int yOffset) {
-		int buttonWidth = Math.min(360, width - 16);
+		int buttonWidth = Math.min(360, width - 16),step=Math.min(25,(height-20)/9),buttonHeight=Math.min(20,step-2),top=(height-(8*step+buttonHeight))/2;
 		return addRenderableWidget(Button.builder(Component.literal(name), button -> DalmaruClient.requestCharacterStatInvestment(statId))
-			.bounds((width - buttonWidth) / 2, (height - 220) / 2 + yOffset, buttonWidth, 20).build());
+			.bounds((width - buttonWidth) / 2, top + yOffset/25*step, buttonWidth, buttonHeight).build());
 	}
 
 	@Override

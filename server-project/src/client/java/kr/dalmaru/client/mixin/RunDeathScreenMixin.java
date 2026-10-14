@@ -31,7 +31,7 @@ public abstract class RunDeathScreenMixin extends Screen {
         if(status==null||!status.dead())return;
         String count="남은 부활 "+status.remainingRevives()+"회";
         String wait=status.failed()?"부활 불가 · 관전 가능":"자동 부활까지 "+((status.autoTicks()+19)/20)+"초";
-        graphics.text(font,count,(width-font.width(count))/2,height/4+120,0xFFFFFFFF,false);
-        graphics.text(font,wait,(width-font.width(wait))/2,height/4+134,0xFFFFFFFF,false);
+        graphics.text(font,count,(width-font.width(count))/2,height/4+116,0xFFFFFFFF,false);
+        graphics.text(font,wait,(width-font.width(wait))/2,height/4+126,0xFFFFFFFF,false);
     }
 }
