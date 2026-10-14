@@ -14,6 +14,9 @@ import net.minecraft.resources.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public final class DalmaruClient implements ClientModInitializer {
+    private static DalmaruPayloads.RunReviveState runReviveState;
+    public static DalmaruPayloads.RunReviveState runReviveState(){return runReviveState;}
+
 	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
 		Identifier.fromNamespaceAndPath(DalmaruMod.MOD_ID, "general"));
 	private static final KeyMapping OPEN_GUIDE = KeyMappingHelper.registerKeyMapping(new KeyMapping(
@@ -40,7 +43,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 		ClientSkillState.resetForConnection();
 		ClientEquipmentState.resetForConnection();
-		ClientRunState.resetForConnection();ClientLoadoutState.reset();
+		ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;
 			profileKeyDown = false;guardKeyDown=false;
 			ClientPlayNetworking.send(new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION));
 		});
@@ -52,7 +55,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 			ClientSkillState.resetForConnection();
 			ClientEquipmentState.resetForConnection();
-			ClientRunState.resetForConnection();ClientLoadoutState.reset();
+			ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;
 			profileKeyDown = false;guardKeyDown=false;
 		});
 
@@ -103,7 +106,9 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CombatStateResponse.TYPE,
 			(payload, context) -> ClientCombatState.accept(payload));
 
-		ClientTickEvents.END_CLIENT_TICK.register(client -> {
+		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunReviveState.TYPE,(payload,context)->runReviveState=payload);
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if(client.player==null||!client.player.isDeadOrDying())runReviveState=null;
 			if (client.screen == null && OPEN_GUIDE.consumeClick()) {
 				client.setScreen(new DalmaruGuideScreen());
 			}

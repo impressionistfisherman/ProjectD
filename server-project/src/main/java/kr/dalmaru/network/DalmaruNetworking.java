@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 28;
+	public static final int PROTOCOL_VERSION = 29;
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
@@ -129,6 +129,7 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.EquipmentListResponse.TYPE, DalmaruPayloads.EquipmentListResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.RunEnterRequest.TYPE, DalmaruPayloads.RunEnterRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.RunResponse.TYPE, DalmaruPayloads.RunResponse.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.RunReviveState.TYPE,DalmaruPayloads.RunReviveState.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.SkillLearnRequest.TYPE, DalmaruPayloads.SkillLearnRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.SkillLearnResponse.TYPE, DalmaruPayloads.SkillLearnResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.SkillRanksRequest.TYPE, DalmaruPayloads.SkillRanksRequest.CODEC);
@@ -205,9 +206,9 @@ public final class DalmaruNetworking {
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			// Restore profile modifiers before the run sets revive health.
 			COMBAT.restoreAfterRespawn(oldPlayer,newPlayer);
-            if(!alive){boolean dungeon=RUN_RUNTIME.runId(newPlayer)!=null;RUN_RUNTIME.afterRespawn(oldPlayer,newPlayer);if(dungeon){if(!newPlayer.isSpectator())COMBAT.revived(newPlayer,.25,true,currentTick);}else fieldRespawn(newPlayer);}
+            if(!alive){boolean dungeon=RUN_RUNTIME.runId(newPlayer)!=null;RUN_RUNTIME.afterRespawn(oldPlayer,newPlayer);if(dungeon){if(!newPlayer.isSpectator())COMBAT.revived(newPlayer,.25,true,currentTick);}else fieldRespawn(newPlayer);sendRunReviveState(newPlayer);}
 		});
-		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); if (currentTick % 20 == 0) { sendCombatStates(server);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
+		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
 			if (damageTaken > 0) {
 				if (source.getEntity() instanceof ServerPlayer player && hostileCombatEntity(player,entity)) COMBAT.recordValidHit(player, currentTick);
@@ -218,7 +219,7 @@ public final class DalmaruNetworking {
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if(source.getEntity() instanceof ServerPlayer player&&hostileCombatEntity(player,entity))COMBAT.recordValidHit(player,currentTick);
 			if(entity instanceof LivingEntity living)RUN_RUNTIME.mobDied(living);
-			if (entity instanceof ServerPlayer player){if(RUN_RUNTIME.runId(player)==null)fieldDeath(player);else failRunAfterFinalDeath(player,serverFor(player));}
+			if (entity instanceof ServerPlayer player){if(RUN_RUNTIME.runId(player)==null)fieldDeath(player);else {failRunAfterFinalDeath(player,serverFor(player));sendRunReviveState(player);}}
 		});
 		ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((level, killer, killed, damageSource) -> {
 			if (killer instanceof ServerPlayer player) {
@@ -923,6 +924,11 @@ public final class DalmaruNetworking {
 		var d=player.getLookAngle().normalize(); RUN_RUNTIME.move(player,5,false); player.hurtMarked=true; ((ServerLevel)player.level()).sendParticles(ParticleTypes.PORTAL,player.getX(),player.getY()+1,player.getZ(),24,.4,.5,.4,.08); player.playSound(SoundEvents.ENDERMAN_TELEPORT,.8F,1.3F);
 	}
 
+    private static void sendRunReviveState(ServerPlayer player){
+        ConnectionState connection=CONNECTIONS.get(player.getUUID());if(connection==null||!connection.compatible||connection.accountFailure!=null)return;
+        var status=RUN_RUNTIME.reviveStatus(player);
+        ServerPlayNetworking.send(player,status==null?new DalmaruPayloads.RunReviveState(false,0,0,0,false):new DalmaruPayloads.RunReviveState(true,status.remainingRevives(),status.clickTicks(),status.autoTicks(),status.failed()));
+    }
 	private static void sendCombatStates(MinecraftServer server) {
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             ConnectionState state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null)continue;

@@ -1,4 +1,4 @@
 {
  "required":true,"package":"kr.dalmaru.client.mixin","compatibilityLevel":"JAVA_25",
- "client":["CombatHotbarMixin"],"injectors":{"defaultRequire":1}
+ "client":["CombatHotbarMixin","RunDeathScreenMixin"],"injectors":{"defaultRequire":1}
 }

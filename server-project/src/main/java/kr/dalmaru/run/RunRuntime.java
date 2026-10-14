@@ -112,6 +112,15 @@ public final class RunRuntime {
         Encounter encounter=encounters.get(state.runId);
         return encounter==null||encounter.failed||state.revivesRemaining==0||RunEncounterRules.clickRevive(tickCount-state.deathTick);
     }
+    public ReviveStatus reviveStatus(ServerPlayer player){
+        State state=playerRuns.get(player.getUUID());
+        if(state==null||!state.dead||!player.isDeadOrDying())return null;
+        Encounter encounter=encounters.get(state.runId);
+        if(encounter==null)return null;
+        boolean spectator=encounter.failed||state.revivesRemaining==0;
+        long elapsed=tickCount-state.deathTick;
+        return new ReviveStatus(state.revivesRemaining,spectator?0:(int)Math.max(0,100-elapsed),spectator?0:(int)Math.max(0,300-elapsed),spectator);
+    }
     private boolean autoRespawn(ServerPlayer player){
         if(player==null)return false;
         State state=playerRuns.get(player.getUUID());
@@ -450,6 +459,7 @@ public final class RunRuntime {
     private static float attack(Encounter encounter, int base) { return (float) (base * (encounter.difficulty == RunDifficulty.TRAINING ? 1.15 : 1.0)); }
 
     public record DeathResult(UUID runId, boolean canRespawn, boolean partyDefeated) { }
+    public record ReviveStatus(int remainingRevives,int clickTicks,int autoTicks,boolean failed) { }
     private enum Stage { GATEKEEPER, BRAZIER, APPROACH, BEACON, COMPLETED }
     private static final class State { private final UUID runId; private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt,deathTick; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
     private static final class Encounter {

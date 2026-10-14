@@ -11,7 +11,7 @@ public final class RunRespawnBoundaryCheck {
             if(RunEncounterRules.clickRevive(ticks)!=(ticks>=100)||RunEncounterRules.autoRevive(ticks)!=(ticks>=300))throw new AssertionError("Revive cutoff differs");
         }
         String source=Files.readString(Path.of("src/main/java/kr/dalmaru/run/RunRuntime.java"));
-        String methods=method(source,"public boolean canRespawn(")+method(source,"private boolean autoRespawn(")+method(source,"public void afterRespawn(");
+        String methods=method(source,"public boolean canRespawn(")+method(source,"public ReviveStatus reviveStatus(")+method(source,"private boolean autoRespawn(")+method(source,"public void afterRespawn(");
         methods=methods.replace("net.minecraft.network.protocol.game.ServerboundClientCommandPacket","Packet").replace("net.minecraft.world.level.GameType","GameType");
         Path dir=Files.createTempDirectory("run-respawn-");
         try{
@@ -37,6 +37,7 @@ public final class RunRespawnBoundaryCheck {
         }
         class State{UUID runId=UUID.randomUUID();boolean dead=true,connected=true;int revivesRemaining=2;long deathTick=10;Position lastSafe;}
         class Encounter{boolean failed;Object level;}
+        record ReviveStatus(int remainingRevives,int clickTicks,int autoTicks,boolean failed){}
         public class RespawnHarness{
             Map<UUID,State>playerRuns=new HashMap<>();Map<UUID,Encounter>encounters=new HashMap<>();long tickCount;
             Position revivePosition(ServerPlayer player,Encounter encounter,State state){return new Position();}
@@ -45,12 +46,14 @@ public final class RunRespawnBoundaryCheck {
             public static void run(){
                 var h=new RespawnHarness();var p=new ServerPlayer();check(h.canRespawn(p));check(!h.autoRespawn(p));
                 var s=new State();var e=new Encounter();h.playerRuns.put(p.id,s);h.encounters.put(s.runId,e);
-                h.tickCount=109;check(!h.canRespawn(p));h.tickCount=110;check(h.canRespawn(p));
+                h.tickCount=10;check(h.reviveStatus(p).clickTicks()==100&&h.reviveStatus(p).autoTicks()==300&&h.reviveStatus(p).remainingRevives()==2);
+                h.tickCount=109;check(!h.canRespawn(p));check(h.reviveStatus(p).clickTicks()==1&&h.reviveStatus(p).autoTicks()==201);
+                h.tickCount=110;check(h.canRespawn(p));check(h.reviveStatus(p).clickTicks()==0);
                 h.tickCount=309;check(!h.autoRespawn(p));check(s.revivesRemaining==2);
                 p.connection.respawn=()->h.afterRespawn(p,p);h.tickCount=310;check(h.autoRespawn(p));
-                check(p.connection.calls==1&&!s.dead&&s.revivesRemaining==1&&p.health==35);check(!h.autoRespawn(p));h.afterRespawn(p,p);check(s.revivesRemaining==1);
+                check(p.connection.calls==1&&!s.dead&&s.revivesRemaining==1&&p.health==35);check(h.reviveStatus(p)==null);check(!h.autoRespawn(p));h.afterRespawn(p,p);check(s.revivesRemaining==1);
                 s.dead=true;p.dead=true;s.connected=false;check(!h.autoRespawn(p));s.connected=true;
-                e.failed=true;check(!h.autoRespawn(p));check(h.canRespawn(p));h.afterRespawn(p,p);check(p.spectator&&s.revivesRemaining==1);
+                e.failed=true;check(!h.autoRespawn(p));check(h.canRespawn(p));check(h.reviveStatus(p).failed()&&h.reviveStatus(p).clickTicks()==0&&h.reviveStatus(p).autoTicks()==0);h.afterRespawn(p,p);check(p.spectator&&s.revivesRemaining==1);
                 e.failed=false;s.revivesRemaining=0;p.spectator=false;check(!h.autoRespawn(p));check(h.canRespawn(p));h.afterRespawn(p,p);check(p.spectator&&s.revivesRemaining==0);
                 h.encounters.clear();check(!h.autoRespawn(p));check(h.canRespawn(p));
             }
