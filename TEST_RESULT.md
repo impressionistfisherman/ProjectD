@@ -271,3 +271,7 @@
 ## MDF-P1 S09e3 (2026-10-15)
 - PASS: --no-daemon verifyResetJournal verifyStatJournal verifyCharacterStatInvestment (17초). 초기화 UUID/다른 correlation/동시 요청 한 번 환급/legacy 채택·재생, 원결과·이후 투자 최신 상태, 본문·세대·무료 초기화 중복 거부, 환급 뒤 INSERT 실패 시 능력치·잔여 점수·무료 자격·저널 롤백.
 - 운영·인게임 검사는 미실행. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09e4 (2026-10-15)
+- PASS: --no-daemon verifyResetWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifyResetJournal compileClientJava (24초). 실제 초기화 receipt parser의 replay/reject/틀린 correlation/잘못된 초기화 수치·정수·무료자격, typed→common 단일 재시도 및 기존 client 복구·UUID 경계/fixture 초기화 롤백.
+- 실제 패킷 왕복·인게임 및 M11 실제 world ACK/reconnect는 미검증/미완료. 독립 QA 요청.

@@ -187,10 +187,13 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientProfileState.delegateInvestmentRetry();ClientPlayNetworking.send(request);
     }
 
-	public static void requestCharacterStatReset() {
-		DalmaruPayloads.CharacterProfileResponse profile = ClientProfileState.current();
-		if (profile != null && ClientProfileState.beginReset()) ClientPlayNetworking.send(new DalmaruPayloads.CharacterStatResetRequest(ClientProfileState.currentResetRequestId(), profile.characterId()));
-	}
+    public static void requestCharacterStatReset() {
+        if(!ClientProfileState.beginReset())return;
+        long correlation=ClientProfileState.currentResetRequestId();
+        var request=ClientRequestState.begin(correlation,"reset_stats",new com.google.gson.JsonObject());
+        if(request==null){ClientProfileState.completeReset(correlation,"캐릭터 정보 확인 중입니다.");return;}
+        ClientProfileState.delegateResetRetry();ClientPlayNetworking.send(request);
+    }
 
 	public static void requestProfession(String profession) {
 		if (ClientProfileState.beginProfession(profession)) ClientPlayNetworking.send(new DalmaruPayloads.CharacterProfessionRequest(ClientProfileState.currentProfessionRequestId(), profession));
@@ -222,6 +225,19 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
     }
 
+    private static void acceptResetOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        String status="요청을 처리할 수 없습니다.";
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+            for(String key:new String[]{"strength","dexterity","arcana","vitality","spirit"}){
+                if(!original.has(key)||!original.get(key).isJsonPrimitive()||!original.getAsJsonPrimitive(key).isNumber()||original.get(key).getAsBigDecimal().intValueExact()!=0)throw new IllegalStateException("Invalid reset receipt");
+            }
+            if(!original.has("unspentStatPoints")||!original.get("unspentStatPoints").isJsonPrimitive()||!original.getAsJsonPrimitive("unspentStatPoints").isNumber()||original.get("unspentStatPoints").getAsBigDecimal().intValueExact()<0||!original.has("freeResetAvailable")||!original.get("freeResetAvailable").isJsonPrimitive()||!original.getAsJsonPrimitive("freeResetAvailable").isBoolean()||original.get("freeResetAvailable").getAsBoolean())throw new IllegalStateException("Invalid reset receipt");
+            status=receipt.replayed()?"이미 처리된 초기화입니다. 최신 능력치를 표시합니다.":"능력치를 초기화했습니다.";
+        }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){status="초기화 결과 확인에 실패했습니다.";}
+        ClientProfileState.completeReset(receipt.correlationId(),status);
+    }
+
     private static void acceptStatOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
         String status="요청을 처리할 수 없습니다.";
         if(!"rejected".equals(receipt.state()))try{
@@ -248,6 +264,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;

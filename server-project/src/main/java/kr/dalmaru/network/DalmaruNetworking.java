@@ -388,24 +388,8 @@ public final class DalmaruNetworking {
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatInvestmentRequest.TYPE,(payload,context)->
             investStatRequest(context,payload.requestId(),payload.characterId(),payload.statId(),payload.amount(),null));
 
-		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatResetRequest.TYPE, (payload, context) -> {
-			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.requestId() <= 0 || !state.compatible || state.accountSession == null || state.accountFailure != null || !payload.characterId().equals(state.accountSession.activeCharacterId())) {
-				sendCharacterStatReset(context, payload.requestId(), payload.characterId(), false, false, "무료 초기화 요청을 처리할 수 없습니다.", null);
-				return;
-			}
-			AccountSession session = state.accountSession;
-			CompletableFuture.supplyAsync(() -> {
-				try { return CHARACTERS.resetStats(session.accountId(), session.connectionGeneration(), payload.requestId(), payload.characterId()); }
-				catch (Exception exception) { throw new IllegalStateException(exception); }
-			}).thenAccept(result -> context.server().execute(() -> {
-				if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) sendCharacterStatReset(context, payload.requestId(), payload.characterId(), true, result.replayed(), result.replayed() ? "기존 초기화 결과입니다." : "무료 초기화를 완료했습니다.", result.profile());
-			})).exceptionally(error -> {
-				LOGGER.warn("Rejected character stat reset for {}.", session.accountId(), error);
-				context.server().execute(() -> sendCharacterStatReset(context, payload.requestId(), payload.characterId(), false, false, "무료 초기화를 할 수 없습니다.", null));
-				return null;
-			});
-		});
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatResetRequest.TYPE,(payload,context)->
+            resetStatsRequest(context,payload.requestId(),payload.characterId(),null));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterProfessionRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountFailure != null || state.accountSession.activeCharacterId() == null) {
@@ -465,7 +449,11 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "invest_stat"->{
+                    case "reset_stats"->{
+                    if(body.size()!=0)throw new IllegalArgumentException("Invalid reset body");
+                    resetStatsRequest(context,payload.correlationId(),envelope.activeCharacterId(),envelope);
+                }
+                case "invest_stat"->{
                     if(body.size()!=2||!body.has("statId")||!body.has("amount")||!body.get("statId").isJsonPrimitive()||!body.getAsJsonPrimitive("statId").isNumber()||!body.get("amount").isJsonPrimitive()||!body.getAsJsonPrimitive("amount").isNumber())throw new IllegalArgumentException("Invalid stat body");
                     int stat,amount;try{stat=body.get("statId").getAsBigDecimal().intValueExact();amount=body.get("amount").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid stat integer",error);}
                     investStatRequest(context,payload.correlationId(),envelope.activeCharacterId(),stat,amount,envelope);
@@ -556,6 +544,31 @@ public final class DalmaruNetworking {
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
     }
+    private static void resetStatsRequest(ServerPlayNetworking.Context context,long correlation,UUID character,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||!character.equals(state.accountSession.activeCharacterId())){
+            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendCharacterStatReset(context,correlation,character,false,false,"무료 초기화 준비가 완료되지 않았습니다.",null);return;
+        }
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{
+            try{return CHARACTERS.resetStatsJournaled(session.accountId(),session.connectionGeneration(),correlation,character,envelope);}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(result->context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendCharacterStatReset(context,correlation,character,true,result.replayed(),result.replayed()?"기존 초기화 결과입니다.":"능력치를 초기화했습니다.",result.profile());
+            else{
+                sendCharacterProfile(player,result.profile());var receipt=result.receipt();
+                ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.originalResult().toString(),result.replayed()));
+            }
+        })).exceptionally(error->{context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendCharacterStatReset(context,correlation,character,false,false,"능력치를 초기화할 수 없습니다.",null);
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            LOGGER.warn("Stat reset request failed for {}",session.accountId(),error);
+        });return null;});
+    }
+
     private static void investStatRequest(ServerPlayNetworking.Context context,long correlation,UUID character,int statId,int amount,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||amount!=1||!state.compatible||state.accountFailure!=null||state.accountSession==null||!character.equals(state.accountSession.activeCharacterId())){

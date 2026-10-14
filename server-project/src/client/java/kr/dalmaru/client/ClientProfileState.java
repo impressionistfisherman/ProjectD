@@ -100,6 +100,8 @@ final class ClientProfileState {
 		status = "기술을 습득하는 중입니다.";
 		return true;
 	}
+    static void delegateResetRetry(){resetRequest=null;}
+    static void completeReset(long correlation,String message){if(!resetWaiting||correlation!=currentResetRequestId)return;resetWaiting=false;resetRequest=null;status=message;}
     static void delegateInvestmentRetry(){investmentDelegated=true;}
     static void completeInvestment(long correlation,String message){if(!investmentWaiting||correlation!=currentInvestmentRequestId)return;investmentWaiting=false;investmentDelegated=false;status=message;}
     static void delegateSkillRetry(){skillRequest=null;}
