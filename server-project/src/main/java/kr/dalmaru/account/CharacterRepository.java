@@ -126,36 +126,47 @@ public final class CharacterRepository {
 	}
 
     private static JsonObject investmentOutcome(CharacterProfile profile,CharacterStat stat,int amount) {
-        var result=new JsonObject();result.addProperty("statId",stat.id());result.addProperty("amount",amount);
-        result.addProperty("level",profile.level());result.addProperty("experience",profile.experience());
+        var result=profileOutcome(profile);result.addProperty("statId",stat.id());result.addProperty("amount",amount);return result;
+    }
+
+    private static JsonObject profileOutcome(CharacterProfile profile) {
+        var result=new JsonObject();result.addProperty("level",profile.level());result.addProperty("experience",profile.experience());
         result.addProperty("unspentStatPoints",profile.unspentStatPoints());result.addProperty("strength",profile.strength());
         result.addProperty("dexterity",profile.dexterity());result.addProperty("arcana",profile.arcana());
         result.addProperty("vitality",profile.vitality());result.addProperty("spirit",profile.spirit());
         result.addProperty("freeResetAvailable",profile.freeResetAvailable());return result;
     }
 
+    public record ResetResult(CharacterProfile profile,boolean replayed,JsonObject originalResult,RequestJournal.Receipt receipt) {
+        public ResetResult{originalResult=originalResult.deepCopy();}
+        @Override public JsonObject originalResult(){return originalResult.deepCopy();}
+    }
 	public CharacterStatResetResult resetStats(UUID accountId, long connectionGeneration, long requestId, UUID characterId) throws SQLException {
+        var result=resetStatsJournaled(accountId,connectionGeneration,requestId,characterId,null);
+        return new CharacterStatResetResult(result.profile(),result.replayed());
+    }
+
+    public ResetResult resetStatsJournaled(UUID accountId,long connectionGeneration,long requestId,UUID characterId,RequestEnvelope envelope)throws SQLException {
 		if (connectionGeneration < 1 || requestId < 1) throw new IllegalArgumentException("Invalid stat reset request.");
+        if(characterId==null)throw new IllegalArgumentException("Invalid stat reset request.");
+        var body=new JsonObject();
+        if(envelope==null)envelope=RequestEnvelope.legacy(accountId,connectionGeneration,characterId,"reset_stats",requestId,body);
+        if(envelope.connectionGeneration()!=connectionGeneration||!envelope.activeCharacterId().equals(characterId)||!envelope.operation().equals("reset_stats")||!envelope.payload().equals(body))throw new IllegalArgumentException("Reset envelope does not match session/body");
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
 		try (var connection = DriverManager.getConnection(url, username, password)) {
 			connection.setAutoCommit(false);
 			try {
-				String accountSql = "SELECT active_character_id FROM dalmaru.accounts WHERE account_id = ? AND connection_generation = ? FOR UPDATE";
-				try (var statement = connection.prepareStatement(accountSql)) {
-					statement.setObject(1, accountId); statement.setLong(2, connectionGeneration);
-					try (var result = statement.executeQuery()) {
-						if (!result.next() || !characterId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Active character does not match this request.");
-					}
-				}
+                var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
+                if(stored.result()!=null){var profile=profileForUpdate(connection,characterId);connection.commit();return new ResetResult(profile,true,stored.result(),stored.receipt());}
 				String existingSql = "SELECT character_id, level, experience, unspent_stat_points, strength, dexterity, arcana, vitality, spirit, free_reset_available FROM dalmaru.character_stat_reset_requests WHERE account_id = ? AND connection_generation = ? AND request_id = ?";
 				try (var statement = connection.prepareStatement(existingSql)) {
 					statement.setObject(1, accountId); statement.setLong(2, connectionGeneration); statement.setLong(3, requestId);
 					try (var result = statement.executeQuery()) {
 						if (result.next()) {
 							if (!characterId.equals(result.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused for a different stat reset.");
-							CharacterProfile profile = profileForUpdate(connection, characterId);
-							connection.commit();
-							return new CharacterStatResetResult(profile, true);
+                            var original=new CharacterProfile(characterId,result.getInt(2),result.getLong(3),result.getInt(4),result.getInt(5),result.getInt(6),result.getInt(7),result.getInt(8),result.getInt(9),result.getBoolean(10));
+                            var outcome=profileOutcome(original);var receipt=RequestJournal.confirm(connection,stored,outcome);
+                            var profile=profileForUpdate(connection,characterId);connection.commit();return new ResetResult(profile,true,outcome,receipt);
 						}
 					}
 				}
@@ -172,8 +183,8 @@ public final class CharacterRepository {
 					statement.setObject(1, accountId); statement.setLong(2, connectionGeneration); statement.setLong(3, requestId); statement.setObject(4, characterId); statement.setInt(5, after.level()); statement.setLong(6, after.experience()); statement.setInt(7, after.unspentStatPoints()); statement.setInt(8, after.strength()); statement.setInt(9, after.dexterity()); statement.setInt(10, after.arcana()); statement.setInt(11, after.vitality()); statement.setInt(12, after.spirit()); statement.setBoolean(13, after.freeResetAvailable());
 					statement.executeUpdate();
 				}
-				connection.commit();
-				return new CharacterStatResetResult(after, false);
+                var outcome=profileOutcome(after);var receipt=RequestJournal.confirm(connection,stored,outcome);
+                connection.commit();return new ResetResult(after,false,outcome,receipt);
 			} catch (Exception exception) {
 				connection.rollback();
 				throw exception;
