@@ -259,3 +259,7 @@
 - Final PASS --no-daemon verifySkillWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifySkillJournal compileClientJava19s, diff check.
 - Actual receipt parser and completion method replay status/latest-query counters, reject/missing fields/foreign skill/fractional and rank6 malformed results/wrong correlation. Actual ClientProfileState100tick typed resend disabled after UUID delegation, wrong completion ID ignored, exact completion unlocks. Existing same-object UUID retry/context/selection and real DB charge/replay/rollback/cache tests retained.
 - No running Minecraft client/server request exchange, production data or application ACK/reconnect recovery. No migration/protocol/new packet format. M11 handles durable application status.
+
+## MDF-P1 S09e1 (2026-10-15)
+- PASS: --no-daemon verifyStatJournal verifyCharacterStatInvestment (12초). UUID/다른 correlation 재생, 원결과·최신 상태 구분, legacy 재생·과거 요청 채택, 동시 요청 한 번 차감, 본문/세대/잔여 점수 거부, 차감 이후 INSERT 실패 주입 시 차감·저널 롤백.
+- 첫 실행은 시험 데이터 정리 외래 키 오류로 FAIL. 정리 순서를 수정하고 해당 fixture를 제거한 뒤 재검사 PASS. 운영·인게임 검사는 실행하지 않았습니다.

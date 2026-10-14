@@ -226,3 +226,7 @@
 - Client common tracker exclusively retries same envelope; typed skill retry delegated by clearing its request object. Missing context cancels pending UI; completion correlates ID and does not install original rank, querying latest ranks/loadout instead.
 - PASS actual receipt replay/reject/malformed/wrong skill/noninteger/rank6/correlation parser, actual typed retry delegation, generic retry/context/selection and backend journal gates+compile19s. No new packet format/protocol/migration/live change.
 - Other O28 writers and actual event ACK/reconnect recovery remain. P1 PARTIAL and independent QA pending. Prior S09d1 commit e165726; this wire slice follows it.
+
+## MDF-P1 S09e1 (2026-10-15)
+- O28 능력치 투자: UUID 봉투·저널을 기존 long 호환 경로와 같은 트랜잭션에 연결했습니다. 재생은 저장 원결과와 최신 프로필을 구분합니다. 과거 long 요청은 저장 스냅샷으로 저널을 생성하고 추가 차감하지 않습니다.
+- 능력치 공통 wire는 다음 조각입니다. S09d1/e165726·S09d2/baff52b Creed+Jim PASS 통보 확인. 전체 P1은 PARTIAL입니다.
