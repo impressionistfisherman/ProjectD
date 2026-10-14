@@ -29,7 +29,10 @@ public final class CombatRuntime {
     private final Map<UUID,Long> evasiveUntil=new HashMap<>();
     private static final Identifier GUARD_SPEED=Identifier.fromNamespaceAndPath("dalmaru","guard_speed");
     private static final Identifier EVASIVE_SPEED=Identifier.fromNamespaceAndPath("dalmaru","evasive_speed");
-    public kr.dalmaru.content.ContentCatalog.Skill skill(UUID player,String id){return kr.dalmaru.content.ContentCatalog.current().skill(id);}
+    private java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> contentSource=player->kr.dalmaru.content.ContentCatalog.current();
+    public void contentSource(java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> source){contentSource=java.util.Objects.requireNonNull(source);}
+    public kr.dalmaru.content.ContentCatalog content(UUID player){return contentSource.apply(player);}
+    public kr.dalmaru.content.ContentCatalog.Skill skill(UUID player,String id){return content(player).skill(id);}
     public DefenseState defenseState(UUID player){return defenseStates.computeIfAbsent(player,id->new DefenseState());}
     public boolean hasShield(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&snapshot.records.stream().anyMatch(item->item.itemId().contains(".sword_shield."));}
     public boolean canGuard(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&snapshot.records.stream().anyMatch(item->item.itemId().contains(".sword_shield.")||item.itemId().contains(".two_handed_sword."));}
@@ -145,7 +148,7 @@ public final class CombatRuntime {
 	public void refresh(ServerPlayer player, CharacterProfile profile) {
 		EquipmentSnapshot snapshot = equipment.get(player.getUUID());
 		if (snapshot != null && !snapshot.characterId.equals(profile.characterId())) { equipment.remove(player.getUUID()); snapshot = null; }
-		PilotEquipment.Stats gear = snapshot == null ? PilotEquipment.Stats.EMPTY : PilotEquipment.equipped(profile, snapshot.records);
+		PilotEquipment.Stats gear = snapshot == null ? PilotEquipment.Stats.EMPTY : PilotEquipment.equipped(profile, snapshot.records,content(player.getUUID()));
 		CharacterProfile effective = new CharacterProfile(profile.characterId(), profile.level(), profile.experience(), profile.unspentStatPoints(),
 			profile.strength(), profile.dexterity(), profile.arcana(), profile.vitality() + gear.vitality(), profile.spirit() + gear.spirit(),
 			profile.freeResetAvailable(), profile.unspentSkillPoints(), profile.profession());
@@ -168,7 +171,7 @@ public final class CombatRuntime {
 	}
 
 	public void equipment(ServerPlayer player, CharacterProfile profile, java.util.List<EquipmentRecord> records) {
-		PilotEquipment.equipped(profile, records);
+		PilotEquipment.equipped(profile, records,content(player.getUUID()));
 		equipment.put(player.getUUID(), new EquipmentSnapshot(profile.characterId(), java.util.List.copyOf(records)));
 		refresh(player, profile);
 	}

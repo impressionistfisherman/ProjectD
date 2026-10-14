@@ -51,7 +51,7 @@ public final class CombatConsistencyCheck {
         defense=new DefenseState();defense.revive(10);require(defense.immune(69)&&!defense.immune(70),"C06 revive immunity");
         defense.revive(100);defense.attack();require(!defense.immune(100),"C06 attack ends immunity");
         String source=Files.readString(Path.of("src/main/java/kr/dalmaru/combat/CombatRuntime.java"));
-        String methods=method(source,"public kr.dalmaru.content.ContentCatalog.Skill skill(")+method(source,"public void tick(long")+method(source,"public SweepResult useSweep(")+method(source,"public void recordValidHit(");
+        String methods="private java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> contentSource=player->kr.dalmaru.content.ContentCatalog.current();"+method(source,"public kr.dalmaru.content.ContentCatalog content(")+method(source,"public kr.dalmaru.content.ContentCatalog.Skill skill(")+method(source,"public void tick(long")+method(source,"public SweepResult useSweep(")+method(source,"public void recordValidHit(");
         String code="""
             import java.util.*;
             public class CombatProof {
@@ -84,7 +84,7 @@ public final class CombatConsistencyCheck {
     }
     private static void protectionTimerBoundary()throws Exception{
         String source=Files.readString(Path.of("src/main/java/kr/dalmaru/combat/CombatRuntime.java"));
-        String body=method(source,"public kr.dalmaru.content.ContentCatalog.Skill skill(")+method(source,"public double protect(").replace("net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD","\"bypass\"");
+        String body="private java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> contentSource=player->kr.dalmaru.content.ContentCatalog.current();"+method(source,"public kr.dalmaru.content.ContentCatalog content(")+method(source,"public kr.dalmaru.content.ContentCatalog.Skill skill(")+method(source,"public double protect(").replace("net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD","\"bypass\"");
         String fixture="""
             import java.util.*;
             import kr.dalmaru.combat.DefenseState;

@@ -80,6 +80,7 @@ public final class DalmaruNetworking {
 	private DalmaruNetworking() { }
 
 	public static void initialize() {
+        COMBAT.contentSource(RUN_RUNTIME::content);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.Welcome.TYPE, DalmaruPayloads.Welcome.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProbeRequest.TYPE, DalmaruPayloads.ProbeRequest.CODEC);
@@ -672,6 +673,7 @@ public final class DalmaruNetworking {
             catch(Exception error){throw new IllegalStateException("Cannot save safe run return.",error);}
         }
         for(UUID id:players){ServerPlayer member=server.getPlayerList().getPlayer(id);if(member!=null)RUN_RUNTIME.enter(member,run.runId(),run.difficulty(),run.partySize(),owner,content);}
+        for(UUID id:players){var member=server.getPlayerList().getPlayer(id);var state=CONNECTIONS.get(id);if(member!=null&&state!=null&&state.activeProfile!=null)COMBAT.refresh(member,state.activeProfile);}
     }
     private static void resumeRuntime(ServerPlayer player,kr.dalmaru.run.RunRecord run){
         if(!RUN_RUNTIME.joinable(run.runId()))return;

@@ -35,6 +35,15 @@ public final class ContentCatalogCheck {
             check(stats.attack()==Math.round(63*scale)&&stats.primary()==Math.round(12*.30*scale)&&stats.vitality()==Math.round(8*.30*scale)&&stats.spirit()==Math.round(6*.30*scale),"Equipment bonus/scaling changed");
         }
         check(EnhancementRules.chance(14,Integer.MAX_VALUE)==100,"Pity calculation overflow");
+        var gearVariant=JsonParser.parseString(source).getAsJsonObject();
+        gearVariant.getAsJsonObject("equipment").getAsJsonArray("weapons").get(0).getAsJsonObject().getAsJsonArray("attack").set(2,new JsonPrimitive(64));
+        gearVariant.getAsJsonObject("equipment").getAsJsonArray("primary").set(2,new JsonPrimitive(16));
+        gearVariant.getAsJsonObject("enhancement").addProperty("statIncreaseFirstFive",.04);
+        var archivedGear=ContentCatalog.parse(gearVariant.toString());
+        var equippedRecord=new kr.dalmaru.equipment.EquipmentRecord(UUID.randomUUID(),character,0,"pilot.weapon.two_handed_sword.20",20,"WARRIOR",5,0,false);
+        var pinnedStats=PilotEquipment.equipped(profile,List.of(equippedRecord),archivedGear);
+        var currentStats=PilotEquipment.equipped(profile,List.of(equippedRecord));
+        check(pinnedStats.attack()==77&&pinnedStats.primary()==6&&currentStats.attack()==69&&currentStats.primary()==4,"Equipment ignored archived item/bonus/scaling definitions");
         String[] kinds={"GUARD","ARCHER","EMBER","SHIELD","SOLDIER","COMMANDER"};
         int[] health={330,280,310,520,360,3000},physicalDefense={30,15,20,70,25,55},magicDefense={20,35,25,35,25,55},damage={75,65,58,85,72,95},interval={32,40,40,40,30,40},range={3,12,8,3,3,3};
         for(int i=0;i<kinds.length;i++){

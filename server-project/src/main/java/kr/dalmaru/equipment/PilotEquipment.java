@@ -24,6 +24,10 @@ public final class PilotEquipment {
     }
 
     public static Stats equipped(CharacterProfile profile, List<EquipmentRecord> records) {
+        return equipped(profile,records,ContentCatalog.current());
+    }
+    public static Stats equipped(CharacterProfile profile,List<EquipmentRecord> records,ContentCatalog content) {
+        var items=content.items();
         double attack = 0, physical = 0, magic = 0, primary = 0, vitality = 0, spirit = 0;
         boolean magical = false;
         double basicMultiplier = 1;
@@ -34,7 +38,7 @@ public final class PilotEquipment {
             if (!profile.characterId().equals(record.characterId())) throw new IllegalArgumentException("Equipment belongs to another character.");
             if (record.slotId() < 0 || record.slotId() > 8 || slots[record.slotId()]) throw new IllegalArgumentException("Invalid equipped slot.");
             slots[record.slotId()] = true;
-            ContentCatalog.Item item = ITEMS.get(record.itemId());
+            ContentCatalog.Item item = items.get(record.itemId());
             // Legacy placeholders and undefined items provide no invented combat stats.
             if (item == null) continue;
             if (!item.enabled()) throw new IllegalArgumentException("Disabled equipment.");
@@ -42,11 +46,11 @@ public final class PilotEquipment {
                 || (!record.profession().isBlank() && !record.profession().equals(profile.profession()))
                 || (!item.requirement().isBlank() && !item.requirement().equals(profile.profession()) && !item.requirement().equals(armor))) continue;
             if (record.enhancement() < 0 || record.enhancement() > 15) throw new IllegalArgumentException("Invalid enhancement.");
-            var policy=ContentCatalog.current().enhancementPolicy();
+            var policy=content.enhancementPolicy();
             double scale = 1 + Math.min(record.enhancement(), 5) * policy.firstFive() + Math.max(0, record.enhancement() - 5) * policy.later();
             attack += item.attack() * scale; physical += item.physical() * scale; magic += item.magic() * scale;
             int tier = item.level() == 10 ? 0 : item.level() == 15 ? 1 : 2;
-            var bonuses=ContentCatalog.current().bonuses();
+            var bonuses=content.bonuses();
             primary += bonuses.primary().get(tier) * item.budget() * scale;
             vitality += bonuses.vitality().get(tier) * item.budget() * scale;
             spirit += bonuses.spirit().get(tier) * item.budget() * scale;

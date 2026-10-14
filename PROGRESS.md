@@ -201,3 +201,9 @@
 - Marks capture bonus/duration at cast rather than recalculating newer tuning. Shield API accepts explicit lifetime while old160tick adapter remains. Parameter maps immutable and capability keys exact; negative/decreasing/invalid timing/percent/movement values reject.
 - PASS skill metadata/effects/schema1-2,16 actual casts, catalog24 rejection cases, actual combat/protection/runtime/UI/DB snapshot gates and compile32s. No migration/protocol/production changes.
 - Per-run combat/equipment definition routing and other display metadata remain S10c3+ before O28. Missing posture model remains existing design limitation: rising strike preserves current knock-up behavior; no unrequested model fabricated. P1 PARTIAL/QA pending.
+
+## 2026-10-14 MDF-P1 S10c3
+- Combat catalog provider resolves the player's owned RunRuntime Encounter; outside run current catalog, missing mapped Encounter fails closed. Same pinned object serves cast/effects and equipment stats; no second mutable content cache.
+- PilotEquipment overload consumes supplied item/bonus/enhancement tables. Existing party entry installs all runtime owners then refreshes profiles with existing health/stamina-ratio preservation; field equip API remains current catalog.
+- PASS actual provider-backed16 casts, archived energy21 vs current20, actual run pin/changed rejection/closed fallback, archived item+bonus+scale stats77/6 vs current69/4, combat/runtime/catalog/DB gates and compile26s.
+- No migration/protocol/production changes. Remaining O27 common display metadata/validation before O28; P1 PARTIAL and independent QA pending. Live world/profile attribute installation not tested.

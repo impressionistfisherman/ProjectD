@@ -234,3 +234,9 @@
 - PASS --no-daemon verifySkillContent verifyContentCatalog verifyCombatConsistency verifySkillPresentation verifyPremergeRuntime verifyRunContentSnapshot compileClientJava32s, diff check.
 -24 effect tables rank0/1/3/5 interpolate, capability key/malformed/decreasing/negative tables reject; historical schema1/schema2 smoke90/shackle80 preserved against schema3 corrected80/60. Changed stored mark bonus/duration ownership and39/40 expiry; explicit shield11/12 lifetime. Existing cast16 cost/cooldown/ownership, metadata12 invalid cases and4 new parameter cases PASS.
 - Actual world handlers compile and consume values, but live Minecraft damage/control/geometry/GUI not exercised. Definition accessor still current catalog until S10c3 pins combat/equipment lookup. No deployed DB/protocol/live state changes.
+
+## 2026-10-14 MDF-P1 S10c3
+- PASS --no-daemon verifySkillContent verifyContentCatalog verifyCombatConsistency verifyPremergeRuntime verifyRunContentSnapshot compileClientJava26s, diff check.
+- Actual cast accessor+content provider execute changed archived sweep energy21 (stamina300->279) against current20, preserving all16 cast gates. Actual runtime content returns pinned party energy21, rejects changed snapshot, returns current catalog after close.
+- Real PilotEquipment supplied-catalog calculation uses changed attack/primary bonus/enhancement scale:77 attack/6 primary vs69/4 current. Existing owner/slot/level guards retained.
+- No SQL migration/protocol/live exchange/dungeon entry or actual Minecraft profile attributes; independent QA needed. No production PID/DB/JAR/settings changes.

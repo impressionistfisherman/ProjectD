@@ -312,6 +312,11 @@ public final class RunRuntime {
     }
     private static net.minecraft.world.phys.AABB bounds(Encounter e){return new net.minecraft.world.phys.AABB(e.floor.getX()-9,e.floor.getY(),e.floor.getZ()-6,e.floor.getX()+10,e.floor.getY()+6,e.floor.getZ()+75);}
     private static boolean inside(ServerPlayer player,Encounter encounter){return player.level()==encounter.level&&bounds(encounter).deflate(.6).contains(player.position());}
+    public kr.dalmaru.content.ContentCatalog content(UUID player){
+        State state=playerRuns.get(player);if(state==null)return kr.dalmaru.content.ContentCatalog.current();
+        Encounter encounter=encounters.get(state.runId);if(encounter==null)throw new IllegalStateException("Mapped run lacks content snapshot.");
+        return encounter.content;
+    }
     public UUID runId(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? null : state.runId; }
     public int revivesRemaining(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? 0 : state.revivesRemaining; }
     public boolean isBoss(UUID id){return encounters.values().stream().anyMatch(e->id.equals(e.bossId));}
