@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 29;
+	public static final int PROTOCOL_VERSION = 30;
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
@@ -124,6 +124,9 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProtectiveTalismanRequest.TYPE, DalmaruPayloads.ProtectiveTalismanRequest.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ShortStepRequest.TYPE, DalmaruPayloads.ShortStepRequest.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.EquipmentEnhanceRequest.TYPE, DalmaruPayloads.EquipmentEnhanceRequest.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.RequestContext.TYPE,DalmaruPayloads.RequestContext.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.OperationRequest.TYPE,DalmaruPayloads.OperationRequest.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.OperationReceipt.TYPE,DalmaruPayloads.OperationReceipt.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.EquipmentEnhanceResponse.TYPE, DalmaruPayloads.EquipmentEnhanceResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.EquipmentListRequest.TYPE, DalmaruPayloads.EquipmentListRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.EquipmentListResponse.TYPE, DalmaruPayloads.EquipmentListResponse.CODEC);
@@ -473,18 +476,15 @@ public final class DalmaruNetworking {
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.DodgeRequest.TYPE,(payload,context)->dodge(context.player(),payload.direction()));
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.GuardRequest.TYPE,(payload,context)->guard(context.player(),payload.guard()));
 
-		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceRequest.TYPE, (payload, context) -> {
-			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.requestId() < 1 || state.accountSession == null) return;
-			AccountSession session = state.accountSession;
-			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.enhance(session.accountId(), session.connectionGeneration(), payload.requestId(), payload.equipmentId()); } catch (Exception exception) { throw new IllegalStateException(exception); } })
-				.thenAccept(result -> context.server().execute(() -> {
-					if (CONNECTIONS.get(context.player().getUUID()) != state || state.accountSession != session) return;
-					if (state.activeProfile != null) refreshCombat(context.player(), state.activeProfile);
-					ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), true, result.success(), result.resultEnhancement(), result.resultFailures(), result.replayed() ? "이미 처리된 요청" : result.success() ? "강화 성공" : "강화 실패"));
-				}))
-				.exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentEnhanceResponse(payload.requestId(), false, false, 0, 0, "강화할 수 없습니다."))); return null; });
-		});
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceRequest.TYPE,(payload,context)->enhanceRequest(context.player(),context.server(),payload.requestId(),payload.equipmentId(),null));
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.OperationRequest.TYPE,(payload,context)->{
+            try{
+                var envelope=new kr.dalmaru.request.RequestEnvelope(payload.requestId(),payload.connectionGeneration(),payload.activeCharacterId(),payload.operation(),com.google.gson.JsonParser.parseString(payload.payload()).getAsJsonObject());
+                if(!"enhance_item".equals(envelope.operation()))throw new IllegalArgumentException("Unsupported operation");
+                var body=envelope.payload();if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
+                enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
+            }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){rejectOperation(context.player(),payload.correlationId(),payload.requestId());}
+        });
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
@@ -570,6 +570,37 @@ public final class DalmaruNetworking {
 		int damage = COMBAT.targetedAttack(player,target,amount/player.getAttributeValue(Attributes.ATTACK_DAMAGE),defense,false,currentTick);
 		return CombatRuntime.hurtRpg(target, player.damageSources().playerAttack(player), damage);
 	}
+    private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
+        ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
+    }
+    private static void enhanceRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID equipment,kr.dalmaru.request.RequestEnvelope envelope){
+        ConnectionState state=stateFor(player.getUUID());
+        if(!state.compatible||state.accountFailure!=null||state.accountSession==null||correlation<1){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());return;}
+        AccountSession session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{
+            try{return EQUIPMENT.enhance(session.accountId(),session.connectionGeneration(),correlation,equipment,envelope);}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(result->server.execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(state.activeProfile!=null)refreshCombat(player,state.activeProfile);
+            if(envelope==null)ServerPlayNetworking.send(player,new DalmaruPayloads.EquipmentEnhanceResponse(correlation,true,result.success(),result.resultEnhancement(),result.resultFailures(),result.replayed()?"\uc774\ubbf8 \ucc98\ub9ac\ub41c \uc694\uccad":result.success()?"\uac15\ud654 \uc131\uacf5":"\uac15\ud654 \uc2e4\ud328"));
+            else{
+                var original=new com.google.gson.JsonObject();original.addProperty("equipmentId",equipment.toString());original.addProperty("success",result.success());original.addProperty("enhancement",result.resultEnhancement());original.addProperty("consecutiveFailures",result.resultFailures());
+                var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.replayed()));
+            }
+        })).exceptionally(error->{server.execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope!=null){
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                else{
+                    LOGGER.warn("Operation result requires recovery: {}",envelope.requestId(),error);
+                    ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+                }
+            }
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.EquipmentEnhanceResponse(correlation,false,false,0,0,"\uac15\ud654\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
+        });return null;});
+    }
+
 	private static void refreshCombat(ServerPlayer player, CharacterProfile profile) {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.accountSession == null || !profile.characterId().equals(state.accountSession.activeCharacterId())) return;
@@ -978,6 +1009,7 @@ public final class DalmaruNetworking {
 		profile = applyProfile(player, profile);
 		refreshCombat(player, profile);
 		ServerPlayNetworking.send(player, new DalmaruPayloads.CharacterProfileResponse(profile.characterId(), profileData(profile)));
+        if(state!=null&&state.accountSession!=null)ServerPlayNetworking.send(player,new DalmaruPayloads.RequestContext(state.accountSession.connectionGeneration(),profile.characterId()));
 	}
 
 	private static void grantExperience(ServerPlayer player, MinecraftServer server, int amount) {

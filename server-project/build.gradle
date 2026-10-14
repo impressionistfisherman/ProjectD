@@ -308,3 +308,5 @@ tasks.register('verifyRunDeathScreen', JavaExec) { group = 'verification'; class
 tasks.register('verifyClientReplyRecovery', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientReplyRecoveryCheck' }
 tasks.register('verifyEnhancementReplay', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.EnhancementReplayCheck' }
 tasks.register('verifyRequestJournal', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RequestJournalCheck' }
+tasks.register('verifyClientRequestEnvelope', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientRequestEnvelopeCheck' }
+tasks.register('verifyOperationWire', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.OperationWireCheck' }

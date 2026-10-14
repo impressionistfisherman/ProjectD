@@ -43,7 +43,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 		ClientSkillState.resetForConnection();
 		ClientEquipmentState.resetForConnection();
-		ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;
+		ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;ClientRequestState.reset();
 			profileKeyDown = false;guardKeyDown=false;
 			ClientPlayNetworking.send(new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION));
 		});
@@ -55,7 +55,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 			ClientSkillState.resetForConnection();
 			ClientEquipmentState.resetForConnection();
-			ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;
+			ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;ClientRequestState.reset();
 			profileKeyDown = false;guardKeyDown=false;
 		});
 
@@ -75,7 +75,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();requestLoadout();requestSkillRanks();
+                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();ClientRequestState.selected(payload.characterId());requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -106,7 +106,9 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CombatStateResponse.TYPE,
 			(payload, context) -> ClientCombatState.accept(payload));
 
-		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunReviveState.TYPE,(payload,context)->runReviveState=payload);
+		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RequestContext.TYPE,(payload,context)->ClientRequestState.accept(payload));
+        ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.OperationReceipt.TYPE,(payload,context)->acceptOperation(payload));
+        ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunReviveState.TYPE,(payload,context)->runReviveState=payload);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if(client.player==null||!client.player.isDeadOrDying())runReviveState=null;
 			if (client.screen == null && OPEN_GUIDE.consumeClick()) {
@@ -146,6 +148,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
             var skillRetry=ClientProfileState.retrySkill();if(skillRetry!=null)ClientPlayNetworking.send(skillRetry);
             if(ClientLoadoutState.tick())requestLoadout();
             if(ClientSkillState.tick())requestSkillRanks();
+            for(var retry:ClientRequestState.tick())ClientPlayNetworking.send(retry);
 			if (client.player != null && client.screen == null && ClientCharacterState.requiresSelection()) {
 				client.setScreen(new DalmaruCharacterScreen());
 			}
@@ -214,8 +217,28 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
     }
 
+    private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
+        var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if(!"enhance_item".equals(request.operation()))return;
+        if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
+        else{
+            try{
+                var result=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+                if(!result.has("success")||!result.has("enhancement")||!result.has("consecutiveFailures"))throw new IllegalStateException("Missing operation outcome");
+                boolean success=result.get("success").getAsBoolean();
+                ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),true,success,result.get("enhancement").getAsInt(),result.get("consecutiveFailures").getAsInt(),receipt.replayed()?"\uc774\ubbf8 \ucc98\ub9ac\ub41c \uc694\uccad":success?"\uac15\ud654 \uc131\uacf5":"\uac15\ud654 \uc2e4\ud328"));
+            }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException invalid){
+                ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uacb0\uacfc \ud655\uc778\uc774 \ud544\uc694\ud569\ub2c8\ub2e4."));
+            }
+        }
+        requestEquipment();
+    }
+
 	public static void requestEnhancement(java.util.UUID equipmentId) {
-		ClientPlayNetworking.send(new DalmaruPayloads.EquipmentEnhanceRequest(ClientEquipmentState.nextRequestId(), equipmentId));
+		long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("equipmentId",equipmentId.toString());
+        var request=ClientRequestState.begin(correlation,"enhance_item",body);
+        if(request!=null){ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(correlation,false,false,0,0,"\uac15\ud654 \uacb0\uacfc \ud655\uc778 \uc911\uc785\ub2c8\ub2e4."));ClientPlayNetworking.send(request);}
+        else ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(correlation,false,false,0,0,"\uce90\ub9ad\ud130 \uc815\ubcf4 \ud655\uc778 \uc911\uc785\ub2c8\ub2e4."));
 	}
 
 	public static void requestRun(String difficulty) {

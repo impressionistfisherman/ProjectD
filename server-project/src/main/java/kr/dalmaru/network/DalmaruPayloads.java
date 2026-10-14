@@ -315,6 +315,31 @@ public record ShortStepRequest() implements CustomPacketPayload {
 	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
 
+public record RequestContext(long connectionGeneration,UUID activeCharacterId) implements CustomPacketPayload {
+    public static final Type<RequestContext> TYPE=DalmaruPayloads.type("request_context");
+    public static final StreamCodec<RegistryFriendlyByteBuf,RequestContext> CODEC=new StreamCodec<>(){
+        public RequestContext decode(RegistryFriendlyByteBuf b){return new RequestContext(b.readVarLong(),b.readUUID());}
+        public void encode(RegistryFriendlyByteBuf b,RequestContext value){b.writeVarLong(value.connectionGeneration());b.writeUUID(value.activeCharacterId());}
+    };
+    @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+}
+public record OperationRequest(long correlationId,UUID requestId,long connectionGeneration,UUID activeCharacterId,String operation,String payload) implements CustomPacketPayload {
+    public static final Type<OperationRequest> TYPE=DalmaruPayloads.type("operation_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,OperationRequest> CODEC=new StreamCodec<>(){
+        public OperationRequest decode(RegistryFriendlyByteBuf b){return new OperationRequest(b.readVarLong(),b.readUUID(),b.readVarLong(),b.readUUID(),b.readUtf(64),b.readUtf(8192));}
+        public void encode(RegistryFriendlyByteBuf b,OperationRequest value){b.writeVarLong(value.correlationId());b.writeUUID(value.requestId());b.writeVarLong(value.connectionGeneration());b.writeUUID(value.activeCharacterId());b.writeUtf(value.operation(),64);b.writeUtf(value.payload(),8192);}
+    };
+    @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+}
+public record OperationReceipt(long correlationId,UUID requestId,UUID eventId,String state,String result,boolean replayed) implements CustomPacketPayload {
+    public static final Type<OperationReceipt> TYPE=DalmaruPayloads.type("operation_receipt");
+    public static final StreamCodec<RegistryFriendlyByteBuf,OperationReceipt> CODEC=new StreamCodec<>(){
+        public OperationReceipt decode(RegistryFriendlyByteBuf b){return new OperationReceipt(b.readVarLong(),b.readUUID(),b.readUUID(),b.readUtf(32),b.readUtf(8192),b.readBoolean());}
+        public void encode(RegistryFriendlyByteBuf b,OperationReceipt value){b.writeVarLong(value.correlationId());b.writeUUID(value.requestId());b.writeUUID(value.eventId());b.writeUtf(value.state(),32);b.writeUtf(value.result(),8192);b.writeBoolean(value.replayed());}
+    };
+    @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+}
+
 public record EquipmentEnhanceRequest(long requestId, UUID equipmentId) implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<EquipmentEnhanceRequest> TYPE = DalmaruPayloads.type("equipment_enhance_request");
 	public static final StreamCodec<RegistryFriendlyByteBuf, EquipmentEnhanceRequest> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, EquipmentEnhanceRequest::requestId, ByteBufCodecs.VAR_LONG, request -> request.equipmentId().getMostSignificantBits(), ByteBufCodecs.VAR_LONG, request -> request.equipmentId().getLeastSignificantBits(), (requestId, most, least) -> new EquipmentEnhanceRequest(requestId, new UUID(most, least)));

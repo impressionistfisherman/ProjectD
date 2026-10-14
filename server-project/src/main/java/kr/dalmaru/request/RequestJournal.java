@@ -6,6 +6,10 @@ import java.util.*;
 
 public final class RequestJournal {
     private RequestJournal(){}
+    public static boolean definitelyRejected(Throwable error){
+        Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();
+        return cause instanceof IllegalArgumentException||(cause instanceof SQLException sql&&"23505".equals(sql.getSQLState()));
+    }
     public record Receipt(UUID requestId,UUID eventId,String state){}
     public record Stored(Receipt receipt,long legacyRequestId,JsonObject result){
         public Stored{result=result==null?null:result.deepCopy();}
