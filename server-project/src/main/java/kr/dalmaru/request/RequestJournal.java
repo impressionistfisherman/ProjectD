@@ -36,7 +36,7 @@ public final class RequestJournal {
     }
     public static Receipt confirm(Connection c,Stored stored,JsonObject result)throws SQLException{
         if(c.getAutoCommit())throw new IllegalArgumentException("Confirmation requires a domain transaction");
-        if(stored.result()!=null){if(!stored.result().equals(result))throw new IllegalArgumentException("Confirmed result cannot change");return stored.receipt();}
+        if(stored.result()!=null){if(!RequestEnvelope.canonicalJson(stored.result()).equals(RequestEnvelope.canonicalJson(result)))throw new IllegalArgumentException("Confirmed result cannot change");return stored.receipt();}
         try(var update=c.prepareStatement("UPDATE dalmaru.operation_requests SET result=?::jsonb,state='pending_recovery' WHERE request_id=? AND state='accepted'")){
             update.setString(1,result.toString());update.setObject(2,stored.receipt().requestId());if(update.executeUpdate()!=1)throw new SQLException("Request confirmation lost its reservation");
         }

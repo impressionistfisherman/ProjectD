@@ -15,9 +15,10 @@ public record RequestEnvelope(UUID requestId,long connectionGeneration,UUID acti
     @Override public JsonObject payload(){return payload.deepCopy();}
     public String bodyHash(){
         var body=new JsonObject();body.addProperty("connectionGeneration",connectionGeneration);body.addProperty("activeCharacterId",activeCharacterId.toString());body.addProperty("operation",operation);body.add("payload",payload);
-        try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(normalize(body,0).toString().getBytes(StandardCharsets.UTF_8)));}
+        try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonicalJson(body).getBytes(StandardCharsets.UTF_8)));}
         catch(NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
     }
+    public static String canonicalJson(JsonElement value){return normalize(value,0).toString();}
     private static JsonElement normalize(JsonElement element,int depth){
         if(depth>16)throw new IllegalArgumentException("Request payload is too deep");
         if(element.isJsonObject()){

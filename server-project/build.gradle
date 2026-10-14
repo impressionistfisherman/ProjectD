@@ -310,3 +310,4 @@ tasks.register('verifyEnhancementReplay', JavaExec) { group = 'verification'; cl
 tasks.register('verifyRequestJournal', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RequestJournalCheck' }
 tasks.register('verifyClientRequestEnvelope', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientRequestEnvelopeCheck' }
 tasks.register('verifyOperationWire', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.OperationWireCheck' }
+tasks.register('verifyRequestJournalResult', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RequestJournalResultCheck' }
