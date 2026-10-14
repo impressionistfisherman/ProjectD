@@ -98,13 +98,28 @@ public final class RunRuntime {
         State state=playerRuns.get(player.getUUID());
         if(state==null)return new DeathResult(null,false,false);
         if(state.dead)return new DeathResult(state.runId,false,false);
-        state.dead=true;state.deathPosition=player.position();
+        state.dead=true;state.deathTick=tickCount;state.deathPosition=player.position();
         Encounter encounter=encounters.get(state.runId);
         double relative=player.getZ()-encounter.floor.getZ();state.deathZone=relative<27?0:relative<45?1:2;
         boolean living=playerRuns.values().stream().anyMatch(member->member.runId.equals(state.runId)&&member.connected&&!member.dead);
         boolean defeated=!living&&(encounter.partySize>1||state.revivesRemaining==0);
         if(defeated)encounter.failed=true;
         return new DeathResult(state.runId,!defeated&&state.revivesRemaining>0,defeated);
+    }
+    public boolean canRespawn(ServerPlayer player){
+        State state=playerRuns.get(player.getUUID());
+        if(state==null||!state.dead)return true;
+        Encounter encounter=encounters.get(state.runId);
+        return encounter==null||encounter.failed||state.revivesRemaining==0||RunEncounterRules.clickRevive(tickCount-state.deathTick);
+    }
+    private boolean autoRespawn(ServerPlayer player){
+        if(player==null)return false;
+        State state=playerRuns.get(player.getUUID());
+        if(state==null)return false;
+        Encounter encounter=encounters.get(state.runId);
+        if(encounter==null||!state.connected||!state.dead||encounter.failed||state.revivesRemaining==0||!player.isDeadOrDying()||!RunEncounterRules.autoRevive(tickCount-state.deathTick))return false;
+        player.connection.handleClientCommand(new net.minecraft.network.protocol.game.ServerboundClientCommandPacket(net.minecraft.network.protocol.game.ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+        return true;
     }
     public void afterRespawn(ServerPlayer oldPlayer,ServerPlayer newPlayer) {
         State state=playerRuns.get(newPlayer.getUUID());
@@ -166,6 +181,7 @@ public final class RunRuntime {
         }
         for(var entry:playerRuns.entrySet()){
             ServerPlayer player=server.getPlayerList().getPlayer(entry.getKey());Encounter encounter=encounters.get(entry.getValue().runId);
+            if(autoRespawn(player))continue;
             if(player==null||encounter==null||entry.getValue().dead)continue;
             if(!inside(player,encounter))player.teleportTo(encounter.level,entry.getValue().lastSafe.x,entry.getValue().lastSafe.y,entry.getValue().lastSafe.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
             else if(player.onGround())entry.getValue().lastSafe=player.position();
@@ -435,7 +451,7 @@ public final class RunRuntime {
 
     public record DeathResult(UUID runId, boolean canRespawn, boolean partyDefeated) { }
     private enum Stage { GATEKEEPER, BRAZIER, APPROACH, BEACON, COMPLETED }
-    private static final class State { private final UUID runId; private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
+    private static final class State { private final UUID runId; private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt,deathTick; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
     private static final class Encounter {
         private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;

@@ -681,6 +681,7 @@ public final class DalmaruNetworking {
 		})).exceptionally(error -> { LOGGER.error("Failed to complete run.", error);server.execute(()->FINISHING_RUNS.remove(runId)); return null; });
 	}
 
+    public static boolean canRunRespawn(ServerPlayer player){return RUN_RUNTIME.canRespawn(player);}
 	private static void failRunAfterFinalDeath(ServerPlayer player, MinecraftServer server) {
 		RunRuntime.DeathResult death = RUN_RUNTIME.recordDeath(player);
 		if (death.runId() == null || death.canRespawn() || !death.partyDefeated()) return;

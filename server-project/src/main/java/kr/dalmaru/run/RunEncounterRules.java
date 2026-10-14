@@ -7,6 +7,9 @@ import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 
 public final class RunEncounterRules {
+    public static boolean clickRevive(long elapsedTicks){return elapsedTicks>=100;}
+    public static boolean autoRevive(long elapsedTicks){return elapsedTicks>=300;}
+
     private RunEncounterRules() { }
     public static LocalDate weekId(Instant instant) {
         return instant.atZone(ZoneId.of("Asia/Seoul")).minusHours(6).toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
