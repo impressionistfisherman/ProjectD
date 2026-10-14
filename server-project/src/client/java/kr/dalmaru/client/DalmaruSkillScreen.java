@@ -44,7 +44,8 @@ final class DalmaruSkillScreen extends Screen {
         var current=ClientLoadoutState.current();
         for(int i=0;i<slotButtons.size();i++){
             String id=current==null?"":current.slots().get(i);String name=skills.stream().filter(skill->skill.id().equals(id)).map(SkillDefinition::koreanName).findFirst().orElse("비움");
-            var button=slotButtons.get(i);button.setMessage(Component.literal((i+1)+" · "+(i==4?"궁극기 미해금":name)));button.active=i<4&&current!=null&&current.editable()&&!ClientLoadoutState.waiting();
+            boolean unlearned=!id.isEmpty()&&ClientSkillState.rank(id)<1;
+            var button=slotButtons.get(i);button.setMessage(Component.literal((i+1)+" · "+(i==4?"궁극기 미해금":unlearned?"미습득 (잠금)":name)));button.active=i<4&&!unlearned&&current!=null&&current.editable()&&!ClientLoadoutState.waiting();
         }
     }
 }

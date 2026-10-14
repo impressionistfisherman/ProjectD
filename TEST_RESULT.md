@@ -186,3 +186,4 @@
 - Reservation calls the same pure week rule; completion still uses its stored run week, with no data rewrite.
 - PASS: git diff --check. No migration/server/DB/M8Oscar/dungeon use. Independent QA pending.
 - 2026-10-14 MDF-P1 S05a: PASS `--no-daemon verifySkillPresentation compileClientJava` (10s, server/client compilation included). All24 descriptions match pilot specification; actual screen tick fixture checks max-rank disable, rank4 re-enable, rank0 learning and tooltip presence. No DB/live/human-play check.
+- 2026-10-14 MDF-P1 S05b: PASS `--no-daemon verifySkillPresentation verifyClientScreenBounds compileClientJava` (11s). Four professions canonical defaults/no grants; retain/remove/move/new equip/duplicate validation; actual tick unlearned lock, rank1 unlock, ultimate lock, existing empty rows; 320x240 to960x540 layout bounds. No DB/live/human HUD play.

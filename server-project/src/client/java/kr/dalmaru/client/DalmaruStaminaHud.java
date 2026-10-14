@@ -25,10 +25,12 @@ final class DalmaruStaminaHud {
                 var profile=ClientProfileState.current();
                 for(int slot=0;slot<5;slot++){
                     String id=response.slots().get(slot),name=slot==4?"궁극 잠금":"비움";
+                    boolean unlearned=!id.isEmpty()&&ClientSkillState.rank(id)<1;
                     if(profile!=null&&!profile.profile().profession().isBlank()&&!id.isEmpty())try{name=kr.dalmaru.skill.SkillDefinition.find(kr.dalmaru.account.CharacterProfession.valueOf(profile.profile().profession()),id).koreanName();}catch(IllegalArgumentException ignored){name="미해금";}
+                    if(unlearned)name="미습득 (잠금)";
                     String key=client.options.keyHotbarSlots[slot].getTranslatedKeyMessage().getString();int cooldown=response.cooldowns().get(slot);
                     name=client.font.plainSubstrByWidth(name,Math.max(0,slotWidth-4-client.font.width(key+" ")));
-                    graphics.text(client.font,key+" "+name,left+slot*slotWidth,y-34,cooldown>0?0xFFAAAAAA:0xFFFFFFFF,false);
+                    graphics.text(client.font,key+" "+name,left+slot*slotWidth,y-34,unlearned||slot==4||cooldown>0?0xFFAAAAAA:0xFFFFFFFF,false);
                     if(cooldown>0)graphics.text(client.font,((cooldown+19)/20)+"초",left+slot*slotWidth,y-24,0xFFE28A2A,false);
                 }
             }

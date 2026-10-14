@@ -42,7 +42,7 @@ public final class LoadoutRepository {
             }
             if(current.revision()!=expected)throw new IllegalArgumentException("Stale loadout revision.");
             var profession=profession(c,character);if(profession==null)throw new IllegalArgumentException("Profession required.");
-            SkillLoadout.validate(profession,ranks(c,character),slots);
+            SkillLoadout.validate(profession,ranks(c,character),slots,current.slots());
             long revision=Math.addExact(current.revision(),1);
             try(var update=c.prepareStatement("UPDATE dalmaru.character_skill_loadouts SET slots=?::jsonb,revision=? WHERE character_id=?")){
                 update.setString(1,encode(slots));update.setLong(2,revision);update.setObject(3,character);update.executeUpdate();

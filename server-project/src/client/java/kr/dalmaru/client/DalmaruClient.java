@@ -62,7 +62,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> ClientConnectionState.acceptProbeResponse(payload.requestId(), payload.rateLimited()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterSelectionReady.TYPE, (payload, context) -> {
 			if (!payload.ready()) return;
-			ClientCharacterState.markSelectionReady();requestLoadout();
+			ClientCharacterState.markSelectionReady();requestLoadout();requestSkillRanks();
 			context.client().setScreen(new DalmaruCharacterScreen());
 			requestCharacterList();
 		});
@@ -72,7 +72,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());requestLoadout();
+                    ClientLoadoutState.selected(payload.characterId());requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
