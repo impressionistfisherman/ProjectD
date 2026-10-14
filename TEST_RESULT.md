@@ -172,3 +172,10 @@
 - Hostile classification covers monster, targeted neutral, run-tagged entity and denied domain/passive/environment policy.
 - Actual protect method extracted into a fixture with real DefenseState/CombatEffects: valid/invalid full guard, dodge/passive, shield absorption, zero damage (8 cases). Existing combat and S01 checks preserved.
 - PASS: git diff --check. No live damage/event invocation, server/DB use, M8Oscar or dungeon entry; independent QA pending. No migration.
+
+## 2026-10-14 MDF-P1 S03/R7
+- Initial verifyFieldReviveBoundary FAIL: existing fixture lacked activeCheckpoint and startPending/startInvalidated from the baseline. An attempted fixture edit used the wrong working-directory path; the unchanged fixture failed again.
+- Updated fixture to execute the actual ownership helper and verify preparation invalidation/foreign-character checkpoint rejection.
+- PASS: --no-daemon verifyFieldReviveBoundary compileClientJava (8s); production compileJava passed before fixture correction.
+- Actual selector body tested for active priority, same-dimension priority/unsafe first town, missing dimension, malformed dimension, world entry, all-invalid rejection, absent point/towns (7 paths), plus existing snapshot/wait/deadline/selection/disconnect checks.
+- PASS: git diff --check. No live floor/teleport, server/DB, dungeon entry, M8Oscar, or migration; independent QA pending.

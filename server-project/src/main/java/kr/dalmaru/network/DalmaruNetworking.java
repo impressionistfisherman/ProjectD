@@ -1314,18 +1314,37 @@ public final class DalmaruNetworking {
         }
         return nearest;
     }
+    private record FieldDestination(ServerLevel level,net.minecraft.world.phys.Vec3 position){}
+    private static FieldDestination fieldDestination(ServerPlayer player,MinecraftServer server,kr.dalmaru.account.SafeCheckpoint active){
+        var candidates=new java.util.ArrayList<kr.dalmaru.account.SafeCheckpoint>();
+        if(active!=null)candidates.add(active);
+        for(int pass=0;pass<2;pass++)for(var town:TOWNS){
+            boolean same=active==null||town.dimension().equals(active.dimension());
+            if(same!=(pass==0))continue;
+            var point=new kr.dalmaru.account.SafeCheckpoint("town:"+town.x()+":"+town.z(),town.dimension(),town.x()+.5,town.y(),town.z()+.5);
+            if(!candidates.contains(point))candidates.add(point);
+        }
+        var level=server.overworld();var spawn=level.getRespawnData().pos();
+        candidates.add(new kr.dalmaru.account.SafeCheckpoint("world_entry",level.dimension().identifier().toString(),spawn.getX()+.5,spawn.getY(),spawn.getZ()+.5));
+        for(var point:candidates){
+            var id=net.minecraft.resources.Identifier.tryParse(point.dimension());
+            if(id==null){LOGGER.warn("Invalid revive dimension for checkpoint {}",point.pointId());continue;}
+            var target=server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,id));
+            if(target==null)continue;
+            var safe=safeFieldPosition(player,target,point);
+            if(safe!=null)return new FieldDestination(target,safe);
+        }
+        return null;
+    }
     private static void tickFieldRevives(MinecraftServer server){
         for(var entry:new java.util.ArrayList<>(FIELD_REVIVES.entrySet())){
             var state=CONNECTIONS.get(entry.getKey());var player=server.getPlayerList().getPlayer(entry.getKey());
             if(state==null||player==null||state.accountSession!=entry.getValue().session()){FIELD_REVIVES.remove(entry.getKey());continue;}
             if(currentTick<entry.getValue().due())continue;
             if(!player.isAlive())player=server.getPlayerList().respawn(player,false,net.minecraft.world.entity.Entity.RemovalReason.KILLED);
-            var point=entry.getValue().checkpoint()==null?fallback(server):entry.getValue().checkpoint();
-            var key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.Identifier.parse(point.dimension()));var level=server.getLevel(key);
-            if(level==null){point=fallback(server);key=net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,net.minecraft.resources.Identifier.parse(point.dimension()));level=server.getLevel(key);}
-            if(level==null){var spawn=server.overworld().getRespawnData().pos();level=server.overworld();point=new kr.dalmaru.account.SafeCheckpoint("world_entry",level.dimension().identifier().toString(),spawn.getX()+.5,spawn.getY(),spawn.getZ()+.5);}
-            var safe=safeFieldPosition(player,level,point);
-            if(safe==null){player.setGameMode(entry.getValue().mode());LOGGER.error("No safe field revive floor for {} in {}",player.getUUID(),point.dimension());FIELD_REVIVES.remove(entry.getKey());player.sendSystemMessage(Component.literal("안전한 부활 위치를 찾지 못했습니다. 운영자에게 문의하세요."));continue;}
+            var destination=fieldDestination(player,server,entry.getValue().checkpoint());
+            if(destination==null){player.setGameMode(entry.getValue().mode());LOGGER.error("No safe field revive floor or fallback for {}",player.getUUID());FIELD_REVIVES.remove(entry.getKey());player.sendSystemMessage(Component.literal("안전한 부활 위치를 찾지 못했습니다. 운영자에게 문의하세요."));continue;}
+            var level=destination.level();var safe=destination.position();
             player.teleportTo(level,safe.x,safe.y,safe.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);player.setGameMode(entry.getValue().mode());player.setHealth(player.getMaxHealth()*.5F);COMBAT.revived(player,.5,false,currentTick);state.manualCombat=false;state.manualUntil=0;FIELD_REVIVES.remove(entry.getKey());
         }
         if(currentTick%20!=0)return;
