@@ -10,6 +10,10 @@ import kr.dalmaru.combat.DefenseState;
 
 public final class CombatConsistencyCheck {
     public static void main(String[]args)throws Exception {
+        require(CombatRules.remainingModeTicks(true,0,300,100)==200&&CombatRules.remainingModeTicks(true,0,300,200)==100,"R10 manual field countdown");
+        require(CombatRules.remainingModeTicks(true,0,300,300)==0&&CombatRules.remainingModeTicks(true,0,0,100)==0,"R10 expiry and cancellation");
+        require(CombatRules.remainingModeTicks(true,150,300,200)==150&&CombatRules.remainingModeTicks(true,50,300,200)==100,"R10 latest automatic/manual expiry wins");
+        require(CombatRules.remainingModeTicks(false,200,300,100)==0&&CombatRules.remainingModeTicks(true,0,300,5_000_000_000L)==0,"R10 fixed mode and old deadline");
         for(int rank=1;rank<=5;rank++)require(Math.abs(CombatRules.sweepMultiplier(rank)-(1+rank*.1))<1e-9,"C11 rank coefficient");
         require(CombatRewards.excludesRewardTags(java.util.Set.of("dalmaru.mob.guard")),"J02 dungeon rewards allowed");
         require(!CombatRewards.excludesRewardTags(java.util.Set.of("dalmaru.run.other"))&&CombatRewards.experienceForDescriptionId("entity.minecraft.zombie")==25,"Field/boss rewards changed");

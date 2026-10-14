@@ -161,3 +161,8 @@
 - JOIN restore catch no longer closes the shared run; it rejects only the failing connection.
 - Runtime shutdown cleanup continues for each run and DB cancellation is attempted independently.
 - No live server/DB test or deployment; multi-client and shutdown-failure QA remains outstanding.
+
+## 2026-10-14 MDF-P1 S01/R10
+- PASS: --no-daemon verifyCombatConsistency compileClientJava (17s; compileJava/testClasses executed).
+- R10 cases: 200-tick manual entry, decay, expiry/cancel, automatic/manual overlap, fixed-mode suppression, expired long-tick deadline.
+- PASS: git diff --check. No live server/DB access, dungeon entry, M8Oscar use, or migration. No GUI/manual play verification; independent QA pending. Single-use Gradle daemon exits after build.

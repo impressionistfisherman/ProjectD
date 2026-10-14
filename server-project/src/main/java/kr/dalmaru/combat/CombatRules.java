@@ -3,6 +3,9 @@ package kr.dalmaru.combat;
 /** Pilot rank values shared by server effects and deterministic checks. */
 public final class CombatRules {
     private CombatRules() {}
+    public static int remainingModeTicks(boolean field,int combatTicks,long manualUntil,long tick) {
+        return field?Math.max(Math.max(0,combatTicks),(int)Math.clamp(manualUntil-tick,0,200)):0;
+    }
     public static double sweepMultiplier(int rank) {
         if(rank<1||rank>5)throw new IllegalArgumentException("Invalid skill rank.");
         return 1.1+(rank-1)*.1;

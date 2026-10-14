@@ -920,7 +920,8 @@ public final class DalmaruNetworking {
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             ConnectionState state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null)continue;
 			CombatRuntime.StaminaState stamina = COMBAT.stamina(player.getUUID(), currentTick);
-			if (stamina != null) ServerPlayNetworking.send(player, new DalmaruPayloads.CombatStateResponse((int)Math.round(stamina.current()),(int)Math.round(stamina.maximum()),stamina.inCombat(),combatMode(player,state),COMBAT.remainingCombatTicks(player.getUUID(),currentTick),state.loadout==null?java.util.List.of(0,0,0,0,0):state.loadout.slots().stream().map(id->COMBAT.cooldown(player.getUUID(),id,currentTick)).toList(),state.loadout==null?java.util.List.of("","","","",""):state.loadout.slots(),COMBAT.defenseState(player.getUUID()).charges(currentTick),(int)Math.round(COMBAT.defenseState(player.getUUID()).meter(currentTick))));
+            int remaining=kr.dalmaru.combat.CombatRules.remainingModeTicks(RUN_RUNTIME.runId(player)==null&&!town(player),COMBAT.remainingCombatTicks(player.getUUID(),currentTick),state.manualUntil,currentTick);
+			if (stamina != null) ServerPlayNetworking.send(player, new DalmaruPayloads.CombatStateResponse((int)Math.round(stamina.current()),(int)Math.round(stamina.maximum()),stamina.inCombat(),combatMode(player,state),remaining,state.loadout==null?java.util.List.of(0,0,0,0,0):state.loadout.slots().stream().map(id->COMBAT.cooldown(player.getUUID(),id,currentTick)).toList(),state.loadout==null?java.util.List.of("","","","",""):state.loadout.slots(),COMBAT.defenseState(player.getUUID()).charges(currentTick),(int)Math.round(COMBAT.defenseState(player.getUUID()).meter(currentTick))));
 		}
 	}
 
