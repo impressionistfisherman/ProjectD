@@ -179,3 +179,9 @@
 - PASS: --no-daemon verifyFieldReviveBoundary compileClientJava (8s); production compileJava passed before fixture correction.
 - Actual selector body tested for active priority, same-dimension priority/unsafe first town, missing dimension, malformed dimension, world entry, all-invalid rejection, absent point/towns (7 paths), plus existing snapshot/wait/deadline/selection/disconnect checks.
 - PASS: git diff --check. No live floor/teleport, server/DB, dungeon entry, M8Oscar, or migration; independent QA pending.
+
+## 2026-10-14 MDF-P1 S07/J15
+- PASS: --no-daemon verifyRunEncounterRules compileClientJava (9s; compileJava/testClasses included).
+- 10 Instant-based KST cases: Wed late, Thu midnight, immediately before06:00, exact06:00, after06:00, next week, and year rollover; existing brazier/boss rules preserved.
+- Reservation calls the same pure week rule; completion still uses its stored run week, with no data rewrite.
+- PASS: git diff --check. No migration/server/DB/M8Oscar/dungeon use. Independent QA pending.

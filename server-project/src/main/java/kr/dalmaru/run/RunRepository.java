@@ -3,9 +3,8 @@ package kr.dalmaru.run;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -138,5 +137,5 @@ public final class RunRepository {
     private boolean hasConnectedParticipant(Connection connection, UUID runId, List<UUID> connectedCharacters) throws SQLException { if (connectedCharacters.isEmpty()) return false; try (var statement = connection.prepareStatement("SELECT 1 FROM dalmaru.run_participants WHERE run_id=? AND character_id = ANY (?) LIMIT 1")) { statement.setObject(1, runId); statement.setArray(2, connection.createArrayOf("uuid", connectedCharacters.toArray())); try (var result = statement.executeQuery()) { return result.next(); } } }
     private boolean participant(Connection connection, UUID runId, UUID characterId) throws SQLException { try (var statement = connection.prepareStatement("SELECT 1 FROM dalmaru.run_participants WHERE run_id=? AND character_id=?")) { statement.setObject(1, runId); statement.setObject(2, characterId); try (var result = statement.executeQuery()) { return result.next(); } } }
     private void request(Connection connection, UUID accountId, long generation, long requestId, String action, UUID runId, String state) throws SQLException { try (var statement = connection.prepareStatement("INSERT INTO dalmaru.run_requests VALUES (?, ?, ?, ?, ?, ?)")) { statement.setObject(1, accountId); statement.setLong(2, generation); statement.setLong(3, requestId); statement.setString(4, action); statement.setObject(5, runId); statement.setString(6, state); statement.executeUpdate(); } }
-    static LocalDate weekId() { LocalDate date = LocalDate.now(ZoneId.of("Asia/Seoul")); int offset = (date.getDayOfWeek().getValue() - DayOfWeek.THURSDAY.getValue() + 7) % 7; return date.minusDays(offset); }
+    static LocalDate weekId() { return RunEncounterRules.weekId(Instant.now()); }
 }
