@@ -8,6 +8,7 @@ public final class DalmaruMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+        var content=kr.dalmaru.content.ContentCatalog.current();content.quest(kr.dalmaru.quest.QuestRepository.QUEST_ID);content.run("run.bongsudae");
 		kr.dalmaru.account.VanillaCharacterState.initialize();
 		DalmaruNetworking.initialize();
 	}

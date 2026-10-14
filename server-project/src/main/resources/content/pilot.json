@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "pilot-j02-1",
+  "enabled": true,
+  "skills": [
+    {
+      "id": "skill.warrior.sweep",
+      "enabled": true
+    },
+    {
+      "id": "skill.warrior.advance",
+      "enabled": true
+    },
+    {
+      "id": "skill.warrior.rising_strike",
+      "enabled": true
+    },
+    {
+      "id": "skill.warrior.battle_cry",
+      "enabled": true
+    },
+    {
+      "id": "skill.warrior.body_training",
+      "enabled": true
+    },
+    {
+      "id": "skill.warrior.martial_mastery",
+      "enabled": true
+    },
+    {
+      "id": "skill.archer.piercing_shot",
+      "enabled": true
+    },
+    {
+      "id": "skill.archer.retreat_shot",
+      "enabled": true
+    },
+    {
+      "id": "skill.archer.tracking_mark",
+      "enabled": true
+    },
+    {
+      "id": "skill.archer.binding_shot",
+      "enabled": true
+    },
+    {
+      "id": "skill.archer.breath_control",
+      "enabled": true
+    },
+    {
+      "id": "skill.archer.bow_crossbow_mastery",
+      "enabled": true
+    },
+    {
+      "id": "skill.mage.spirit_talisman",
+      "enabled": true
+    },
+    {
+      "id": "skill.mage.binding_talisman",
+      "enabled": true
+    },
+    {
+      "id": "skill.mage.protective_talisman",
+      "enabled": true
+    },
+    {
+      "id": "skill.mage.short_step",
+      "enabled": true
+    },
+    {
+      "id": "skill.mage.breath_meditation",
+      "enabled": true
+    },
+    {
+      "id": "skill.mage.talisman_mastery",
+      "enabled": true
+    },
+    {
+      "id": "skill.rogue.ambush",
+      "enabled": true
+    },
+    {
+      "id": "skill.rogue.smoke_bomb",
+      "enabled": true
+    },
+    {
+      "id": "skill.rogue.shackle_strike",
+      "enabled": true
+    },
+    {
+      "id": "skill.rogue.escape",
+      "enabled": true
+    },
+    {
+      "id": "skill.rogue.evasive_motion",
+      "enabled": true
+    },
+    {
+      "id": "skill.rogue.expose_weakness",
+      "enabled": true
+    }
+  ],
+  "equipment": {
+    "primary": [5, 8, 12],
+    "vitality": [4, 6, 8],
+    "spirit": [3, 4, 6],
+    "levels": [
+      10,
+      15,
+      20
+    ],
+    "budgets": {
+      "weapon": 0.3,
+      "armor": 0.45,
+      "accessories": 0.25
+    },
+    "weapons": [
+      {
+        "id": "two_handed_sword",
+        "profession": "WARRIOR",
+        "attack": [
+          41,
+          51,
+          63
+        ],
+        "basicTicks": 20,
+        "magical": false,
+        "basicMultiplier": 1,
+        "enabled": true
+      },
+      {
+        "id": "sword_shield",
+        "profession": "WARRIOR",
+        "attack": [
+          30,
+          37,
+          46
+        ],
+        "basicTicks": 16,
+        "magical": false,
+        "basicMultiplier": 1,
+        "enabled": true
+      },
+      {
+        "id": "bow",
+        "profession": "ARCHER",
+        "attack": [
+          35,
+          44,
+          55
+        ],
+        "basicTicks": 18,
+        "magical": false,
+        "basicMultiplier": 1,
+        "enabled": true
+      },
+      {
+        "id": "crossbow",
+        "profession": "ARCHER",
+        "attack": [
+          57,
+          71,
+          88
+        ],
+        "basicTicks": 30,
+        "magical": false,
+        "basicMultiplier": 1,
+        "enabled": true
+      },
+      {
+        "id": "fan",
+        "profession": "MAGE",
+        "attack": [
+          36,
+          46,
+          57
+        ],
+        "basicTicks": 20,
+        "magical": true,
+        "basicMultiplier": 1,
+        "enabled": true
+      },
+      {
+        "id": "ritual_sword",
+        "profession": "MAGE",
+        "attack": [
+          31,
+          39,
+          48
+        ],
+        "basicTicks": 18,
+        "magical": true,
+        "basicMultiplier": 1,
+        "enabled": true
+      },
+      {
+        "id": "dual_axes",
+        "profession": "ROGUE",
+        "attack": [
+          38,
+          48,
+          59
+        ],
+        "basicTicks": 10,
+        "magical": false,
+        "basicMultiplier": 0.55,
+        "enabled": true
+      },
+      {
+        "id": "pirate_sword",
+        "profession": "ROGUE",
+        "attack": [
+          34,
+          43,
+          53
+        ],
+        "basicTicks": 16,
+        "magical": false,
+        "basicMultiplier": 1,
+        "enabled": true
+      }
+    ],
+    "armor": [
+      {
+        "id": "heavy",
+        "physical": [
+          45,
+          75,
+          100
+        ],
+        "magic": [
+          22,
+          38,
+          50
+        ],
+        "enabled": true
+      },
+      {
+        "id": "light",
+        "physical": [
+          35,
+          60,
+          80
+        ],
+        "magic": [
+          35,
+          60,
+          80
+        ],
+        "enabled": true
+      },
+      {
+        "id": "cloth",
+        "physical": [
+          25,
+          40,
+          55
+        ],
+        "magic": [
+          45,
+          75,
+          100
+        ],
+        "enabled": true
+      }
+    ],
+    "parts": [
+      {
+        "id": "head",
+        "slot": 2,
+        "share": 0.2
+      },
+      {
+        "id": "body",
+        "slot": 3,
+        "share": 0.4
+      },
+      {
+        "id": "arms",
+        "slot": 4,
+        "share": 0.2
+      },
+      {
+        "id": "feet",
+        "slot": 5,
+        "share": 0.2
+      }
+    ],
+    "accessories": [
+      {
+        "id": "neck",
+        "slot": 6,
+        "enabled": true
+      },
+      {
+        "id": "ring",
+        "slot": 7,
+        "enabled": true
+      },
+      {
+        "id": "charm",
+        "slot": 8,
+        "enabled": true
+      }
+    ]
+  },
+  "quests": [
+    {
+      "id": "pilot1.zombie_hunt",
+      "version": "pilot-1",
+      "target": "minecraft:zombie",
+      "goal": 3,
+      "experience": 100,
+      "enabled": true,
+      "requires": [],
+      "itemRefs": [],
+      "skillRefs": []
+    }
+  ],
+  "enhancement": {
+    "statIncreaseFirstFive": 0.02,
+    "statIncreaseLater": 0.03,
+    "failureBonus": 5,
+    "chances": [
+      100,
+      95,
+      90,
+      85,
+      80,
+      70,
+      60,
+      50,
+      40,
+      30,
+      25,
+      20,
+      15,
+      10,
+      5
+    ],
+    "costs": [
+      {
+        "target": 1,
+        "copper": 8,
+        "ironstone": 0
+      },
+      {
+        "target": 2,
+        "copper": 12,
+        "ironstone": 1
+      },
+      {
+        "target": 3,
+        "copper": 18,
+        "ironstone": 1
+      },
+      {
+        "target": 4,
+        "copper": 26,
+        "ironstone": 2
+      },
+      {
+        "target": 5,
+        "copper": 36,
+        "ironstone": 2
+      }
+    ]
+  },
+  "runs": [
+    {
+      "id": "run.bongsudae",
+      "version": "pilot-j02-1",
+      "minPlayers": 1,
+      "maxPlayers": 4,
+      "enabled": true,
+      "requires": [],
+      "itemRefs": [],
+      "skillRefs": []
+    }
+  ]
+}
