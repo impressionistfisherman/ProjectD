@@ -178,12 +178,14 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 		if (ClientCharacterState.beginCreation(slot, displayName)) ClientPlayNetworking.send(new DalmaruPayloads.CharacterCreateRequest(ClientCharacterState.currentCreationRequestId(), slot, displayName));
 	}
 
-	public static void requestCharacterStatInvestment(int statId) {
-		DalmaruPayloads.CharacterProfileResponse profile = ClientProfileState.current();
-		if (profile != null && ClientProfileState.beginInvestment()) {
-			ClientPlayNetworking.send(new DalmaruPayloads.CharacterStatInvestmentRequest(ClientProfileState.currentInvestmentRequestId(), profile.characterId(), statId, 1));
-		}
-	}
+    public static void requestCharacterStatInvestment(int statId) {
+        if(!ClientProfileState.beginInvestment())return;
+        long correlation=ClientProfileState.currentInvestmentRequestId();
+        var body=new com.google.gson.JsonObject();body.addProperty("statId",statId);body.addProperty("amount",1);
+        var request=ClientRequestState.begin(correlation,"invest_stat",body);
+        if(request==null){ClientProfileState.completeInvestment(correlation,"캐릭터 정보 확인 중입니다.");return;}
+        ClientProfileState.delegateInvestmentRetry();ClientPlayNetworking.send(request);
+    }
 
 	public static void requestCharacterStatReset() {
 		DalmaruPayloads.CharacterProfileResponse profile = ClientProfileState.current();
@@ -220,6 +222,19 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
     }
 
+    private static void acceptStatOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        String status="요청을 처리할 수 없습니다.";
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+            var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
+            for(String key:new String[]{"statId","amount"}){
+                if(!original.has(key)||!original.get(key).isJsonPrimitive()||!original.getAsJsonPrimitive(key).isNumber()||original.get(key).getAsBigDecimal().intValueExact()!=expected.get(key).getAsInt())throw new IllegalStateException("Invalid stat receipt");
+            }
+            status=receipt.replayed()?"이미 처리된 투자입니다. 최신 능력치를 표시합니다.":"능력치를 투자했습니다.";
+        }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){status="투자 결과 확인에 실패했습니다.";}
+        ClientProfileState.completeInvestment(receipt.correlationId(),status);
+    }
+
     private static void acceptSkillOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
         String status="\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.";
         if(!"rejected".equals(receipt.state()))try{
@@ -233,6 +248,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));

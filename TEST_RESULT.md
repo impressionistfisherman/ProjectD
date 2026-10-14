@@ -263,3 +263,7 @@
 ## MDF-P1 S09e1 (2026-10-15)
 - PASS: --no-daemon verifyStatJournal verifyCharacterStatInvestment (12초). UUID/다른 correlation 재생, 원결과·최신 상태 구분, legacy 재생·과거 요청 채택, 동시 요청 한 번 차감, 본문/세대/잔여 점수 거부, 차감 이후 INSERT 실패 주입 시 차감·저널 롤백.
 - 첫 실행은 시험 데이터 정리 외래 키 오류로 FAIL. 정리 순서를 수정하고 해당 fixture를 제거한 뒤 재검사 PASS. 운영·인게임 검사는 실행하지 않았습니다.
+
+## MDF-P1 S09e2 (2026-10-15)
+- PASS: --no-daemon verifyStatWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifyStatJournal compileClientJava (22초). 실제 투자 receipt parser의 재생/거부/틀린 correlation/잘못된 정수·본문, common 중 5초 timeout 해제 금지 및 legacy timeout 유지, 공통 UUID 동일 봉투 retry·선택 경계, fixture 저널 재검증.
+- 인게임 및 실제 패킷 왕복 검증은 미실행. 독립 QA 요청 대상입니다.

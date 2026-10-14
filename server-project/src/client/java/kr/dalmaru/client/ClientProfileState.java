@@ -7,6 +7,7 @@ final class ClientProfileState {
 	private static long nextInvestmentRequestId = 1;
 	private static long currentInvestmentRequestId;
 	private static boolean investmentWaiting;
+    private static boolean investmentDelegated;
 	private static int investmentDeadlineTick;
 	private static int tick;
 	private static String status = "";
@@ -51,7 +52,7 @@ final class ClientProfileState {
 	static boolean beginInvestment() {
 		if (current == null || current.profile().unspentStatPoints() < 1 || investmentWaiting) return false;
 		currentInvestmentRequestId = nextInvestmentRequestId++;
-		investmentWaiting = true;
+		investmentWaiting = true;investmentDelegated=false;
 		investmentDeadlineTick = tick + 100;
 		status = "능력치를 투자하는 중입니다.";
 		return true;
@@ -99,6 +100,8 @@ final class ClientProfileState {
 		status = "기술을 습득하는 중입니다.";
 		return true;
 	}
+    static void delegateInvestmentRetry(){investmentDelegated=true;}
+    static void completeInvestment(long correlation,String message){if(!investmentWaiting||correlation!=currentInvestmentRequestId)return;investmentWaiting=false;investmentDelegated=false;status=message;}
     static void delegateSkillRetry(){skillRequest=null;}
     static void completeSkill(long correlation,String message){if(!skillWaiting||correlation!=currentSkillRequestId)return;skillWaiting=false;skillRequest=null;status=message;}
 	static long currentSkillRequestId() { return currentSkillRequestId; }
@@ -110,7 +113,7 @@ final class ClientProfileState {
 	}
 	static void tick() {
 		tick++;
-		if (investmentWaiting && tick >= investmentDeadlineTick) {
+		if (investmentWaiting && !investmentDelegated && tick >= investmentDeadlineTick) {
 			investmentWaiting = false;
 			status = "능력치 투자 응답 시간이 초과되었습니다. 다시 시도하세요.";
 		}

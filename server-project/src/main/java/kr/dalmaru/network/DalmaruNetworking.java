@@ -385,30 +385,8 @@ public final class DalmaruNetworking {
 			});
 		});
 
-		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatInvestmentRequest.TYPE, (payload, context) -> {
-			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.requestId() <= 0 || payload.amount() != 1 || !state.compatible || state.accountSession == null || state.accountFailure != null) {
-				sendCharacterStatInvestment(context, payload.requestId(), payload.characterId(), false, false, "능력치 투자 준비가 완료되지 않았습니다.", null);
-				return;
-			}
-			AccountSession session = state.accountSession;
-			if (!payload.characterId().equals(session.activeCharacterId())) {
-				sendCharacterStatInvestment(context, payload.requestId(), payload.characterId(), false, false, "현재 선택한 캐릭터만 투자할 수 있습니다.", null);
-				return;
-			}
-			CompletableFuture.supplyAsync(() -> {
-				try { return CHARACTERS.investStat(session.accountId(), session.connectionGeneration(), payload.requestId(), payload.characterId(), CharacterStat.fromId(payload.statId()), payload.amount()); }
-				catch (Exception exception) { throw new IllegalStateException(exception); }
-			}).thenAccept(result -> context.server().execute(() -> {
-				if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) {
-					 sendCharacterStatInvestment(context, payload.requestId(), payload.characterId(), true, result.replayed(), result.replayed() ? "기존 능력치 투자 결과입니다." : "능력치를 투자했습니다.", result.profile());
-				}
-			})).exceptionally(error -> {
-				LOGGER.warn("Rejected character stat investment for {}.", session.accountId(), error);
-				context.server().execute(() -> sendCharacterStatInvestment(context, payload.requestId(), payload.characterId(), false, false, "능력치를 투자할 수 없습니다.", null));
-				return null;
-			});
-		});
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatInvestmentRequest.TYPE,(payload,context)->
+            investStatRequest(context,payload.requestId(),payload.characterId(),payload.statId(),payload.amount(),null));
 
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatResetRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
@@ -487,7 +465,12 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "learn_skill"->{
+                    case "invest_stat"->{
+                    if(body.size()!=2||!body.has("statId")||!body.has("amount")||!body.get("statId").isJsonPrimitive()||!body.getAsJsonPrimitive("statId").isNumber()||!body.get("amount").isJsonPrimitive()||!body.getAsJsonPrimitive("amount").isNumber())throw new IllegalArgumentException("Invalid stat body");
+                    int stat,amount;try{stat=body.get("statId").getAsBigDecimal().intValueExact();amount=body.get("amount").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid stat integer",error);}
+                    investStatRequest(context,payload.correlationId(),envelope.activeCharacterId(),stat,amount,envelope);
+                }
+                case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
                     }
@@ -573,6 +556,31 @@ public final class DalmaruNetworking {
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
     }
+    private static void investStatRequest(ServerPlayNetworking.Context context,long correlation,UUID character,int statId,int amount,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||amount!=1||!state.compatible||state.accountFailure!=null||state.accountSession==null||!character.equals(state.accountSession.activeCharacterId())){
+            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendCharacterStatInvestment(context,correlation,character,false,false,"능력치 투자 준비가 완료되지 않았습니다.",null);return;
+        }
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{
+            try{return CHARACTERS.investStatJournaled(session.accountId(),session.connectionGeneration(),correlation,character,CharacterStat.fromId(statId),amount,envelope);}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(result->context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendCharacterStatInvestment(context,correlation,character,true,result.replayed(),result.replayed()?"기존 투자 결과입니다.":"능력치를 투자했습니다.",result.profile());
+            else{
+                sendCharacterProfile(player,result.profile());var receipt=result.receipt();
+                ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.originalResult().toString(),result.replayed()));
+            }
+        })).exceptionally(error->{context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendCharacterStatInvestment(context,correlation,character,false,false,"능력치를 투자할 수 없습니다.",null);
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            LOGGER.warn("Stat investment request failed for {}",session.accountId(),error);
+        });return null;});
+    }
+
     private static void learnSkillRequest(ServerPlayNetworking.Context context,long correlation,String skillId,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){
