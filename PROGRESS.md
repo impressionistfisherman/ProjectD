@@ -214,3 +214,9 @@
 - Reject duplicate/missing/blank/mismatched metadata, unsupported critical-table/part disable and skill weapon subset unsupported by current handlers. GUI quest fixed width360 overflow at320x180 replaced with existing adaptive-width pattern.
 - PASS definitions30 invalid cases/skill metadata-effects-archive/server-client compile, DB version/archive/immutability, actual five screen layouts320x180~960x540. Fixture accounts0/runs0.
 - O27 code slices complete for assigned J02 definition/version/display scope; independent QA pending. O28 next, then M08/M11/M12/M13/M14. Whole P1 PARTIAL; existing posture-model limitation recorded separately.
+
+## 2026-10-15 MDF-P1 S09d1
+- Skill learning uses common UUID/hash journal in the same point/rank/legacy-request transaction. Old long API adapts deterministically; changed correlation reuses stored original legacy ID. Receipt/original rank separate from coherent latest profile+ranks under existing profile lock.
+- Actual stored profession/level/skill-point/max-rank checks authoritative; cached profession cannot grant foreign-class skills. Legacy server response merges only increasing selected-character ranks, preventing old replay/reverse response rollback without coupling to unrelated profile updates.
+- PASS actual fixture UUID/legacy/concurrent charge-once/original-vs-latest/body/generation/profession/level/after-debit SQL failure rollback, exact response-cache helper including unrelated profile update. Final accounts0/requests0; compile and large-integer journal regression PASS.
+- No new SQL/protocol/live changes. Skill UUID wire/client retry follows S09d2; other mutation writers and actual application ACK/recovery remain. Merge shortcut requires revisioned snapshots if future rank reset/revoke is added; current pilot has no such writer. P1 PARTIAL/QA pending.

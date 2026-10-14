@@ -500,9 +500,9 @@ public final class DalmaruNetworking {
 			AccountSession session = state.accountSession;
 			CharacterProfession profession = CharacterProfession.valueOf(state.activeProfile.profession());
 			CompletableFuture.supplyAsync(() -> {
-				try { int rank = SKILLS.learn(session.accountId(), session.connectionGeneration(), payload.requestId(), session.activeCharacterId(), profession, payload.skillId()); return new LearnedSkill(rank, CHARACTERS.profile(session.activeCharacterId())); }
+                try { return SKILLS.learnJournaled(session.accountId(), session.connectionGeneration(), payload.requestId(), session.activeCharacterId(), profession, payload.skillId(),null); }
 				catch (Exception exception) { throw new IllegalStateException(exception); }
-			}).thenAccept(result -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) { state.skillRanks.put(payload.skillId(), result.rank()); sendSkillLearn(context, payload.requestId(), true, payload.skillId() + " " + result.rank() + "단계를 습득했습니다.", result.profile()); } }))
+            }).thenAccept(result -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) { installSkillRanks(state,result); sendSkillLearn(context, payload.requestId(), true, payload.skillId() + " " + result.rank() + "단계를 습득했습니다.", result.profile()); } }))
 				.exceptionally(error -> { LOGGER.warn("Rejected skill learning for {}.", session.accountId(), error); context.server().execute(() -> sendSkillLearn(context, payload.requestId(), false, "기술을 습득할 수 없습니다.", null)); return null; });
 		});
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksRequest.TYPE, (payload, context) -> {
@@ -1000,6 +1000,11 @@ public final class DalmaruNetworking {
         return true;
     }
 
+    private static void installSkillRanks(ConnectionState state,kr.dalmaru.skill.SkillRepository.LearningResult result){
+        // shortcut: selected-character pilot ranks only increase; use revisions when rank reset/revocation is added.
+        result.currentRanks().forEach((id,rank)->state.skillRanks.merge(id,rank,Math::max));
+    }
+
     private static CharacterProfile applyProfile(ServerPlayer player, CharacterProfile candidate) {
         ConnectionState state = stateFor(player.getUUID());
         if (state.accountSession == null || !candidate.characterId().equals(state.accountSession.activeCharacterId())) throw new IllegalStateException("Profile belongs to another active character.");
@@ -1171,7 +1176,6 @@ public final class DalmaruNetworking {
 	}
 
 	private record SelectedCharacter(CharacterSelectionResult selection, CharacterProfile profile, Map<String, Integer> skillRanks) { }
-	private record LearnedSkill(int rank, CharacterProfile profile) { }
     private static final kr.dalmaru.account.SafetyRepository SAFETY=new kr.dalmaru.account.SafetyRepository();
     private record LoadedSlots(kr.dalmaru.skill.SkillLoadout slots,kr.dalmaru.account.SafeCheckpoint checkpoint){}
     private static final kr.dalmaru.skill.LoadoutRepository LOADOUTS=new kr.dalmaru.skill.LoadoutRepository();

@@ -247,3 +247,9 @@
 - Extended actual quest init fixture: first fixture compile FAIL11s from missing Component.empty stub; corrected, then RED12s reproduced Clipped action320x180. Adaptive quest width fixed; actual skill/run/quest/profile/equipment bounds/paging and compile PASS15s.
 - Bumped current definition to pilot-j02-2, kept historic pilot-j02-1 and quest pilot-1. Catalog+skill PASS18s; DB immutability fixture FAIL because it wrote identical newly-current version2, correctly allowed. Changed negative case to different version3; final DB+compile PASS16s. Final fixture accounts0/runs0.
 - No live rendering/attribute/network/dungeon entry, SQL migration/protocol/deployment/production changes. Independent Creed/Jim QA pending.
+
+## 2026-10-15 MDF-P1 S09d1
+- PASS --no-daemon verifySkillJournal verifyRequestJournalResult compileClientJava18s. Updated rank merge/unrelated-profile fixture then verifySkillJournal compileClientJava14s PASS; diff check.
+- Actual DB learning twice then UUID1 replay returns original rank1/current rank2/points4, original event identity, altered correlation no new charge. Legacy same long replay charge once, concurrent UUID executes once, changed body/stale generation/wrong actual job/level9 reject.
+- Unique fixture-only trigger injects failure after point debit, proving points/rank/journal rollback; trigger/function cleaned. Actual network cache helper receives reverse/replayed/unrelated-profile results without reducing rank. Current ranks/profile share locked SQL snapshot.
+- Final oscar_p1_fixture accounts0/operation_requests0. No client UUID skill dispatch/live request/server/world/migration/protocol changes; application ACK and reconnect recovery remain M11.
