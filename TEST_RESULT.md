@@ -185,3 +185,4 @@
 - 10 Instant-based KST cases: Wed late, Thu midnight, immediately before06:00, exact06:00, after06:00, next week, and year rollover; existing brazier/boss rules preserved.
 - Reservation calls the same pure week rule; completion still uses its stored run week, with no data rewrite.
 - PASS: git diff --check. No migration/server/DB/M8Oscar/dungeon use. Independent QA pending.
+- 2026-10-14 MDF-P1 S05a: PASS `--no-daemon verifySkillPresentation compileClientJava` (10s, server/client compilation included). All24 descriptions match pilot specification; actual screen tick fixture checks max-rank disable, rank4 re-enable, rank0 learning and tooltip presence. No DB/live/human-play check.

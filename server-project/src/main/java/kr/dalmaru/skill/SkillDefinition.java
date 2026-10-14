@@ -39,6 +39,36 @@ public record SkillDefinition(String id, CharacterProfession profession, String 
 		new SkillDefinition("skill.rogue.expose_weakness", CharacterProfession.ROGUE, "허점 간파")
 	);
 
+	public String description() {
+		return switch (id) {
+			case "skill.warrior.sweep" -> "기력 20 / 재사용 4.5초 / 1~5랭크: 물리 110% → 150%";
+			case "skill.warrior.advance" -> "기력 20 / 재사용 7초 / 1~5랭크: 물리 85% → 115%, 3블록 접근";
+			case "skill.warrior.rising_strike" -> "기력 30 / 재사용 9초 / 1~5랭크: 물리 125% → 170%, 자세 피해 18 → 30";
+			case "skill.warrior.battle_cry" -> "기력 25 / 재사용 18초 / 1~5랭크: 둔화 1개 해제, 경직 저항 2 → 4초";
+			case "skill.warrior.body_training" -> "기력 - / 재사용 지속 / 1~5랭크: 직접 생명력 +30 → +130";
+			case "skill.warrior.martial_mastery" -> "기력 - / 재사용 지속 / 1~5랭크: 기본 공격 피해 +4% → +12%";
+			case "skill.archer.piercing_shot" -> "기력 22 / 재사용 5초 / 1~5랭크: 물리 115% → 155%";
+			case "skill.archer.retreat_shot" -> "기력 18 / 재사용 7초 / 1~5랭크: 물리 85% → 115%, 3블록 후퇴";
+			case "skill.archer.tracking_mark" -> "기력 20 / 재사용 12초 / 1~5랭크: 물리 60% → 90%, 표식 대상 피해 +4% → +12%";
+			case "skill.archer.binding_shot" -> "기력 25 / 재사용 14초 / 1~5랭크: 물리 70% → 100%, 일반 적 둔화 1.5 → 2.5초";
+			case "skill.archer.breath_control" -> "기력 - / 재사용 지속 / 1~5랭크: 완전 조준 시간 -5% → -20%";
+			case "skill.archer.bow_crossbow_mastery" -> "기력 - / 재사용 지속 / 1~5랭크: 기본 공격 피해 +4% → +12%";
+			case "skill.mage.spirit_talisman" -> "기력 20 / 재사용 4초 / 1~5랭크: 술법 115% → 155%";
+			case "skill.mage.binding_talisman" -> "기력 30 / 재사용 12초 / 1~5랭크: 술법 70% → 105%, 일반 적 구속 2 → 3초";
+			case "skill.mage.protective_talisman" -> "기력 35 / 재사용 14초 / 1~5랭크: 보호막 70 + 술법 공격력×0.8 → 130 + 술법 공격력×1.4";
+			case "skill.mage.short_step" -> "기력 25 / 재사용 12초 / 1~5랭크: 5블록 이동, 벽·봉인·공략 경계 통과 불가";
+			case "skill.mage.breath_meditation" -> "기력 - / 재사용 지속 / 1~5랭크: 초당 기력 회복 +0.4 → +2.0";
+			case "skill.mage.talisman_mastery" -> "기력 - / 재사용 지속 / 1~5랭크: 부적 직접 피해·보호막 +4% → +12%";
+			case "skill.rogue.ambush" -> "기력 22 / 재사용 5초 / 1~5랭크: 물리 115% → 155%, 측후방 적중 시 추가 20%";
+			case "skill.rogue.smoke_bomb" -> "기력 25 / 재사용 16초 / 1~5랭크: 일반 원거리 적의 새 조준 차단 2.5 → 4초";
+			case "skill.rogue.shackle_strike" -> "기력 20 / 재사용 7초 / 1~5랭크: 물리 90% → 130%, 일반 적 둔화 2 → 3초";
+			case "skill.rogue.escape" -> "기력 20 / 재사용 12초 / 1~5랭크: 3블록 후퇴, 해제 가능한 이동 방해 1개 해제";
+			case "skill.rogue.evasive_motion" -> "기력 - / 재사용 지속 / 1~5랭크: 회피 성공 뒤 이동 속도 +10% → +25%, 2초";
+			case "skill.rogue.expose_weakness" -> "기력 - / 재사용 지속 / 1~5랭크: 제어·측후방 직접 피해 +4% → +12%";
+			default -> throw new IllegalArgumentException("Missing skill description: " + id);
+		};
+	}
+
 	public static SkillDefinition find(CharacterProfession profession, String id) {
 		return ALL.stream().filter(skill -> skill.profession == profession && skill.id.equals(id)).findFirst().orElseThrow(() -> new IllegalArgumentException("Skill is not available for this profession."));
 	}

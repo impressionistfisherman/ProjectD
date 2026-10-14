@@ -302,3 +302,4 @@ tasks.register('verifyReviewFixBoundary', JavaExec) { group = 'verification'; cl
 tasks.register('verifyRunEntryCancellation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunEntryCancellationCheck' }
 
 tasks.register('verifyRunLifecycleOwnership', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunLifecycleOwnershipCheck' }
+tasks.register('verifySkillPresentation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.SkillPresentationCheck' }

@@ -4,6 +4,7 @@ import java.util.*;
 import kr.dalmaru.account.CharacterProfession;
 import kr.dalmaru.skill.SkillDefinition;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -34,7 +35,12 @@ final class DalmaruSkillScreen extends Screen {
         if(!next.isEmpty())for(int other=0;other<4;other++)if(other!=index&&next.equals(slots.get(other)))slots.set(other,"");slots.set(index,next);DalmaruClient.updateLoadout(slots);
     }
     @Override public void tick(){
-        for(int i=0;i<learnButtons.size();i++)learnButtons.get(i).setMessage(Component.literal(skills.get(i).koreanName()+" "+ClientSkillState.rank(skills.get(i).id())+"/5 [+1]"));
+        for(int i=0;i<learnButtons.size();i++){
+            var skill=skills.get(i);int rank=ClientSkillState.rank(skill.id());var button=learnButtons.get(i);
+            button.setMessage(Component.literal(skill.koreanName()+" "+rank+"/5 "+(rank>=5?"[최대]":"[+1]")));
+            button.active=rank<5;
+            button.setTooltip(Tooltip.create(Component.literal(skill.description())));
+        }
         var current=ClientLoadoutState.current();
         for(int i=0;i<slotButtons.size();i++){
             String id=current==null?"":current.slots().get(i);String name=skills.stream().filter(skill->skill.id().equals(id)).map(SkillDefinition::koreanName).findFirst().orElse("비움");
