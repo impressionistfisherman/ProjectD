@@ -17,8 +17,9 @@ try {
     if ([string]::IsNullOrWhiteSpace($env:DALMARU_DB_PASSWORD)) { Fail 'database password is not configured' }
     $root = Split-Path -Parent $PSScriptRoot
     $project = Join-Path $root 'server-project'
-    $branch = git -C $root rev-parse --abbrev-ref HEAD
-    if ($branch -ne 'grok/mdf-p1-m14prep') { Fail "wrong branch $branch" }
+    $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
+    $here = [IO.Path]::GetFullPath($root).TrimEnd('\')
+    if ($here.Equals($live, [StringComparison]::OrdinalIgnoreCase)) { Fail 'refusing to run in the live Dalmaru checkout' }
     Push-Location $project
     & .\gradlew.bat --no-daemon assemble
     if ($LASTEXITCODE -ne 0) { Fail "assemble exit $LASTEXITCODE" }

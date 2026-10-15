@@ -11,8 +11,9 @@ try {
     if ([string]::IsNullOrWhiteSpace($env:DALMARU_DB_PASSWORD)) { Say 'FAIL database password is not configured'; exit 1 }
     $root = Split-Path -Parent $PSScriptRoot
     $project = Join-Path $root 'server-project'
-    $branch = git -C $root rev-parse --abbrev-ref HEAD
-    if ($branch -ne 'grok/mdf-p1-m14prep') { Say "FAIL wrong branch $branch"; exit 1 }
+    $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
+    $here = [IO.Path]::GetFullPath($root).TrimEnd('\')
+    if ($here.Equals($live, [StringComparison]::OrdinalIgnoreCase)) { Say 'FAIL refusing to run in the live Dalmaru checkout'; exit 1 }
     $gradleFile = Join-Path $project 'build.gradle'
     $registered = [regex]::Matches((Get-Content -Raw $gradleFile), "tasks\.register\('([^']+)'") | ForEach-Object { $_.Groups[1].Value }
     $tasks = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -eq 'verifyEnhancementReplay' } | Select-Object -Unique)
