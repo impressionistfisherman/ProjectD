@@ -276,3 +276,7 @@
 ## MDF-P1 M08 통합 (2026-10-15)
 - god 지시에 따라 Creed+Jim PASS인 grok/mdf-p1-m08(ad1dc2c)을 Oscar 브랜치에 로컬 merge했습니다. PROGRESS/TEST_RESULT 말미 충돌은 양쪽 기록을 모두 보존했습니다. Networking 자동 합치기 diff는 RunRuntime에 COMBAT::hurtLinger를 연결하는 생성자 변경이며 O28 요청 경로는 유지합니다.
 - M11 추가 요구: 잔류 개체 사망으로 전멸할 때 DB 런이 PAUSED로 남지 않고 FAILED가 되도록 처리·검증해야 합니다. 현재 합치기에 완료로 포함하지 않습니다.
+
+## MDF-P1 S09i1 (2026-10-15)
+- 재련 UUID 저널·long adapter 연결. 기존 replay-before-owner 순서를 account→journal→equipment로 바꿔 이전 세대/비활성 캐릭터 재생을 차단했습니다. 원래 grade/failures/success와 최신 grade/failures를 분리합니다. 비용·추첨·이력·신규 재화원장(eventId=저널eventId)·저널은 같은 트랜잭션입니다.
+- 재련은 현재 실행 호출자가 없어 새 UI/패킷을 만들지 않았습니다. 기존 API와 새 journaled API를 유지합니다. 계승/run·quest 등 O28/M11/M12/M13b/M14 남음. 전체 PARTIAL.

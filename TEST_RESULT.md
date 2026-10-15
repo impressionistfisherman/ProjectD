@@ -308,3 +308,7 @@
 ## MDF-P1 M08 통합 (2026-10-15)
 - PASS: --no-daemon verifyRunEncounterRules verifyPremergeRuntime verifyLoadoutJournal verifyEquipmentMoveJournal compileJava compileClientJava 1회 실행 (12초). M08 규칙/생산 메서드 회귀와 O28 장착·장비 이동 fixture 회귀 확인.
 - 운영·실제 접속 종료·인게임 조작 미실행. 잔류 사망 뒤 DB 런 FAILED 전이는 M11 추가 구현 대상으로 남습니다.
+
+## MDF-P1 S09i1 (2026-10-15)
+- PASS: --no-daemon verifyRefinementJournal verifyEquipmentMoveJournal (14초). UUID/다른 correlation/동시 한 번 차감·추첨·원장, 저널event-원장 연결, legacy 원결과 채택/최신 재련 분리, 본문·소유권·재접속 전 세대(long/UUID) 거부, 차감·추첨 변경 후 INSERT 실패 시 비용/상태/저널/원장 전체 rollback, 같은UUID 재시도 성공.
+- 재련 실행 caller/UI/패킷은 현재 없으며 인게임 검사는 미실행. 독립 QA 요청 대상입니다.

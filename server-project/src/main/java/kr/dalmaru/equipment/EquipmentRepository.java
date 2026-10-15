@@ -161,20 +161,42 @@ public final class EquipmentRepository {
             }
         }
     }
-    public RefinementResult refine(UUID accountId, long generation, long requestId, UUID equipmentId) throws SQLException {
-        if (generation < 1 || requestId < 1 || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid refinement request.");
-        try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try {
-            try (var replay = connection.prepareStatement("SELECT equipment_id, grade, failures, success FROM dalmaru.character_refinement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!equipmentId.equals(rows.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); connection.commit(); return new RefinementResult(equipmentId, rows.getInt(2), rows.getInt(3), rows.getBoolean(4), true); } } }
+    public record RefinementOutcome(RefinementResult original,int currentGrade,int currentFailures,RequestJournal.Receipt receipt) {}
+    public RefinementResult refine(UUID accountId,long generation,long requestId,UUID equipmentId)throws SQLException {
+        return refineJournaled(accountId,generation,requestId,equipmentId,null).original();
+    }
+    public RefinementOutcome refineJournaled(UUID accountId,long generation,long requestId,UUID equipmentId,RequestEnvelope envelope)throws SQLException {
+        if(generation<1||requestId<1||equipmentId==null)throw new IllegalArgumentException("Invalid refinement request.");
+        if(password==null||password.isBlank())throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try(var connection=DriverManager.getConnection(url,username,password)){connection.setAutoCommit(false);try{
             UUID characterId; try (var active = connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) { active.setObject(1, accountId); active.setLong(2, generation); try (var rows = active.executeQuery()) { if (!rows.next() || rows.getObject(1) == null) throw new IllegalArgumentException("No active character."); characterId = rows.getObject(1, UUID.class); } }
+            var body=new JsonObject();body.addProperty("equipmentId",equipmentId.toString());
+            if(envelope==null)envelope=RequestEnvelope.legacy(accountId,generation,characterId,"refine_item",requestId,body);
+            if(envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(characterId)||!envelope.operation().equals("refine_item")||!envelope.payload().equals(body))throw new IllegalArgumentException("Refinement envelope does not match active session/body");
+            var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
+            if(stored.result()!=null){var original=stored.result();var result=latestRefinement(connection,characterId,new RefinementResult(equipmentId,original.get("grade").getAsInt(),original.get("failures").getAsInt(),original.get("success").getAsBoolean(),true),stored.receipt());connection.commit();return result;}
+            try (var replay = connection.prepareStatement("SELECT equipment_id, grade, failures, success FROM dalmaru.character_refinement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!equipmentId.equals(rows.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); var original=new RefinementResult(equipmentId,rows.getInt(2),rows.getInt(3),rows.getBoolean(4),true);var result=confirmRefinement(connection,stored,characterId,original);connection.commit();return result; } } }
             int grade; int failures; try (var equipment = connection.prepareStatement("SELECT refinement_grade, refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? FOR UPDATE")) { equipment.setObject(1, equipmentId); equipment.setObject(2, characterId); try (var rows = equipment.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Equipment not owned by active character."); grade = rows.getInt(1); failures = rows.getInt(2); } }
             if (grade >= 5) throw new IllegalArgumentException("Equipment has maximum refinement.");
             int copper = (grade + 1) * 10; try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) { wallet.setInt(1, copper); wallet.setObject(2, characterId); wallet.setInt(3, copper); if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper."); }
             boolean success = random.nextInt(100) < RefinementRules.chance(grade, failures); int nextGrade = success ? grade + 1 : grade; int nextFailures = success ? 0 : failures + 1;
             try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET refinement_grade=?, refinement_failures=? WHERE equipment_id=?")) { update.setInt(1, nextGrade); update.setInt(2, nextFailures); update.setObject(3, equipmentId); update.executeUpdate(); }
             try (var request = connection.prepareStatement("INSERT INTO dalmaru.character_refinement_requests VALUES (?, ?, ?, ?, ?, ?, ?)")) { request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId); request.setObject(4, equipmentId); request.setInt(5, nextGrade); request.setInt(6, nextFailures); request.setBoolean(7, success); request.executeUpdate(); }
-            try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, NULL, 'refinement', ?)")) { ledger.setObject(1, UUID.randomUUID()); ledger.setObject(2, characterId); ledger.setInt(3, -copper); ledger.executeUpdate(); }
-            connection.commit(); return new RefinementResult(equipmentId, nextGrade, nextFailures, success, false);
+            try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, NULL, 'refinement', ?)")) { ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setInt(3, -copper); ledger.executeUpdate(); }
+            var result=confirmRefinement(connection,stored,characterId,new RefinementResult(equipmentId,nextGrade,nextFailures,success,false));connection.commit();return result;
         } catch (Exception exception) { connection.rollback(); throw exception; } }
+    }
+    private static RefinementOutcome confirmRefinement(Connection connection,RequestJournal.Stored stored,UUID character,RefinementResult original)throws SQLException {
+        var outcome=new JsonObject();outcome.addProperty("equipmentId",original.equipmentId().toString());outcome.addProperty("grade",original.grade());outcome.addProperty("failures",original.failures());outcome.addProperty("success",original.success());
+        return latestRefinement(connection,character,original,RequestJournal.confirm(connection,stored,outcome));
+    }
+    private static RefinementOutcome latestRefinement(Connection connection,UUID character,RefinementResult original,RequestJournal.Receipt receipt)throws SQLException {
+        try(var query=connection.prepareStatement("SELECT refinement_grade,refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? FOR UPDATE")){
+            query.setObject(1,original.equipmentId());query.setObject(2,character);try(var rows=query.executeQuery()){
+                if(!rows.next())throw new IllegalArgumentException("Refinement equipment is not owned by active character.");
+                return new RefinementOutcome(original,rows.getInt(1),rows.getInt(2),receipt);
+            }
+        }
     }
     public InheritanceResult inherit(UUID accountId, long generation, long requestId, UUID targetId, UUID sourceId) throws SQLException {
         if (generation < 1 || requestId < 1 || targetId.equals(sourceId) || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid inheritance request.");
