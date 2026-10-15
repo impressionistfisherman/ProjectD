@@ -13,7 +13,7 @@ public final class GrowthRewardGrantCheck {
 	private GrowthRewardGrantCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"oscar_p3_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p3_fixture.");
+		FixtureDatabase.databaseName();
 		try (var connection = connection(); var check = connection.prepareStatement("SELECT 1 FROM dalmaru.schema_migrations WHERE version=28")) {
 			try (var result = check.executeQuery()) { if (!result.next()) try (var statement = connection.createStatement()) { statement.execute(java.nio.file.Files.readString(java.nio.file.Path.of("database", "migrations", "V028__character_supply_grants.sql"))); } }
 		}

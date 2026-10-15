@@ -144,6 +144,21 @@ tasks.register('applyCurrentMigrations', JavaExec) {
 	mainClass = 'kr.dalmaru.ApplyCurrentMigrations'
 }
 
+tasks.register('verifyNpcShop', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.NpcShopCheck'
+}
+tasks.register('verifyAccountVault', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.AccountVaultCheck'
+}
+tasks.register('verifySupplyStay', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.SupplyStayCheck'
+}
 tasks.register('verifyEnhancementRules', JavaExec) {
 	group = 'verification'
 	classpath = sourceSets.test.runtimeClasspath

@@ -12,7 +12,7 @@ import kr.dalmaru.request.RequestEnvelope;
 
 public final class StoryQuestCurveCheck {
     public static void main(String[] args)throws Exception {
-        check("oscar_p3_fixture".equals(FixtureDatabase.databaseName()),"Explicit P3 fixture required");
+        FixtureDatabase.databaseName();
         definitions();StoryClientCheck.run();
         UUID account=UUID.randomUUID(),run=UUID.randomUUID();String trap="story_"+account.toString().replace("-","");
         var characters=new CharacterRepository();var investigation=new AtomicBoolean(false);

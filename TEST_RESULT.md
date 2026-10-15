@@ -922,3 +922,143 @@
 | `verifyRefinementGrade` | PASS |
 | `verifyRefinementKeep` | PASS |
 | `p1_integration_smoke.ps1` | PASS |
+
+## Grok P3 S01/S02/S03 통합 추가 기록 (00bf7b7)
+
+- 2026-10-15 P3-S01: PASS verifySupplyStay. 수련 장비, 회복 물품, 10·15레벨 키트, 캐릭터 귀속은 이동 거절. 자유·계정 연철석은 통과. 자동 커밋 연결과 null 연결은 거절. tools/p1_regression.ps1 exit 1, DALMARU_DB_NAME=oscar_p3_fixture. verifySupplyStay PASS. 아래 FAIL 8개는 oscar_p2_fixture 이름만 받는 검사 7개와 smoke다. 인게임 미실행.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifySupplyStay` | 예 | PASS |
+| `verifyStarterSupply` | 예 | FAIL |
+| `verifyGrowthRewardGrant` | 예 | FAIL |
+| `verifyCharacterDeletion` | 예 | PASS |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyQuestStages` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | FAIL |
+| `verifyProfessionGate` | 예 | FAIL |
+| `verifyWaypointReturn` | 예 | FAIL |
+| `verifyStoryQuestCurve` | 예 | FAIL |
+| `verifyStoryInvestigationLink` | 예 | FAIL |
+| `p1_integration_smoke.ps1` | 예 | FAIL |
+
+- 2026-10-15 P3-S02: PASS verifyAccountVault. DALMARU_DB_NAME=oscar_p3_fixture. 전 10을 맡기면 한 번만 빠지고 재생은 다시 빼지 않음. 잔액 부족은 롤백. 회복 물품과 캐릭터 귀속은 금고에 안 들어감. 다른 캐릭터가 전 4와 연철석 2를 찾음. 전체 회귀는 오스카 guard 커밋을 cherry-pick 한 뒤에 다시 돌린다. 인게임 미실행.
+
+## P3 guard isolated check (2026-10-15)
+| ?? | ?? |
+|---|---|
+| Java P3 ?? ? ??/P1/P2/postgres ?? 5? | PASS |
+| PowerShell ? ?? ??/P1/P2/postgres ?? 8? | PASS |
+| P3 ?? ?? | ??? |
+- ?? ?? ? DB ?? ??. S07 ?? ??? compileJava/compileClientJava PASS(12?)? guard ?? ??? ??.
+
+- 2026-10-15 cherry-pick 3e045a3 뒤 공식 tools/p1_regression.ps1. DB는 oscar_p3_fixture. 2차(최신) exit 1. 1차 FAIL은 verifyCharacterProfession, verifyProfessionGate, verifyStoryQuestCurve. init 없는 같은 태스크 gradlew --continue는 exit 0. 인게임 미실행. 이 표는 공유 DB에서 난 결과다.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyStarterSupply` | 예 | PASS |
+| `verifyGrowthRewardGrant` | 예 | PASS |
+| `verifyCharacterDeletion` | 예 | FAIL |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyQuestStages` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | FAIL |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyAccountVault` | 예 | PASS |
+| `verifySupplyStay` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `verifyWaypointReturn` | 예 | PASS |
+| `verifyStoryQuestCurve` | 예 | PASS |
+| `verifyStoryInvestigationLink` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |
+
+- 2026-10-15 grok_p3_fixture 공식 tools/p1_regression.ps1 exit 0. V001~V032 적용. 인게임 미실행.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyStarterSupply` | 예 | PASS |
+| `verifyGrowthRewardGrant` | 예 | PASS |
+| `verifyCharacterDeletion` | 예 | PASS |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyQuestStages` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyAccountVault` | 예 | PASS |
+| `verifySupplyStay` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `verifyWaypointReturn` | 예 | PASS |
+| `verifyStoryQuestCurve` | 예 | PASS |
+| `verifyStoryInvestigationLink` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |
+
+- 2026-10-15 P3-S03: PASS verifyNpcShop. DALMARU_DB_NAME=grok_p3_fixture. 구매가 회복 8, 연철석 16, 판매가 4. 없는 물품은 예외. 마을 밖 구매는 잔액 불변. 회복 1회 구매와 재생. 봉투 x=999는 무시. 회복 판매와 캐릭터 귀속 판매는 거절. 전 부족 구매는 거절. 공식 회귀 exit 1, FAIL은 verifyStoryQuestCurve. 직후 단독 재실행 PASS. 인게임 미실행.
+
+## P3 S01/S02/S03 통합 준비 (2026-10-16)
+- god af7fe1/7cc626 승인: 00bf7b7 --no-ff 머지. Grok 제품 4클래스/가격데이터/V032 원본 보존. Grok 신규2검사는 DBguard1줄만공용화. 기존검사DB고정제거,FixtureDatabase Oscar/Grok P3만허용,회귀/스모크도env와같은허용목록사용.
+- 기존8개충돌은DBguard차이뿐임을문자열정규화로확인. 양쪽PROGRESS/TEST_RESULT기록보존. 통합전체회귀는아직미실행,다음잠금후41항목검증.

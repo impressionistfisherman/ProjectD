@@ -522,3 +522,23 @@
 - focused5검사PASS44초. 첫전체36PASS/2FAIL: Waypoint연결timeout1+새정책메타가남은구스냅샷fixture1. 구스냅샷1줄수정(godff6d3f승인),관련2검사PASS27초.
 - 공유파일잠금확보뒤전체38단일실행PASS exit0/204.01초,assemble/임시35565RunRespawnMixinPASS,잠금해제확인. 사후OscarP3DB0계정/0요청/schema32. JDBCtimeout변경없음.
 - 신규패킷/마이그레이션/공개플레이호출추가없음,인게임미실행. 운영/플레이DB/실서버/push/배포미변경. 크리드독립검토및god최종승인대기.
+
+## Grok P3 S01/S02/S03 통합 추가 기록 (00bf7b7)
+
+- 2026-10-15 P3-S01: 시작·전직·조사 지급 물품과 캐릭터 귀속은 창고·거래·우편으로 옮기지 못한다. 판정은 호출자 트랜잭션 안에서 `SupplyStay.refuseMove`가 하고, `StarterSupply.tradable`은 호출만 한다. 클라 확정은 받지 않는다. 통신 32. 인게임 미실행, 전체 PARTIAL. oscar_p3_fixture 통지 전이라 전체 회귀는 아직이다.
+
+- 2026-10-15 P3-S02: 계정 금고는 전과 재료를 캐릭터와 따로 둔다. 다른 캐릭터로 바꿔도 계정 분이 남는다. 입출금은 요청 저널이고, 재료는 SupplyStay를 먼저 본다. 지급 물품과 캐릭터 귀속은 들어가지 못한다. V032 account_holdings. 통신 패킷은 없다. 인게임 미실행, 전체 PARTIAL. 회귀 FAIL 8개 파일은 고치지 않았다.
+
+## P3 regression DB guard (2026-10-15)
+- P3 ??? ??? DB? oscar_p3_fixture? ??. Java 8? ? PowerShell ??/??? ?? ??, TrialGrowth JDBC ?? ??. ?? S07 ??? ?? ??.
+- DB ?? ?? Java ??/?? 5?, PowerShell ?? 8? PASS. ?? ??? ?? ???.
+
+- 2026-10-15 P3-S02 커밋 9ca6104. 그 위에 오스카 21e5efc를 cherry-pick 해 3e045a3. FixtureDatabase는 oscar_p3_fixture 한 줄. 공식 회귀 2회 모두 exit 1. 1차 FAIL은 CharacterProfession, ProfessionGate, StoryQuestCurve. 2차 FAIL은 CharacterDeletion, CharacterProfession. 같은 태스크를 init 없이 한 번 돌린 gradlew는 exit 0. 실패가 실행마다 바뀐다. 그 검사 파일은 고치지 않음. 인게임 미실행.
+
+- 2026-10-15 전용 DB: grok_p3_fixture를 만들고 V001~V032를 적용했다. 이 브랜치 허용 목록과 회귀 guard는 grok_p3_fixture만 받는다. oscar_p3_fixture에는 접속하지 않는다. 공식 회귀 exit 0. 인게임 미실행.
+
+- 2026-10-15 P3-S03: NPC 상점. 가격은 content/shop.json 임시값. ShopCatalog.buyPrice는 없는 물품이면 예외. 판매가는 구매가의 25%를 소수점 이하 버림. 마을 구역 안에서만, 잔액·귀속은 서버가 판정. 클라 좌표는 읽지 않음. 지급 회복품과 캐릭터 귀속은 판매 거절. 통신 패킷 없음. verifyNpcShop PASS. 공식 회귀는 exit 1이고 FAIL은 verifyStoryQuestCurve 하나. 그 검사는 직후 단독 PASS. 인게임 미실행.
+
+## P3 S01/S02/S03 통합 준비 (2026-10-16)
+- god af7fe1/7cc626 승인: 00bf7b7 --no-ff 머지. Grok 제품 4클래스/가격데이터/V032 원본 보존. Grok 신규2검사는 DBguard1줄만공용화. 기존검사DB고정제거,FixtureDatabase Oscar/Grok P3만허용,회귀/스모크도env와같은허용목록사용.
+- 기존8개충돌은DBguard차이뿐임을문자열정규화로확인. 양쪽PROGRESS/TEST_RESULT기록보존. 통합전체회귀는아직미실행,다음잠금후41항목검증.
