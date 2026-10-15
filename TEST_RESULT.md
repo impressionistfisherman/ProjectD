@@ -284,3 +284,7 @@
 - PASS: --no-daemon verifyProfessionWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifyProfessionJournal compileClientJava (12초). 실제 전직 receipt parser의 replay/reject/틀린 correlation/다른 직업·잘못된 본문, typed/common 단일 재시도 및 최신 기술/장착 조회, 공통 client 경계·fixture 전직 원자성 확인.
 - 앞선 검사 시 compileClientJava가 다수 기존 상태 클래스를 찾지 못해 FAIL. 소스 파일 존재/빌드 설정 범위/실행 중 Gradle 없음 확인 후, 소스 변경 없이 compileClientJava --rerun --info 전체 재컴파일 PASS(7초), 위 gate 재검사 PASS. 산출물·증분 상태 문제의 발생 원인은 미확인입니다.
 - 실제 패킷 왕복·인게임·개발 명령 인게임 검사는 미실행. M11 world ACK/reconnect는 미완료. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09g1 (2026-10-15)
+- PASS: --no-daemon verifyLoadoutJournal (10초). UUID/다른 correlation/동시 단일 revision/legacy 원결과 채택, 원결과·최신 장착 분리, 본문·세대·버전·passive·중복·null 거부, 슬롯 변경 뒤 이력 INSERT 실패 시 슬롯/revision/저널 rollback, ACTIVE 변경 거부·읽기 재생 허용, 종료 후 변경과 고정 스냅샷 보존.
+- 최초 실행은 검사 본문 통과 후 cleanup FK 오류로 FAIL. 요청 이력 정리 순서를 수정하고 해당 계정 fixture를 제거한 뒤 재검사 PASS. 기존 verifyLoadoutDatabase는 별도 oscar_fixture 전용이라 실행하지 않았습니다. oscar_p1_fixture만 사용했으며 실제 던전 입장은 실행하지 않았습니다.

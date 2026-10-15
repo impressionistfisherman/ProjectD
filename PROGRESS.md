@@ -251,3 +251,7 @@
 - 전직 common UUID wire·기존 typed adapter 연결. 현재 세대/선택 캐릭터·본문 검증, 최신 프로필 먼저·저장 직업 receipt 나중 전송. 불확실 실패는 동일 UUID 재시도를 유지합니다. 클라이언트 typed 재시도는 common에 위임하고 원결과로 최신 상태를 덮어쓰지 않습니다.
 - 개발 전직 명령도 journaled 결과의 최신 프로필을 같은 세션에 반영합니다. S09e1~e4 Creed+Jim PASS/S09f1 Creed PASS 통보 확인; S09f1 Jim 및 S09f2 독립 QA는 별도 확인 필요.
 - 나머지 O28 writers/M08/M11/M12/M13/M14 남음. 전체 PARTIAL.
+
+## MDF-P1 S09g1 (2026-10-15)
+- 기술 장착 변경 common UUID 저널/long 호환 연결. 저장 원래 revision·slots와 최신 장착 상태를 분리합니다. 변경 후 재생 및 ACTIVE 공략 중의 읽기 전용 재생을 허용하며 새 변경의 버전·직업·기술종류·중복·공략 잠금은 유지합니다. 과거 요청은 저장 revision-1과 slots로 본문을 검증해 채택합니다.
+- 분담 변경: god 통보에 따라 그록이 별도 Dalmaru-mdf-p1-grok/grok/mdf-p1-m08(631e06e 기준)에서 M08 담당. Oscar는 나머지 O28 → M11 → M12 → M13 → M14 순서. M08은 양 게이트 통과 후 합칩니다. 장착 wire는 다음 조각입니다. 전체 PARTIAL.
