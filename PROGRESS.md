@@ -487,3 +487,5 @@
 
 - 2026-10-15 S05 잠금 회귀: 06fc1cd, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
 - 2026-10-15 P3-S06: 연철석 1을 철괴 1로 가공한다. 철괴 1은 대장간(16,64,16, 반경 4) 안에서만 기초 부품이 된다. 캐릭터 귀속은 재료로 쓰지 못한다. content/crafting.json 임시. 마이그레이션 없음. verifyBasicCraft PASS. 인게임 미실행.
+- 2026-10-16 S06 잠금 회귀: d562dc9, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
+- 2026-10-16 P3-S04: 양쪽이 확인해야 맡긴 재료가 바뀐다. 취소와 만료는 되돌린다. 두 계정 잠금은 UUID 오름차순. 옮기기 전에 SupplyStay.refuseMove. V033 trade_offers. content/trade.json 임시 60초. 패킷 없음. verifyDirectTrade PASS. 이 커밋의 전체 회귀는 아직. 인게임 미실행.

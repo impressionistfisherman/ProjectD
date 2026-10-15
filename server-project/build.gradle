@@ -144,6 +144,11 @@ tasks.register('applyCurrentMigrations', JavaExec) {
 	mainClass = 'kr.dalmaru.ApplyCurrentMigrations'
 }
 
+tasks.register('verifyDirectTrade', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.DirectTradeCheck'
+}
 tasks.register('verifyBasicCraft', JavaExec) {
 	group = 'verification'
 	classpath = sourceSets.test.runtimeClasspath
