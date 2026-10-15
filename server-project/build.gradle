@@ -155,6 +155,12 @@ tasks.register('verifyCharacterRun', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'kr.dalmaru.CharacterRunCheck'
 }
+tasks.register('verifyRunJournal', JavaExec) {
+    group = 'verification'
+    description = 'Verifies a client run entry is journaled once and replays the same run.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.RunJournalCheck'
+}
 
 tasks.register('verifyRunRewards', JavaExec) {
 	group = 'verification'

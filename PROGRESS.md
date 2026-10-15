@@ -353,3 +353,6 @@
 ## MDF-P1 담당 조정 (2026-10-15)
 - god 지시 2026-10-15T03-48-55-466Z-4172db: run writer 저널은 그록 g214 / grok/mdf-p1-runwriter 담당입니다. Oscar S09k2(70448dc)·S09k3(2e8bfa0) 완료, 다음은 M14입니다.
 - M11b 1f7a9e9는 god 통보 기준 Creed PASS / Jim 재QA 중이며 Oscar는 아직 합치지 않았습니다. 재QA 뒤 god 머지 지시와 run writer 결과를 받아 통합 회귀·개발 protocol31 상향을 진행합니다. 운영환경 변경 없음, 전체 PARTIAL.
+
+## MDF-P1 run writer (2026-10-15)
+- 클라이언트 입장 요청은 RunRepository.enter 안에서 기존 operation_requests에 한 번 기록되고, 같은 요청은 같은 런을 돌려줍니다. 본문이 바뀌면 거부합니다. 입장 실패 시 cancelNewEntry는 그대로 두고, 저장·복귀 확인은 서버가 이어서 처리하므로 별도 저널을 만들지 않았습니다. 전체 PARTIAL.
