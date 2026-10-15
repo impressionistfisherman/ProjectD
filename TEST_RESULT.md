@@ -864,3 +864,6 @@
 | `p1_integration_smoke.ps1` | 예 | PASS |
 
 - 2026-10-15 P3-S03: PASS verifyNpcShop. DALMARU_DB_NAME=grok_p3_fixture. 구매가 회복 8, 연철석 16, 판매가 4. 없는 물품은 예외. 마을 밖 구매는 잔액 불변. 회복 1회 구매와 재생. 봉투 x=999는 무시. 회복 판매와 캐릭터 귀속 판매는 거절. 전 부족 구매는 거절. 공식 회귀 exit 1, FAIL은 verifyStoryQuestCurve. 직후 단독 재실행 PASS. 인게임 미실행.
+
+- 2026-10-15 S03 재회귀: grok_p3_fixture, 연결 0, 계정 0, tools/p1_regression.ps1 exit 0. 표의 검사와 smoke 전부 PASS.
+- 2026-10-15 P3-S05: PASS verifyGatherNode. 공식 회귀 1회는 verifyStoryQuestCurve만 FAIL, 로그는 그 회차에 지워짐. 실패 출력을 남긴 재실행은 exit 1, FAIL은 verifyCharacterProfession. 본문: PSQLException, Driver ConnectTask.getResult, AccountRepository.openSession, CharacterProfessionCheck.main:17. 기대값/실제값 비교 전에는 접속이 끊겼다. StoryQuestCurve는 그 회차 PASS.

@@ -4,22 +4,41 @@ $ErrorActionPreference = 'Stop'
 $log = $null
 $err = $null
 $init = $null
+$lock = 'C:\Users\gusdl\OneDrive\Desktop\MunderDifflin\hive\locks\p3_full_regression.lock'
+$ownsLock = $false
 function Say([string]$text) {
     if ($env:DALMARU_DB_PASSWORD) { $text = $text.Replace($env:DALMARU_DB_PASSWORD, '***') }
     Write-Output $text
 }
 try {
     if ([string]::IsNullOrWhiteSpace($env:DALMARU_DB_PASSWORD)) { Say 'FAIL database password is not configured'; exit 1 }
-    if ($env:DALMARU_DB_NAME -notin @('grok_p3_fixture')) { Say 'FAIL explicit P3 fixture required'; exit 1 }
+    if ($env:DALMARU_DB_NAME -notin @('oscar_p3_fixture','grok_p3_fixture')) { Say 'FAIL explicit P3 fixture required'; exit 1 }
     $root = Split-Path -Parent $PSScriptRoot
     $project = Join-Path $root 'server-project'
     $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
     $here = [IO.Path]::GetFullPath($root).TrimEnd('\')
     if ($here.Equals($live, [StringComparison]::OrdinalIgnoreCase)) { Say 'FAIL refusing to run in the live Dalmaru checkout'; exit 1 }
+    New-Item -ItemType Directory -Force -Path (Split-Path $lock) | Out-Null
+    while (-not $ownsLock) {
+        if (Test-Path $lock) {
+            $age = (Get-Date) - (Get-Item $lock).LastWriteTime
+            if ($age.TotalMinutes -gt 40) { Say 'FAIL regression lock is older than 40 minutes'; exit 1 }
+            Start-Sleep -Seconds 30
+            continue
+        }
+        try {
+            $fs = [IO.File]::Open($lock, 'CreateNew', 'Write', 'None')
+            $commit = (git -C $root rev-parse HEAD).Trim()
+            $bytes = [Text.Encoding]::ASCII.GetBytes('grok ' + [DateTime]::UtcNow.ToString('o') + ' ' + $commit)
+            $fs.Write($bytes, 0, $bytes.Length)
+            $fs.Close()
+            $ownsLock = $true
+        } catch { Start-Sleep -Seconds 30 }
+    }
     $gradleFile = Join-Path $project 'build.gradle'
     $registered = [regex]::Matches((Get-Content -Raw $gradleFile), "tasks\.register\('([^']+)'") | ForEach-Object { $_.Groups[1].Value }
-    $tasks = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop') } | Select-Object -Unique)
-    $expected = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop') })
+    $tasks = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop','verifyGatherNode') } | Select-Object -Unique)
+    $expected = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop','verifyGatherNode') })
     if ($tasks.Count -eq 0 -or $tasks.Count -ne $expected.Count) { Say 'FAIL task list does not match build.gradle'; exit 1 }
     $log = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.log')
     $err = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.err')
@@ -32,6 +51,7 @@ try {
     $text = ''
     if (Test-Path $log) { $text += [IO.File]::ReadAllText($log) }
     if (Test-Path $err) { $text += [IO.File]::ReadAllText($err) }
+    if ($proc.ExitCode -ne 0) { Say $text }
     $rows = @()
     $failed = $false
     foreach ($name in $tasks) {
@@ -53,6 +73,7 @@ try {
     exit 0
 }
 finally {
+    if ($ownsLock -and (Test-Path $lock)) { Remove-Item -Force $lock -ErrorAction SilentlyContinue }
     if ($log -and (Test-Path $log)) { Remove-Item -Force $log -ErrorAction SilentlyContinue }
     if ($err -and (Test-Path $err)) { Remove-Item -Force $err -ErrorAction SilentlyContinue }
     if ($init -and (Test-Path $init)) { Remove-Item -Force $init -ErrorAction SilentlyContinue }
