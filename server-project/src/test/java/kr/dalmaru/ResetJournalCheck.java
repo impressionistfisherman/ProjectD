@@ -40,6 +40,7 @@ public final class ResetJournalCheck {
             var altered=new JsonObject();altered.addProperty("unexpected",1);
             reject(()->characters.resetStatsJournaled(account,generation,71,character,new RequestEnvelope(first.requestId(),generation,character,"reset_stats",altered)));
             reject(()->characters.resetStatsJournaled(account,generation+1,71,character,envelope(first.requestId(),generation+1,character)));
+            try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement("UPDATE dalmaru.character_wallet SET copper=0 WHERE character_id=?")){q.setObject(1,character);q.executeUpdate();}
             reject(()->characters.resetStatsJournaled(account,generation,71,character,envelope(UUID.randomUUID(),generation,character)));
             long legacyId;
             try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement("SELECT legacy_request_id FROM dalmaru.operation_requests WHERE request_id=?")){

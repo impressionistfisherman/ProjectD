@@ -422,6 +422,8 @@
 - 2026-10-15 P2-S02: PASS --no-daemon verifyGrowthRewardGrant verifyStarterSupply (10초, compileTestJava 재실행). DALMARU_DB_NAME=oscar_p2_fixture, V028 적용. 전사 키트 6개 1회, 재호출 불변. 강화 3인 무기를 15레벨로 교체해도 강화 3 유지. 조사 후 구리 60·회복 8·수련 장비 유지. 무직 조사는 롤백. 궁수는 궁수 장비만. 10·15레벨 직업 장비는 거래 불가, 20레벨 무기와 장신구는 가능. 검사 계정 정리. oscar_p1_fixture의 V028은 그대로 두고 더 쓰지 않음. 인게임 미실행.
 
 - 2026-10-15 P2-S04: PASS verifyCharacterDeletion (9초, compileTestJava 재실행). DALMARU_DB_NAME=oscar_p2_fixture, V029 적용. 7일 안 슬롯·이름 유지, 재삭제는 시각 불변, 복구 후 무료 초기화 불가와 클리어 2회 유지, 선택은 삭제 중에만 거부. 8일 뒤 목록이 행을 지우고 새 캐릭터는 20전 1회. 다른 계정의 이름도 7일 유지. tools/p1_regression.ps1 exit 0. 인게임 미실행.
+
+- 2026-10-15 P2-S09: PASS verifyPaidStatReset (8초). DALMARU_DB_NAME=oscar_p2_fixture. 무료 1회는 전 0에서도 능력치만 되돌림. 잔액 9전은 거절하고 능력치 불변. 30전에서 10전을 한 번 걷고 재생은 추가 차감 없음. 5레벨은 50전. 원장 행은 유료만. verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, 20개 검사와 smoke PASS. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |

@@ -21,6 +21,7 @@ public final class CharacterRepository {
 	}
 
 	private static final Pattern ALLOWED_NAME = Pattern.compile("[가-힣A-Za-z0-9_]+");
+	public static final int PAID_RESET_COPPER_PER_LEVEL = 10;
 	private final String url;
 	private final String username;
 	private final String password;
@@ -182,7 +183,16 @@ public final class CharacterRepository {
 					}
 				}
 				CharacterProfile before = profileForUpdate(connection, characterId);
-				if (!before.freeResetAvailable()) throw new IllegalArgumentException("Free stat reset was already used.");
+				if (!before.freeResetAvailable()) {
+					int cost = Math.multiplyExact(before.level(), PAID_RESET_COPPER_PER_LEVEL);
+					try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) {
+						wallet.setInt(1, cost); wallet.setObject(2, characterId); wallet.setInt(3, cost);
+						if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper.");
+					}
+					try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id,character_id,source_run_id,reason,copper_delta) VALUES(?,?,NULL,'stat_reset',?)")) {
+						ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setInt(3, -cost); ledger.executeUpdate();
+					}
+				}
 				int refunded = before.strength() + before.dexterity() + before.arcana() + before.vitality() + before.spirit();
 				try (var statement = connection.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_stat_points = unspent_stat_points + ?, strength = 0, dexterity = 0, arcana = 0, vitality = 0, spirit = 0, free_reset_available = FALSE WHERE character_id = ?")) {
 					statement.setInt(1, refunded); statement.setObject(2, characterId);
