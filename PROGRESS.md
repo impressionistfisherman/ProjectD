@@ -305,3 +305,7 @@
 ## MDF-P1 S09j2 (2026-10-15)
 - inherit_equipment common UUID router/client API 연결. 서버 현재세대·활성캐릭터·본문 검증과 소모/귀속/원장저널 원자성은 저장계층이 판정합니다. 최신 목록/현재 잔액 안내와 원래 source/target/credit receipt를 분리합니다. 불확실 실패는 같은UUID 재시도를 유지합니다.
 - client는 원결과 식별자/정수범위를 검증하고 최신 목록을 조회하며 원이전액이나 원본을 캐시에 적용하지 않습니다. UI·일반 호출자 노출 없음. 계승식 P3 이관 유지, protocol31 상향 M14 미완료. O28 run·quest→M11나머지→M14 남음. 전체 PARTIAL.
+
+## MDF-P1 M13b 통합 (2026-10-15)
+- god 지시에 따라 grok/mdf-p1-m13b(69f3c1d, Creed+Jim PASS 통보)를 로컬 no-ff merge했습니다. 신규 docs/M13B_AUTH_HANDOFF.md 1개만 추가되며 충돌 없음. 인증/UUID·이름변경/접속세대·잠금의 현재 동작과 출시 인계 경계를 담은 문서 평가입니다.
+- 코드·DB·서버설정·online-mode 변경 없음. 문서만이므로 지시대로 Gradle 미실행. O28 run·quest→M11 나머지→M14(미완료 protocol31 상향) 계속. 전체 PARTIAL.
