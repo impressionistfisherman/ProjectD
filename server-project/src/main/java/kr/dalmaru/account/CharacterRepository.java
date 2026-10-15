@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 public final class CharacterRepository {
+    public static final int TRIAL_LEVEL_CAP=20;
 	static {
 		try {
 			Class.forName("org.postgresql.Driver");
@@ -202,15 +203,29 @@ public final class CharacterRepository {
     }
     public static CharacterProfile grantExperience(java.sql.Connection connection, UUID characterId, long amount) throws SQLException {
         if (amount < 1) throw new IllegalArgumentException("Experience amount must be positive.");
+        return applyExperience(connection,characterId,amount,TRIAL_LEVEL_CAP);
+    }
+
+    /** Explicit release transition; trial gameplay never calls this method. */
+    public static CharacterProfile recalculateLevelForRelease(java.sql.Connection connection,UUID characterId)throws SQLException {
+        if(connection.getAutoCommit())throw new IllegalArgumentException("Release recalculation requires a transaction.");
+        return applyExperience(connection,characterId,0,60);
+    }
+
+    private static CharacterProfile applyExperience(java.sql.Connection connection,UUID characterId,long amount,int levelCap)throws SQLException {
         CharacterProfile before = profileForUpdate(connection, characterId);
         int level = before.level(), points = before.unspentStatPoints();
         long experience = Math.addExact(before.experience(), amount);
-        while (level < 60 && experience >= experienceNeededForNextLevel(level)) {
+        while (level < levelCap && experience >= experienceNeededForNextLevel(level)) {
             experience -= experienceNeededForNextLevel(level); level++; points += 5;
         }
-        if (level == 60) experience = 0;
-        try (var update = connection.prepareStatement("UPDATE dalmaru.character_profiles SET level=?, experience=?, unspent_stat_points=? WHERE character_id=?")) {
-            update.setInt(1, level); update.setLong(2, experience); update.setInt(3, points); update.setObject(4, characterId);
+        int skillPoints=Math.max(0,level-10)-Math.max(0,before.level()-10);
+        if(skillPoints>0)try(var profession=connection.prepareStatement("SELECT 1 FROM dalmaru.character_professions WHERE character_id=?")) {
+            // Read after the profile lock so a concurrent profession selection is visible.
+            profession.setObject(1,characterId);try(var row=profession.executeQuery()){if(!row.next())skillPoints=0;}
+        }
+        try (var update = connection.prepareStatement("UPDATE dalmaru.character_profiles SET level=?, experience=?, unspent_stat_points=?, unspent_skill_points=unspent_skill_points+? WHERE character_id=?")) {
+            update.setInt(1, level); update.setLong(2, experience); update.setInt(3, points); update.setInt(4,skillPoints);update.setObject(5, characterId);
             if (update.executeUpdate()!=1) throw new SQLException("Character profile disappeared.");
         }
         return profileForUpdate(connection, characterId);
@@ -455,7 +470,7 @@ public final class CharacterRepository {
                 if(stored.result()!=null){var selected=CharacterProfession.valueOf(stored.result().get("profession").getAsString());var current=profileForUpdate(connection,characterId);connection.commit();return new ProfessionResult(selected,current,true,stored.receipt());}
 				try (var profile = connection.prepareStatement("SELECT level FROM dalmaru.character_profiles WHERE character_id = ? FOR UPDATE")) { profile.setObject(1, characterId); try (var result = profile.executeQuery()) { if (!result.next() || result.getInt(1) < 10) throw new IllegalArgumentException("Level 10 is required for a profession."); } }
 				try (var quest = connection.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id = ? AND quest_id = 'pilot1.zombie_hunt' AND content_version = 'pilot-1' AND state = 'REWARDED'")) { quest.setObject(1, characterId); try (var result = quest.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Profession quest is not complete."); } }
-				try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_professions (character_id, base_job) VALUES (?, ?) ON CONFLICT (character_id) DO NOTHING")) { insert.setObject(1, characterId); insert.setString(2, profession.name()); if (insert.executeUpdate() == 1) try (var reward = connection.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_skill_points = unspent_skill_points + 6 WHERE character_id = ?")) { reward.setObject(1, characterId); reward.executeUpdate(); } }
+				try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_professions (character_id, base_job) VALUES (?, ?) ON CONFLICT (character_id) DO NOTHING")) { insert.setObject(1, characterId); insert.setString(2, profession.name()); if (insert.executeUpdate() == 1) try (var reward = connection.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_skill_points = unspent_skill_points + 6 + GREATEST(LEAST(level,60)-10,0) WHERE character_id = ?")) { reward.setObject(1, characterId); reward.executeUpdate(); } }
 				try (var selected = connection.prepareStatement("SELECT base_job FROM dalmaru.character_professions WHERE character_id = ?")) { selected.setObject(1, characterId); try (var result = selected.executeQuery()) { result.next(); CharacterProfession saved = CharacterProfession.valueOf(result.getString(1)); if (saved != profession) throw new IllegalArgumentException("Profession was already selected."); var outcome=new JsonObject();outcome.addProperty("profession",saved.name());var receipt=RequestJournal.confirm(connection,stored,outcome);var current=profileForUpdate(connection,characterId);connection.commit();return new ProfessionResult(saved,current,false,receipt); } }
 			} catch (Exception exception) { connection.rollback(); throw exception; }
 		}

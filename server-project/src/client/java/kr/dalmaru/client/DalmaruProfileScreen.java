@@ -1,6 +1,7 @@
 package kr.dalmaru.client;
 
 import kr.dalmaru.network.DalmaruPayloads;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -71,4 +72,13 @@ final class DalmaruProfileScreen extends Screen {
 		vitalityButton.active = active;
 		spiritButton.active = active;
 	}
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor graphics,int mouseX,int mouseY,float delta) {
+        super.extractRenderState(graphics,mouseX,mouseY,delta);
+        var response=ClientProfileState.current();
+        if(response==null||response.profile().level()<kr.dalmaru.account.CharacterRepository.TRIAL_LEVEL_CAP)return;
+        String notice=font.plainSubstrByWidth("시험 상한 도달, 초과 경험치 보관 중",Math.max(0,width-16));
+        graphics.text(font,notice,(width-font.width(notice))/2,Math.max(2,statusButton.getY()-12),0xFFFFFFFF,false);
+    }
 }

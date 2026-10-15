@@ -437,3 +437,20 @@
 | `verifyQuestKillJournal` | 예 | PASS |
 | `verifyProtocolVersion` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
+## P2-S03 + S11 검증 (2026-10-15)
+- 시험 DB는 플레이 DB와 분리한 localhost:15432/oscar_p2_fixture. 기존 V001~V027만 적용, 앱 마이그레이션 추가 없음. 사후 accounts0/operation_requests0/schema27.
+- 최초 --no-daemon verifyCharacterExperience verifyCharacterSkill verifyTrialGrowth verifyClientScreenBounds compileClientJava (19초): 경험치·기술 검사 PASS, 새 성장 단언 PASS 후 fixture 정리 순서 FK 오류로 전체 FAIL. 자기 테스트 UUID 계정만 정리하고 프로필 선삭제로 고쳤습니다.
+- 재검증 --no-daemon verifyTrialGrowth verifyClientScreenBounds compileClientJava (12초): BUILD SUCCESSFUL. 통과한 기존2개는 수정 영향이 없어 반복하지 않았습니다.
+
+| 검사 | 결과 | 근거 |
+|---|---|---|
+| verifyCharacterExperience | PASS | 기존 경험치 이월/능력치 지급 |
+| verifyCharacterSkill | PASS | 전직6점·기술 습득 요청 재생 |
+| verifyTrialGrowth | PASS | 20상한/XP보관/11~20기술점/늦은전직 동시레벨업·UUID재생/overflow 무변경 |
+| release 함수 | PASS (verifyTrialGrowth 포함) | 명시 호출25·60레벨/보관잔여XP/일반레벨점만 지급/P5추가점 없음/재호출 중복없음/SQL실패 rollback |
+| cap 안내 | PASS (verifyTrialGrowth 포함) | 실제 렌더 메서드 본문·미선택/19미표시/20정확문구/320폭 및 상단 버튼과 비겹침 |
+| verifyClientScreenBounds | PASS | 기존 실제 init 메서드 320x180~960x540 버튼 범위 |
+| compileJava/compileClientJava | PASS | 코드 컴파일 성공, 재검증 시 up-to-date |
+
+- 실제 게임 화면·플레이서버·운영DB/PID14160·정식전환 배포는 미실행. 정식 재계산 함수는 서버 호출 경로에 연결하지 않았습니다.
+

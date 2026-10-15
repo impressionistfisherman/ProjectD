@@ -382,3 +382,9 @@
 - 실제 메서드 본문 하네스로 실패 연결 뒤 다음 플레이어 처리/부활 횟수 유지/경고 UUID·클래스/Error 동일 객체 전파/성공 부활1회·재생중복방지 검증. 기존 현상 확인용 예외 누출 단언을 교체했습니다.
 - p1_regression.ps1에 verifyRunAutoRespawnSafety 포함, 실제1회 exit0/68.67초, 검사20개+임시서버smoke1개 PASS. 내부 assemble PASS6초, protocol31 JAR 재생성 sha256 56b9847ffa4cb7c3e4a3dda6282b36932f5223dbb68750923ce9ec3fc294d68b.
 - fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
+
+## P2-S03 + S11 (2026-10-15)
+- 별도 oscar/mdf-p2-s03 / Dalmaru-mdf-p2-oscar, base93123b8. 생성 지급은 그록 소유로 미수정. grantExperience 20상한·XP보관, 전직 후 레벨별 기술점/늦은전직누적, 미연결 정식60재계산 함수, 프로필 화면 안내만 구현.
+- 완료조건: 기존경험치/기술 검사 뒤 verifyTrialGrowth·관련client검사 및 compileClientJava. 별도 oscar_p2_fixture15432/schema27만 사용, 플레이 fixture/운영/PID14160 미접근. 새마이그레이션 없음.
+- 구현 완료: 20 상한에서도 XP보관, 11~20 기술점·늦은전직누적/동시처리, 명시적 정식60 재계산(실제 게임 호출 없음), 프로필 상한 안내. PILOT_CONTENT_SPEC의 과거 초과XP 미지급 문구를 추가 승인 정책으로 갱신했습니다.
+- PASS: verifyCharacterExperience/verifyCharacterSkill(최초 실행), verifyTrialGrowth/verifyClientScreenBounds 및 compileClientJava(재검증12초). 최초 실행19초는 새검사 정리 FK 순서만 실패했으며 프로필 먼저 삭제하도록 수정 후 해당 own fixture만 정리했습니다. P2 fixture accounts0/requests0/schema27. 독립검토 요청, 인게임·정식전환 실제 적용 미실행.
