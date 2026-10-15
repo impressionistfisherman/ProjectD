@@ -340,3 +340,8 @@
 ## MDF-P1 S09k1 (2026-10-15)
 - 의뢰 수락 acceptJournaled API/long 봉투 adapter 추가. account→request 잠금·현재 세대/활성 캐릭터·questID/contentVersion 본문 검증, 선행조건 확인/수락/저널 확정이 같은 트랜잭션입니다. 최초 created 결과와 이후 진행/보상 상태를 분리합니다.
 - 기존 accept(character) setup 호환 함수는 유지하며 live typed/common/명령 연결은 S09k2 다음 조각입니다. 자동 처치 진행/보상 writer와 run O28도 남습니다. ClientRequestState/재접속 코드는 변경하지 않았습니다. 전체 PARTIAL.
+
+## MDF-P1 S09k2 (2026-10-15)
+- 의뢰 수락 common UUID router/client 전송, 기존 QuestRequest.accept typed adapter 및 개발 accept 명령을 acceptJournaled로 연결했습니다. 최신 status 먼저/원 questID·version·created receipt 나중, 불확실 실패는 같은UUID로 재시도합니다. 원created로 진행 상태를 덮지 않고 최신 read-only status를 조회합니다.
+- god 사전 통보·승인(2026-10-15T03-25-47-689Z-177e6b)대로 선택 응답 콜백에 ClientQuestState.selected() 추가. 이전 캐릭터 requestId 무효화·counter유지로 지연응답을 거릅니다. ClientRequestState/접속·재접속 handler는 변경하지 않았습니다. M11b 합칠 때 양쪽 선택초기화 호출 보존 필요.
+- 자동 처치 진행·보상 writer/run O28 및 M14(protocol31) 남음. M11b는 그록 담당. 전체 PARTIAL.

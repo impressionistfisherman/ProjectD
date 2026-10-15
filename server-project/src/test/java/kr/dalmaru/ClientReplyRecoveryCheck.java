@@ -10,7 +10,7 @@ public final class ClientReplyRecoveryCheck {
         Path dir=Files.createTempDirectory("client-reply-recovery-");
         try{
             var compilerArgs=new ArrayList<String>(List.of("-d",dir.toString()));
-            for(String name:List.of("ClientLoadoutState","ClientSkillState","ClientProfileState","ClientEquipmentState")){
+            for(String name:List.of("ClientLoadoutState","ClientSkillState","ClientProfileState","ClientEquipmentState","ClientQuestState")){
                 String source=Files.readString(Path.of("src/client/java/kr/dalmaru/client/"+name+".java")).replace("package kr.dalmaru.client;","").replace("import kr.dalmaru.network.DalmaruPayloads;","");
                 Path file=dir.resolve(name+".java");Files.writeString(file,source);compilerArgs.add(file.toString());
             }
@@ -30,6 +30,7 @@ public final class ClientReplyRecoveryCheck {
     private static final String HARNESS="""
         import java.util.*;
         class DalmaruPayloads{
+            record QuestResponse(long requestId,String status){}
             record RefinementStateResponse(long requestId,UUID characterId,UUID equipmentId,int grade,int failures){}
 
             record OperationReceipt(long correlationId,UUID requestId,UUID eventId,String state,String result,boolean replayed){}
@@ -57,6 +58,9 @@ public final class ClientReplyRecoveryCheck {
             static DalmaruPayloads.LoadoutResponse load(long request,UUID character,long revision,String status){return new DalmaruPayloads.LoadoutResponse(request,character,revision,List.of("","","","",""),true,status);}
             static void deadline(String name)throws Exception{var field=ClientLoadoutState.class.getDeclaredField(name);field.setAccessible(true);field.setLong(null,System.nanoTime()-1);}
             public static void run()throws Exception{
+                ClientQuestState.resetForConnection();long oldQuest=ClientQuestState.beginRequest();ClientQuestState.accept(new DalmaruPayloads.QuestResponse(oldQuest,"old quest"));
+                ClientQuestState.selected();ClientQuestState.accept(new DalmaruPayloads.QuestResponse(oldQuest,"previous character quest"));check(!ClientQuestState.status().contains("previous"));
+                long newQuest=ClientQuestState.beginRequest();check(newQuest>oldQuest);ClientQuestState.accept(new DalmaruPayloads.QuestResponse(newQuest,"current quest"));ClientQuestState.accept(new DalmaruPayloads.QuestResponse(oldQuest,"late quest"));check(ClientQuestState.status().equals("current quest"));
                 UUID a=UUID.randomUUID(),b=UUID.randomUUID();ClientLoadoutState.reset();ClientLoadoutState.selected(a);
                 long first=ClientLoadoutState.next();ClientLoadoutState.queried(first);deadline("queryUntil");check(ClientLoadoutState.tick());
                 long second=ClientLoadoutState.next();ClientLoadoutState.queried(second);ClientLoadoutState.accept(load(second,a,0,"new"));ClientLoadoutState.accept(load(first,a,0,"old"));check(ClientLoadoutState.current().status().equals("new"));

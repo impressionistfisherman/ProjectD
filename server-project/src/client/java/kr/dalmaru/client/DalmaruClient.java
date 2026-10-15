@@ -75,7 +75,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();ClientRequestState.selected(payload.characterId());requestLoadout();requestSkillRanks();
+                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientQuestState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();ClientRequestState.selected(payload.characterId());requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -216,10 +216,14 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 		ClientPlayNetworking.send(new DalmaruPayloads.SkillRanksRequest(ClientSkillState.nextRequestId()));
 	}
 
-	public static void requestQuest(boolean accept) {
-		ClientPlayNetworking.send(new DalmaruPayloads.QuestRequest(ClientQuestState.beginRequest(), accept));
-	}
-
+    public static void requestQuest(boolean accept) {
+        long correlation=ClientQuestState.beginRequest();
+        if(!accept){ClientPlayNetworking.send(new DalmaruPayloads.QuestRequest(correlation,false));return;}
+        var quest=kr.dalmaru.content.ContentCatalog.current().quest(kr.dalmaru.quest.QuestRepository.QUEST_ID);var body=new com.google.gson.JsonObject();body.addProperty("questId",kr.dalmaru.quest.QuestRepository.QUEST_ID);body.addProperty("contentVersion",quest.version());
+        var request=ClientRequestState.begin(correlation,"accept_quest",body);
+        if(request==null){ClientQuestState.accept(new DalmaruPayloads.QuestResponse(correlation,"캐릭터 정보 확인 중입니다."));return;}
+        ClientPlayNetworking.send(request);
+    }
 	public static void requestEquipment() {
 		long request=ClientEquipmentState.nextRequestId();ClientEquipmentState.queried(request);ClientPlayNetworking.send(new DalmaruPayloads.EquipmentListRequest(request));
 	}
@@ -234,6 +238,15 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if(target==null||source==null||target.equals(source)||ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(target))||ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(source)))return;
         long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("targetEquipmentId",target.toString());body.addProperty("sourceEquipmentId",source.toString());var request=ClientRequestState.begin(correlation,"inherit_equipment",body);if(request==null)return;
         ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
+    }
+    private static void acceptQuestOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        if("rejected".equals(receipt.state())){ClientQuestState.accept(new DalmaruPayloads.QuestResponse(receipt.correlationId(),"의뢰 수락 조건을 확인하세요."));return;}
+        try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
+            for(String key:new String[]{"questId","contentVersion"})if(!original.has(key)||!original.get(key).isJsonPrimitive()||!original.getAsJsonPrimitive(key).isString()||!original.get(key).getAsString().equals(expected.get(key).getAsString()))throw new IllegalStateException("Invalid quest receipt identity");
+            if(!original.has("created")||!original.get("created").isJsonPrimitive()||!original.getAsJsonPrimitive("created").isBoolean())throw new IllegalStateException("Invalid quest receipt result");
+        }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){ClientQuestState.accept(new DalmaruPayloads.QuestResponse(receipt.correlationId(),"의뢰 결과 확인에 실패했습니다."));}
+        requestQuest(false);
     }
     private static void acceptInheritanceOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
         String message="계승 대상·원본·소유권 조건을 확인하세요.";
@@ -319,6 +332,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("accept_quest".equals(request.operation())){acceptQuestOperation(request,receipt);return;}
         if("inherit_equipment".equals(request.operation())){acceptInheritanceOperation(request,receipt);return;}
         if("refine_item".equals(request.operation())){acceptRefinementOperation(request,receipt);return;}
         if("move_equipment".equals(request.operation())){acceptEquipmentMoveOperation(receipt);return;}

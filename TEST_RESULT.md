@@ -357,3 +357,7 @@
 ## MDF-P1 S09k1 (2026-10-15)
 - PASS: --no-daemon verifyQuestAcceptanceJournal (10초). UUID/다른 correlation/동시 단일 수락/long재생, 원수락결과·2/3진행·REWARDED 최신상태 분리, 재보상·진행초기화 없음, 버전/비활성캐릭터/선택전캐릭터/이전세대 거부, 의뢰 INSERT 뒤 저널확정 UPDATE 실패 시 의뢰·저널 rollback 및 동일UUID 재시도.
 - 새 live wire 미연결·자동 처치 이벤트 journal 미구현·인게임 미실행. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09k2 (2026-10-15)
+- PASS: --no-daemon verifyQuestAcceptanceWire verifyQuestAcceptanceJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (18초). 실제 receipt parser의 replay/reject/quest·version 불일치·created 누락/문자boolean 거부, 원created로 REWARDED 진행상태 미덮어쓰기/읽기조회, 실제 QuestState 선택후 이전response 무효화/요청counter유지, 공통 UUID/context/retry 및 DB 원자성 회귀.
+- 실제 패킷 왕복/인게임/개발 명령 조작은 미실행. 자동kill writer와 run 저널/M14는 아직 남습니다. 독립 QA 요청 대상입니다.

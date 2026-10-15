@@ -402,9 +402,10 @@ public final class DalmaruNetworking {
 				ServerPlayNetworking.send(context.player(), new DalmaruPayloads.QuestResponse(payload.requestId(), "퀘스트를 확인할 캐릭터를 먼저 선택하세요."));
 				return;
 			}
-			AccountSession session = state.accountSession;
+			if(payload.accept()){acceptQuestRequest(context.player(),context.server(),payload.requestId(),null);return;}
+            AccountSession session = state.accountSession;
 			CompletableFuture.supplyAsync(() -> {
-				try { return payload.accept() ? QUESTS.accept(session.activeCharacterId()) : QUESTS.status(session.activeCharacterId()); }
+				try { return QUESTS.status(session.activeCharacterId()); }
 				catch (Exception exception) { throw new IllegalStateException(exception); }
 			}).thenAccept(status -> context.server().execute(() -> {
 				if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.QuestResponse(payload.requestId(), status));
@@ -439,7 +440,11 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "inherit_equipment"->{
+                    case "accept_quest"->{
+                    if(body.size()!=2||!body.has("questId")||!body.get("questId").isJsonPrimitive()||!body.getAsJsonPrimitive("questId").isString()||!body.has("contentVersion")||!body.get("contentVersion").isJsonPrimitive()||!body.getAsJsonPrimitive("contentVersion").isString())throw new IllegalArgumentException("Invalid quest acceptance body");
+                    acceptQuestRequest(context.player(),context.server(),payload.correlationId(),envelope);
+                }
+                case "inherit_equipment"->{
                     if(body.size()!=2||!body.has("targetEquipmentId")||!body.get("targetEquipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("targetEquipmentId").isString()||!body.has("sourceEquipmentId")||!body.get("sourceEquipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("sourceEquipmentId").isString())throw new IllegalArgumentException("Invalid inheritance body");
                     inheritRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("targetEquipmentId").getAsString()),UUID.fromString(body.get("sourceEquipmentId").getAsString()),envelope);
                 }
@@ -674,6 +679,24 @@ public final class DalmaruNetworking {
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Skill learning outcome for {}",session.accountId(),error);
         });return null;});
+    }
+    private static void acceptQuestRequest(ServerPlayer player,MinecraftServer server,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var state=CONNECTIONS.get(player.getUUID());if(correlation<1||state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){
+            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else ServerPlayNetworking.send(player,new DalmaruPayloads.QuestResponse(correlation,"의뢰를 수락할 캐릭터를 먼저 선택하세요."));return;
+        }
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return QUESTS.acceptJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->server.execute(()->{
+                if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                ServerPlayNetworking.send(player,new DalmaruPayloads.QuestResponse(correlation,result.currentStatus()));
+                if(envelope!=null){var original=new com.google.gson.JsonObject();original.addProperty("questId",QuestRepository.QUEST_ID);original.addProperty("contentVersion",QuestRepository.contentVersion());original.addProperty("created",result.created());var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.replayed()));}
+            }))
+            .exceptionally(error->{server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                LOGGER.warn("Quest acceptance outcome for {}",session.accountId(),error);
+                if(envelope==null)ServerPlayNetworking.send(player,new DalmaruPayloads.QuestResponse(correlation,"의뢰 수락 조건을 확인하세요."));
+                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            });return null;});
     }
     private static void inheritRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID target,UUID source,kr.dalmaru.request.RequestEnvelope envelope){
         var state=CONNECTIONS.get(player.getUUID());if(correlation<1||state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
@@ -1202,8 +1225,10 @@ public final class DalmaruNetworking {
 	private static void acceptQuest(ServerPlayer player, MinecraftServer server) {
 		AccountSession session = activeSession(player);
 		if (session == null || session.activeCharacterId() == null) { player.sendSystemMessage(Component.literal("먼저 달마루 캐릭터를 선택하세요.")); return; }
-		CompletableFuture.supplyAsync(() -> { try { return QUESTS.accept(session.activeCharacterId()); } catch (Exception exception) { throw new IllegalStateException(exception); } })
-			.thenAccept(message -> server.execute(() -> player.sendSystemMessage(Component.literal(message))));
+        long correlation=Math.max(1,System.nanoTime()&Long.MAX_VALUE);
+		CompletableFuture.supplyAsync(() -> { try { return QUESTS.acceptJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),null).currentStatus(); } catch (Exception exception) { throw new IllegalStateException(exception); } })
+			.thenAccept(message -> server.execute(() -> {var current=CONNECTIONS.get(player.getUUID());if(current!=null&&current.accountSession==session)player.sendSystemMessage(Component.literal(message));}))
+            .exceptionally(error->{LOGGER.warn("Quest command failed for {}",session.accountId(),error);return null;});
 	}
 
 	private static void showQuestStatus(ServerPlayer player, MinecraftServer server) {
