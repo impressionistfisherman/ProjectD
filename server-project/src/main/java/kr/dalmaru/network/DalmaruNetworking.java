@@ -429,7 +429,13 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "select_profession"->{
+                    case "update_loadout"->{
+                    if(body.size()!=2||!body.has("revision")||!body.get("revision").isJsonPrimitive()||!body.getAsJsonPrimitive("revision").isNumber()||!body.has("slots")||!body.get("slots").isJsonArray()||body.getAsJsonArray("slots").size()!=5)throw new IllegalArgumentException("Invalid loadout body");
+                    long revision;try{revision=body.get("revision").getAsBigDecimal().longValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid loadout revision",error);}
+                    var slots=new java.util.ArrayList<String>();for(var slot:body.getAsJsonArray("slots")){if(!slot.isJsonPrimitive()||!slot.getAsJsonPrimitive().isString())throw new IllegalArgumentException("Invalid loadout slot");slots.add(slot.getAsString());}
+                    updateLoadout(context.player(),new DalmaruPayloads.LoadoutUpdate(payload.correlationId(),envelope.activeCharacterId(),revision,slots),envelope);
+                }
+                case "select_profession"->{
                     if(body.size()!=1||!body.has("profession")||!body.get("profession").isJsonPrimitive()||!body.getAsJsonPrimitive("profession").isString())throw new IllegalArgumentException("Invalid profession body");
                     professionRequest(context,payload.correlationId(),body.get("profession").getAsString(),envelope);
                 }
@@ -1263,13 +1269,29 @@ public final class DalmaruNetworking {
             .exceptionally(error->{LOGGER.warn("Failed to load skill slots.",error);return null;});
     }
     private static void sendLoadout(ServerPlayer player,ConnectionState state,long request,String status){if(cachedForActive(state))ServerPlayNetworking.send(player,new DalmaruPayloads.LoadoutResponse(request,state.loadout.characterId(),state.loadout.revision(),state.loadout.slots(),!state.startPending&&RUN_RUNTIME.runId(player)==null&&(town(player)||PREPARATIONS.containsKey(player.getUUID())),status));}
-    private static void updateLoadout(ServerPlayer player,DalmaruPayloads.LoadoutUpdate payload){
-        var state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.startPending||RUN_RUNTIME.runId(player)!=null||!(town(player)||PREPARATIONS.containsKey(player.getUUID())))return;
-        var session=state.accountSession;if(!payload.characterId().equals(session.activeCharacterId()))return;
-        state.loadoutWrites++;++state.loadoutEpoch;var preparation=PREPARATIONS.get(player.getUUID());if(preparation!=null){preparation.ready.clear();notifyPreparation(preparation,"장착 변경으로 전원 준비가 해제되었습니다.");}
-        CompletableFuture.supplyAsync(()->{try{return LOADOUTS.update(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),payload.requestId(),payload.revision(),payload.slots());}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
-            .thenAccept(result->serverFor(player).execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;state.loadoutWrites--;if(state.startPending)return;var current=serverFor(player).getPlayerList().getPlayer(player.getUUID());if(current==null)return;if(state.loadout==null||result.revision()>=state.loadout.revision())state.loadout=result;sendLoadout(current,state,payload.requestId(),"기술 장착을 저장했습니다.");}))
-            .exceptionally(error->{LOGGER.warn("Rejected skill loadout.",error);serverFor(player).execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;state.loadoutWrites--;var current=serverFor(player).getPlayerList().getPlayer(player.getUUID());if(current!=null&&CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session)sendLoadout(current,state,payload.requestId(),"장착 요청이 거부되었습니다. 목록을 다시 확인하세요.");});return null;});
+    private static void updateLoadout(ServerPlayer player,DalmaruPayloads.LoadoutUpdate payload){updateLoadout(player,payload,null);}
+    private static void updateLoadout(ServerPlayer player,DalmaruPayloads.LoadoutUpdate payload,kr.dalmaru.request.RequestEnvelope envelope){
+        var state=CONNECTIONS.get(player.getUUID());
+        if(state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||payload.requestId()<1||!payload.characterId().equals(state.accountSession.activeCharacterId())){if(envelope!=null)rejectOperation(player,payload.requestId(),envelope.requestId());return;}
+        var session=state.accountSession;boolean editable=!state.startPending&&RUN_RUNTIME.runId(player)==null&&(town(player)||PREPARATIONS.containsKey(player.getUUID()));
+        if(editable){state.loadoutWrites++;++state.loadoutEpoch;}
+        CompletableFuture.supplyAsync(()->{try{return LOADOUTS.updateJournaled(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),payload.requestId(),payload.revision(),payload.slots(),envelope,editable);}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
+            .thenAccept(result->serverFor(player).execute(()->{
+                if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                if(editable)state.loadoutWrites--;var current=serverFor(player).getPlayerList().getPlayer(player.getUUID());if(current==null)return;
+                if(!state.startPending&&(state.loadout==null||result.current().revision()>=state.loadout.revision()))state.loadout=result.current();
+                if(editable&&!result.replayed()){var preparation=PREPARATIONS.get(player.getUUID());if(preparation!=null){preparation.ready.clear();notifyPreparation(preparation,"장착 변경으로 전원 준비가 해제되었습니다.");}}
+                sendLoadout(current,state,payload.requestId(),"기술 장착을 저장했습니다.");
+                if(envelope!=null){var original=new com.google.gson.JsonObject();original.addProperty("revision",result.original().revision());original.add("slots",com.google.gson.JsonParser.parseString(kr.dalmaru.skill.LoadoutRepository.encode(result.original().slots())));var receipt=result.receipt();
+                    ServerPlayNetworking.send(current,new DalmaruPayloads.OperationReceipt(payload.requestId(),receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.replayed()));}
+            }))
+            .exceptionally(error->{LOGGER.warn("Skill loadout outcome.",error);serverFor(player).execute(()->{
+                if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                if(editable)state.loadoutWrites--;var current=serverFor(player).getPlayerList().getPlayer(player.getUUID());if(current==null)return;
+                if(envelope==null)sendLoadout(current,state,payload.requestId(),"장착 요청이 거부되었습니다. 목록을 다시 확인하세요.");
+                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(current,payload.requestId(),envelope.requestId());
+                else ServerPlayNetworking.send(current,new DalmaruPayloads.OperationReceipt(payload.requestId(),envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            });return null;});
     }
     private static void castSlot(ServerPlayer player,DalmaruPayloads.SkillUseRequest payload){
         var state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||!cachedForActive(state)||!payload.characterId().equals(state.accountSession.activeCharacterId())||payload.revision()!=state.loadout.revision()||payload.requestId()<=state.lastCastRequest||payload.slot()<1||payload.slot()>5||!combatMode(player,state)||state.startPending||!player.isAlive()||player.isSpectator())return;

@@ -230,6 +230,10 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
     }
 
+    private static void acceptLoadoutOperation(DalmaruPayloads.OperationReceipt receipt){
+        ClientLoadoutState.completeOperation(receipt.correlationId());requestLoadout();
+    }
+
     private static void acceptProfessionOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
         String status="전직 조건을 확인하세요.";
         if(!"rejected".equals(receipt.state()))try{
@@ -280,6 +284,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}
         if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
@@ -316,7 +321,12 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         var loadout=ClientLoadoutState.current();if(loadout!=null)ClientPlayNetworking.send(new DalmaruPayloads.SkillUseRequest(ClientLoadoutState.next(),loadout.characterId(),loadout.revision(),slot));return true;
     }
     static void requestLoadout(){long requestId=ClientLoadoutState.next();ClientLoadoutState.queried(requestId);ClientPlayNetworking.send(new DalmaruPayloads.LoadoutRequest(requestId));}
-    static void updateLoadout(java.util.List<String> slots){var current=ClientLoadoutState.current();if(current==null||!current.editable()||ClientLoadoutState.waiting())return;long requestId=ClientLoadoutState.next();ClientLoadoutState.pending(requestId);ClientPlayNetworking.send(new DalmaruPayloads.LoadoutUpdate(requestId,current.characterId(),current.revision(),slots));}
+    static void updateLoadout(java.util.List<String> slots){
+        var current=ClientLoadoutState.current();if(current==null||!current.editable()||ClientLoadoutState.waiting())return;
+        long correlation=ClientLoadoutState.next();var body=new com.google.gson.JsonObject();body.addProperty("revision",current.revision());var array=new com.google.gson.JsonArray();slots.forEach(array::add);body.add("slots",array);
+        var request=ClientRequestState.begin(correlation,"update_loadout",body);if(request==null)return;
+        ClientLoadoutState.pending(correlation);ClientLoadoutState.delegateRetry();ClientPlayNetworking.send(request);
+    }
     static void readyRun(){if(!ClientRunState.preparing()||ClientRunState.preparationId()==null)return;ClientPlayNetworking.send(new DalmaruPayloads.RunReadyRequest(ClientRunState.preparationId(),true));}
 
 }

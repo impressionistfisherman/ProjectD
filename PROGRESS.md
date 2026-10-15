@@ -255,3 +255,8 @@
 ## MDF-P1 S09g1 (2026-10-15)
 - 기술 장착 변경 common UUID 저널/long 호환 연결. 저장 원래 revision·slots와 최신 장착 상태를 분리합니다. 변경 후 재생 및 ACTIVE 공략 중의 읽기 전용 재생을 허용하며 새 변경의 버전·직업·기술종류·중복·공략 잠금은 유지합니다. 과거 요청은 저장 revision-1과 slots로 본문을 검증해 채택합니다.
 - 분담 변경: god 통보에 따라 그록이 별도 Dalmaru-mdf-p1-grok/grok/mdf-p1-m08(631e06e 기준)에서 M08 담당. Oscar는 나머지 O28 → M11 → M12 → M13 → M14 순서. M08은 양 게이트 통과 후 합칩니다. 장착 wire는 다음 조각입니다. 전체 PARTIAL.
+
+## MDF-P1 S09g2 (2026-10-15)
+- 기술 장착 common UUID router/client·typed adapter 연결. revision은 정확한 long 정수, 슬롯은 문자열 5개로 검증합니다. 서버는 최신 목록 먼저/저장 원결과 receipt 나중 전송하며 불확실 실패는 같은 UUID로 재시도합니다.
+- 월드 편집 잠금은 새 쓰기만 거부하고 저장 결과 재생은 허용합니다. client 기존 대기 만료 조회를 common 중 위임해 단일 재시도하고, 원결과는 적용하지 않고 최신 목록을 조회합니다. 파티 준비 해제는 실제 새 변경 확정 때만 수행합니다.
+- M08 별도 작업과 같은 DalmaruNetworking 파일을 사용하나 장착 router/updateLoadout 영역만 수정했습니다. 나머지 O28/M11/M12/M13/M14와 M08 합치기 남음. 전체 PARTIAL.

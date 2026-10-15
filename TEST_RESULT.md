@@ -288,3 +288,8 @@
 ## MDF-P1 S09g1 (2026-10-15)
 - PASS: --no-daemon verifyLoadoutJournal (10초). UUID/다른 correlation/동시 단일 revision/legacy 원결과 채택, 원결과·최신 장착 분리, 본문·세대·버전·passive·중복·null 거부, 슬롯 변경 뒤 이력 INSERT 실패 시 슬롯/revision/저널 rollback, ACTIVE 변경 거부·읽기 재생 허용, 종료 후 변경과 고정 스냅샷 보존.
 - 최초 실행은 검사 본문 통과 후 cleanup FK 오류로 FAIL. 요청 이력 정리 순서를 수정하고 해당 계정 fixture를 제거한 뒤 재검사 PASS. 기존 verifyLoadoutDatabase는 별도 oscar_fixture 전용이라 실행하지 않았습니다. oscar_p1_fixture만 사용했으며 실제 던전 입장은 실행하지 않았습니다.
+
+## MDF-P1 S09g2 (2026-10-15)
+- PASS: --no-daemon verifyLoadoutJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (16초). 월드잠금 새 쓰기 거부/기존 UUID 읽기재생, 장착 대기 만료 중 common 단일 재시도·틀린 correlation 무시·완료 후 최신 캐시 보존, 공통 UUID 경계 및 장착 DB 회귀.
+- 첫 컴파일은 router ArrayList 클래스 한정 누락으로 FAIL. 한정명 수정 후 위 검사 PASS. 마지막 파티 준비 해제 조건 이동 뒤 compileJava compileClientJava PASS(8초).
+- 실제 패킷 왕복·파티 준비 알림·인게임 조작은 미실행. M11 실제 world ACK/reconnect는 남습니다. 독립 QA 요청 대상입니다.

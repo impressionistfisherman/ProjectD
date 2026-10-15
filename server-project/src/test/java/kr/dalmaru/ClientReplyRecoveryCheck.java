@@ -56,6 +56,8 @@ public final class ClientReplyRecoveryCheck {
                 ClientLoadoutState.accept(load(mutation,a,2,"late committed"));check(ClientLoadoutState.current().revision()==2);
                 long old=ClientLoadoutState.next();ClientLoadoutState.selected(b);ClientLoadoutState.accept(load(old,b,10,"previous selection"));check(ClientLoadoutState.current()==null);
                 long current=ClientLoadoutState.next();ClientLoadoutState.queried(current);ClientLoadoutState.accept(load(current,b,0,"selected"));check(ClientLoadoutState.current().characterId().equals(b));
+                long common=ClientLoadoutState.next();ClientLoadoutState.pending(common);ClientLoadoutState.delegateRetry();deadline("pendingUntil");check(!ClientLoadoutState.tick()&&ClientLoadoutState.waiting());
+                ClientLoadoutState.completeOperation(common+1);check(ClientLoadoutState.waiting());ClientLoadoutState.completeOperation(common);check(!ClientLoadoutState.waiting()&&ClientLoadoutState.current().revision()==0);
                 ClientSkillState.resetForConnection();long rank1=ClientSkillState.nextRequestId(),rank2=ClientSkillState.nextRequestId();
                 ClientSkillState.accept(new DalmaruPayloads.SkillRanksResponse(rank2,List.of(new DalmaruPayloads.SkillRank("s",2))));ClientSkillState.accept(new DalmaruPayloads.SkillRanksResponse(rank1,List.of(new DalmaruPayloads.SkillRank("s",1))));check(ClientSkillState.rank("s")==2);
                 long stale=ClientSkillState.nextRequestId();ClientSkillState.selected();ClientSkillState.accept(new DalmaruPayloads.SkillRanksResponse(stale,List.of(new DalmaruPayloads.SkillRank("s",3))));check(ClientSkillState.rank("s")==0);

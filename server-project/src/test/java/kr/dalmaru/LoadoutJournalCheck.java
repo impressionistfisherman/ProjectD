@@ -31,6 +31,8 @@ public final class LoadoutJournalCheck {
             repository.update(account,generation,character,5,1,defaults);
             var replay=repository.updateJournaled(account,generation,character,50,0,slots,first);
             check(replay.replayed()&&replay.original().revision()==1&&replay.original().slots().equals(slots)&&replay.current().revision()==2&&replay.current().slots().equals(defaults),"Original versus latest loadout");
+            check(repository.updateJournaled(account,generation,character,52,0,slots,first,false).replayed(),"World-locked read-only replay");
+            reject(()->repository.updateJournaled(account,generation,character,53,2,slots,envelope(UUID.randomUUID(),generation,character,2,slots),false));
             reject(()->repository.updateJournaled(account,generation,character,51,1,slots,envelope(first.requestId(),generation,character,1,slots)));
             reject(()->repository.updateJournaled(account,generation+1,character,51,0,slots,envelope(first.requestId(),generation+1,character,0,slots)));
             reject(()->repository.update(account,generation,character,51,0,slots));

@@ -30,6 +30,9 @@ public final class LoadoutRepository {
         return updateJournaled(account,generation,character,request,expected,slots,null).current();
     }
     public UpdateResult updateJournaled(UUID account,long generation,UUID character,long request,long expected,List<String> slots,RequestEnvelope envelope)throws SQLException {
+        return updateJournaled(account,generation,character,request,expected,slots,envelope,true);
+    }
+    public UpdateResult updateJournaled(UUID account,long generation,UUID character,long request,long expected,List<String> slots,RequestEnvelope envelope,boolean editable)throws SQLException {
         if(generation<1||request<1||expected<0||character==null||slots==null||slots.size()!=5||slots.stream().anyMatch(Objects::isNull))throw new IllegalArgumentException("Invalid loadout request.");
         slots=List.copyOf(slots);
         var body=new JsonObject();body.addProperty("revision",expected);body.add("slots",JsonParser.parseString(encode(slots)));
@@ -49,6 +52,7 @@ public final class LoadoutRepository {
                     var receipt=RequestJournal.confirm(c,stored,outcome(original));var current=load(c,character);c.commit();return new UpdateResult(current,original,true,receipt);
                 }}
             }
+            if(!editable)throw new IllegalArgumentException("Loadout cannot be changed in the current world state.");
             try(var run=c.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r USING(run_id) WHERE p.character_id=? AND r.state IN ('ACTIVE','PAUSED') FOR UPDATE OF r")){
                 run.setObject(1,character);try(var row=run.executeQuery()){if(row.next())throw new IllegalArgumentException("Run loadout is locked.");}
             }
