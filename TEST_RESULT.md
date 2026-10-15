@@ -377,3 +377,5 @@
 
 ## MDF-P1 run writer (2026-10-15)
 - PASS: --no-daemon verifyRunJournal verifyCharacterRun (10초). 같은 입장 요청은 런 하나와 저널 한 행만 만들고, 난이도를 바꾼 재사용은 거부했습니다. 인게임 입장과 운영 DB는 실행하지 않았습니다.
+
+- 2026-10-15 MDF-P1 M14a: PASS --no-daemon compileJava compileClientJava testClasses verifyProtocolVersion verifyOperationWire (15s). 상수 31, Hello/Welcome 코덱 왕복, 서버 불일치 시 disconnect→return이 compatible/Welcome보다 앞섬, 클라이언트 동일 버전 Welcome만 수락(소스 순서 검사). 실제 불일치 접속은 미실행.

@@ -365,3 +365,5 @@
 
 ## MDF-P1 run writer (2026-10-15)
 - 클라이언트 입장 요청은 RunRepository.enter 안에서 기존 operation_requests에 한 번 기록되고, 같은 요청은 같은 런을 돌려줍니다. 본문이 바뀌면 거부합니다. 입장 실패 시 cancelNewEntry는 그대로 두고, 저장·복귀 확인은 서버가 이어서 처리하므로 별도 저널을 만들지 않았습니다. 전체 PARTIAL.
+
+- 2026-10-15 MDF-P1 M14a: 개발 protocol 30→31 (DalmaruNetworking.PROTOCOL_VERSION, 서버·클라이언트 공유; S09i2 RefinementState 패킷 포함). verifyProtocolVersion 추가(상수·Hello/Welcome 코덱·불일치 거부 순서). PASS compileJava compileClientJava testClasses verifyProtocolVersion verifyOperationWire (15s). 실제 서버·클라이언트 접속·운영 변경 없음, 전체 PARTIAL.
