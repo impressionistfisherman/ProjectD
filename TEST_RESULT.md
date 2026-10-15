@@ -312,3 +312,7 @@
 ## MDF-P1 S09i1 (2026-10-15)
 - PASS: --no-daemon verifyRefinementJournal verifyEquipmentMoveJournal (14초). UUID/다른 correlation/동시 한 번 차감·추첨·원장, 저널event-원장 연결, legacy 원결과 채택/최신 재련 분리, 본문·소유권·재접속 전 세대(long/UUID) 거부, 차감·추첨 변경 후 INSERT 실패 시 비용/상태/저널/원장 전체 rollback, 같은UUID 재시도 성공.
 - 재련 실행 caller/UI/패킷은 현재 없으며 인게임 검사는 미실행. 독립 QA 요청 대상입니다.
+
+## MDF-P1 M13a 통합 (2026-10-15)
+- PASS: --no-daemon compileJava (5초) 1회. merge 결과 신규 스크립트·증적 문서 2개 추가, 충돌 없음.
+- 복원훈련은 Oscar가 재실행하지 않았습니다. Creed/Jim PASS 및 RTO 2.656초는 god의 독립 검증 통보이며 이번 컴파일 검사와 구분합니다.
