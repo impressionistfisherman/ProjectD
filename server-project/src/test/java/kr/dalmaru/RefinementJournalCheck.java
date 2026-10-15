@@ -52,7 +52,9 @@ public final class RefinementJournalCheck {
             var reconnect=new AccountRepository().openSession(account);
             reject(()->repository.refinementState(account,generation,item));
             reject(()->repository.refine(account,generation,5,item));reject(()->repository.refineJournaled(account,generation,60,item,first));
-            reject(()->repository.refineJournaled(account,reconnect.connectionGeneration(),60,item,envelope(first.requestId(),reconnect.connectionGeneration(),character,item)));
+            long beforeReconnect=value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character);
+            var reconnectReplay=repository.refineJournaled(account,reconnect.connectionGeneration(),60,item,envelope(first.requestId(),reconnect.connectionGeneration(),character,item));
+            check(reconnectReplay.original().replayed()&&reconnectReplay.receipt().eventId().equals(saved.receipt().eventId())&&reconnectReplay.original().grade()==saved.original().grade()&&reconnectReplay.original().success()==saved.original().success()&&value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==beforeReconnect,"Reconnect generation did not return the stored refinement");
             System.out.println("PASS refinement UUID/concurrent/legacy, frozen roll/latest state, charge and ledger once, owner/body/stale-session, atomic rollback");
         }finally{drop(trap);sql("DELETE FROM dalmaru.character_refinement_requests WHERE account_id=?",account);sql("DELETE FROM dalmaru.character_currency_ledger WHERE character_id IN(SELECT character_id FROM dalmaru.characters WHERE account_id=?)",account);EnhancementReplayCheck.cleanup(account);}
     }

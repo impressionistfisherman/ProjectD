@@ -332,3 +332,7 @@
 ## MDF-P1 M11b (2026-10-15)
 - PASS: --no-daemon verifyRequestJournal verifyClientRequestEnvelope compileJava compileClientJava (19초). 재접속 세대의 같은 UUID는 저장 결과와 같은 강화 이벤트를 돌려주고 구리를 다시 차감하지 않았습니다. 이전 세대 패킷과 다른 본문은 거부했습니다. 클라이언트는 끊긴 동안 재전송하지 않다가, 같은 캐릭터의 새 세대가 오면 같은 UUID를 다시 보냅니다.
 - 인게임 끊김·패킷 도착·라이브 서버·운영 DB는 실행하지 않았습니다.
+
+## MDF-P1 M11b 수정 (2026-10-15)
+- 기준 b8779d1: 실패했던 6개 검사 PASS (26초). 그 결과는 잔여 행이 아니라 잠금 순서 회귀를 가릅니다.
+- 수정 후 --no-daemon verifySkillJournal verifyStatJournal verifyResetJournal verifyProfessionJournal verifyLoadoutJournal verifyRefinementJournal verifyRequestJournal PASS (24초). 인게임 끊김은 실행하지 않았습니다.
