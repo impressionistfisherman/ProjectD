@@ -3,6 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $log = $null
 $err = $null
+$init = $null
 function Say([string]$text) {
     if ($env:DALMARU_DB_PASSWORD) { $text = $text.Replace($env:DALMARU_DB_PASSWORD, '***') }
     Write-Output $text
@@ -21,8 +22,11 @@ try {
     if ($tasks.Count -eq 0 -or $tasks.Count -ne $expected.Count) { Say 'FAIL task list does not match build.gradle'; exit 1 }
     $log = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.log')
     $err = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.err')
+    $init = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.init.gradle')
+    $quoted = ($tasks | ForEach-Object { "'" + ($_ -replace "'","") + "'" }) -join ','
+    Set-Content -Encoding ASCII -Path $init -Value ("gradle.taskGraph.whenReady { graph -> def names = [" + $quoted + "] as Set; graph.allTasks.each { task -> if (names.contains(task.name)) task.outputs.upToDateWhen { false } } }")
     $env:DALMARU_DB_NAME = 'oscar_p1_fixture'
-    $gradleArgs = @('--no-daemon','--continue') + $tasks
+    $gradleArgs = @('--no-daemon','--continue','--init-script', $init) + $tasks
     $proc = Start-Process -FilePath (Join-Path $project 'gradlew.bat') -ArgumentList $gradleArgs -WorkingDirectory $project -Wait -PassThru -NoNewWindow -RedirectStandardOutput $log -RedirectStandardError $err
     $text = ''
     if (Test-Path $log) { $text += [IO.File]::ReadAllText($log) }
@@ -30,9 +34,10 @@ try {
     $rows = @()
     $failed = $false
     foreach ($name in $tasks) {
-        $ran = $text -match [regex]::Escape("> Task :$name")
-        $bad = $text -match [regex]::Escape("> Task :$name FAILED")
-        $result = if ($ran -and -not $bad) { 'PASS' } else { 'FAIL' }
+        $ran = [regex]::IsMatch($text, "(?m)^> Task :$([regex]::Escape($name))\s*$")
+        $skipped = [regex]::IsMatch($text, "(?m)^> Task :$([regex]::Escape($name)) (UP-TO-DATE|FROM-CACHE|NO-SOURCE|SKIPPED)")
+        $bad = [regex]::IsMatch($text, "(?m)^> Task :$([regex]::Escape($name)) FAILED")
+        $result = if ($ran -and -not $skipped -and -not $bad) { 'PASS' } else { 'FAIL' }
         if ($result -eq 'FAIL') { $failed = $true }
         $rows += '{0,-36} {1}' -f $name, $result
     }
@@ -49,4 +54,5 @@ try {
 finally {
     if ($log -and (Test-Path $log)) { Remove-Item -Force $log -ErrorAction SilentlyContinue }
     if ($err -and (Test-Path $err)) { Remove-Item -Force $err -ErrorAction SilentlyContinue }
+    if ($init -and (Test-Path $init)) { Remove-Item -Force $init -ErrorAction SilentlyContinue }
 }
