@@ -12,7 +12,7 @@ import com.google.gson.JsonObject;
 
 public final class TrialGrowthCheck {
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P2 fixture required; never use the playtest database");
+        if(!"oscar_p3_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P3 fixture required; never use the playtest database");
         display();
         UUID account=UUID.randomUUID();String trap="trial_release_"+account.toString().replace("-","");
         try {
@@ -67,7 +67,7 @@ public final class TrialGrowthCheck {
         try(var c=connection()){c.setAutoCommit(false);try{var p=CharacterRepository.recalculateLevelForRelease(c,character);c.commit();return p;}catch(SQLException|RuntimeException e){c.rollback();throw e;}}
     }
     private static long xp(int from,int to){long total=0;for(int level=from;level<to;level++)total+=CharacterRepository.experienceNeededForNextLevel(level);return total;}
-    private static Connection connection()throws SQLException{return DriverManager.getConnection("jdbc:postgresql://localhost:15432/oscar_p2_fixture","postgres",System.getenv("DALMARU_DB_PASSWORD"));}
+    private static Connection connection()throws SQLException{return DriverManager.getConnection("jdbc:postgresql://localhost:15432/oscar_p3_fixture","postgres",System.getenv("DALMARU_DB_PASSWORD"));}
     private static void quest(UUID character)throws SQLException {try(var c=connection();var q=c.prepareStatement("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state) VALUES(?,'pilot1.zombie_hunt','pilot-1','REWARDED')")){q.setObject(1,character);q.executeUpdate();ProfessionGateFixture.complete(c,character,CharacterProfession.WARRIOR);}}
     private static void drop(String name)throws SQLException {try(var c=connection();var q=c.createStatement()){q.execute("DROP TRIGGER IF EXISTS "+name+" ON dalmaru.character_profiles");q.execute("DROP FUNCTION IF EXISTS dalmaru."+name+"()");}}
     private static void cleanup(UUID account)throws SQLException {

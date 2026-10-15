@@ -10,7 +10,7 @@ function Say([string]$text) {
 }
 try {
     if ([string]::IsNullOrWhiteSpace($env:DALMARU_DB_PASSWORD)) { Say 'FAIL database password is not configured'; exit 1 }
-    if ($env:DALMARU_DB_NAME -notin @('oscar_p1_fixture','oscar_p2_fixture')) { Say 'FAIL explicit P1 or P2 fixture required'; exit 1 }
+    if ($env:DALMARU_DB_NAME -notin @('oscar_p3_fixture')) { Say 'FAIL explicit P3 fixture required'; exit 1 }
     $root = Split-Path -Parent $PSScriptRoot
     $project = Join-Path $root 'server-project'
     $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
