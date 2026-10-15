@@ -1,15 +1,11 @@
 package kr.dalmaru.ops;
 
-import com.google.gson.JsonObject;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.UUID;
-import kr.dalmaru.request.RequestEnvelope;
-import kr.dalmaru.request.RequestJournal;
 
-/** Idempotent operator grant and revoke. The target is the session's active character. */
+/** Operator grant and revoke. The target character need not be online or selected. */
 public final class OperatorLedger {
     private final String url;
     private final String username;
@@ -25,60 +21,87 @@ public final class OperatorLedger {
         try { Class.forName("org.postgresql.Driver"); } catch (ClassNotFoundException error) { throw new ExceptionInInitializerError(error); }
     }
 
-    public record Adjustment(UUID requestId, UUID eventId, String kind, String itemId, int delta, String reason, int appliedBalance, int currentBalance, boolean replayed) {}
+    public record Adjustment(UUID operatorAccountId, long requestNo, UUID targetAccountId, UUID characterId, UUID eventId, String kind, String itemId, int delta, String reason, int appliedBalance, int currentBalance, boolean replayed) {}
 
-    public String submit(UUID account, long generation, UUID active, UUID target, String kind, String itemId, int delta, long request, String reason) {
-        if (active == null) return "먼저 달마루 캐릭터를 선택하세요.";
-        if (target == null || !active.equals(target)) return "대상은 현재 선택한 캐릭터여야 합니다.";
-        var payload = new JsonObject();
-        payload.addProperty("kind", kind);
-        if (itemId != null) payload.addProperty("itemId", itemId);
-        payload.addProperty("delta", delta);
-        payload.addProperty("reason", reason == null ? "" : reason);
+    public String submit(UUID operator, UUID character, String kind, String itemId, int delta, long request, String reason) {
+        if (operator == null || character == null) return "대상 캐릭터를 찾지 못했습니다.";
         try {
-            Adjustment result = adjust(account, request, RequestEnvelope.legacy(account, generation, active, "operator_adjust", request, payload));
+            Adjustment result = adjust(operator, character, kind, itemId, delta, request, reason);
             return (result.replayed() ? "이미 처리된 요청입니다. " : "처리했습니다. ") + result.kind() + " " + result.delta() + ", 적용 잔액 " + result.appliedBalance() + ", 현재 잔액 " + result.currentBalance();
         } catch (IllegalArgumentException error) {
             return switch (String.valueOf(error.getMessage())) {
                 case "Insufficient balance." -> "잔액이 부족해 회수하지 않았습니다.";
                 case "Request ID was reused with another owner or body" -> "같은 요청 번호의 내용이 다릅니다.";
+                case "Character was not found." -> "대상 캐릭터를 찾지 못했습니다.";
                 default -> "지급·회수를 거부했습니다.";
             };
         } catch (SQLException error) { return "지급·회수를 저장하지 못했습니다."; }
     }
 
-    public Adjustment adjust(UUID account, long legacyRequest, RequestEnvelope envelope) throws SQLException {
+    public Adjustment adjust(UUID operator, UUID character, String kind, String itemId, int delta, long request, String reason) throws SQLException {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
-        if (!"operator_adjust".equals(envelope.operation())) throw new IllegalArgumentException("Not an operator adjustment.");
-        Request body = Request.read(envelope.payload());
+        if (operator == null || character == null || request < 1) throw new IllegalArgumentException("Adjustment is not allowed.");
+        Body body = Body.read(kind, itemId, delta, reason);
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             connection.setAutoCommit(false);
             try {
-                var stored = RequestJournal.begin(connection, account, legacyRequest, envelope);
-                if (stored.result() != null) {
-                    Request saved = Request.read(stored.result());
-                    int current = balance(connection, envelope.activeCharacterId(), saved);
+                UUID targetAccount = owner(connection, character);
+                lock(connection, operator, targetAccount);
+                Adjustment stored = stored(connection, operator, request);
+                if (stored != null) {
+                    if (!character.equals(stored.characterId()) || !body.same(stored)) throw new IllegalArgumentException("Request ID was reused with another owner or body");
+                    int current = balance(connection, character, body);
                     connection.commit();
-                    return new Adjustment(stored.receipt().requestId(), stored.receipt().eventId(), saved.kind, saved.itemId, saved.delta, saved.reason, saved.balance, current, true);
+                    return new Adjustment(operator, request, stored.targetAccountId(), character, stored.eventId(), body.kind, body.itemId, body.delta, body.reason, stored.appliedBalance(), current, true);
                 }
-                int applied = apply(connection, envelope.activeCharacterId(), body);
-                var outcome = body.outcome(applied);
-                var receipt = RequestJournal.confirm(connection, stored, outcome);
-                try (var insert = connection.prepareStatement("INSERT INTO dalmaru.operator_adjustments(request_id,account_id,character_id,event_id,kind,item_id,delta,reason,result_balance) VALUES(?,?,?,?,?,?,?,?,?)")) {
-                    insert.setObject(1, receipt.requestId()); insert.setObject(2, account); insert.setObject(3, envelope.activeCharacterId()); insert.setObject(4, receipt.eventId());
-                    insert.setString(5, body.kind); insert.setString(6, body.itemId); insert.setInt(7, body.delta); insert.setString(8, body.reason); insert.setInt(9, applied);
+                int applied = apply(connection, character, body);
+                UUID event = UUID.randomUUID();
+                try (var insert = connection.prepareStatement("INSERT INTO dalmaru.operator_adjustments(operator_account_id,request_no,target_account_id,character_id,event_id,kind,item_id,delta,reason,result_balance) VALUES(?,?,?,?,?,?,?,?,?,?)")) {
+                    insert.setObject(1, operator); insert.setLong(2, request); insert.setObject(3, targetAccount); insert.setObject(4, character); insert.setObject(5, event);
+                    insert.setString(6, body.kind); insert.setString(7, body.itemId); insert.setInt(8, body.delta); insert.setString(9, body.reason); insert.setInt(10, applied);
                     insert.executeUpdate();
                 }
                 if ("copper".equals(body.kind)) try (var currency = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id,character_id,source_run_id,reason,copper_delta) VALUES(?,?,NULL,?,?)")) {
-                    currency.setObject(1, receipt.eventId()); currency.setObject(2, envelope.activeCharacterId()); currency.setString(3, body.reason); currency.setInt(4, body.delta); currency.executeUpdate();
+                    currency.setObject(1, event); currency.setObject(2, character); currency.setString(3, body.reason); currency.setInt(4, body.delta); currency.executeUpdate();
                 }
                 connection.commit();
-                return new Adjustment(receipt.requestId(), receipt.eventId(), body.kind, body.itemId, body.delta, body.reason, applied, applied, false);
+                return new Adjustment(operator, request, targetAccount, character, event, body.kind, body.itemId, body.delta, body.reason, applied, applied, false);
             } catch (RuntimeException | SQLException error) { connection.rollback(); throw error; }
         }
     }
 
-    private static int apply(Connection connection, UUID character, Request body) throws SQLException {
+    private static UUID owner(Connection connection, UUID character) throws SQLException {
+        try (var query = connection.prepareStatement("SELECT account_id FROM dalmaru.characters WHERE character_id=?")) {
+            query.setObject(1, character);
+            try (var row = query.executeQuery()) { if (!row.next()) throw new IllegalArgumentException("Character was not found."); return row.getObject(1, UUID.class); }
+        }
+    }
+
+    private static void lock(Connection connection, UUID operator, UUID target) throws SQLException {
+        UUID first = operator.compareTo(target) <= 0 ? operator : target;
+        UUID second = first.equals(operator) ? target : operator;
+        hold(connection, first);
+        if (!first.equals(second)) hold(connection, second);
+    }
+
+    private static void hold(Connection connection, UUID account) throws SQLException {
+        try (var query = connection.prepareStatement("SELECT account_id FROM dalmaru.accounts WHERE account_id=? FOR UPDATE")) {
+            query.setObject(1, account);
+            try (var row = query.executeQuery()) { if (!row.next()) throw new IllegalArgumentException("Character was not found."); }
+        }
+    }
+
+    private static Adjustment stored(Connection connection, UUID operator, long request) throws SQLException {
+        try (var query = connection.prepareStatement("SELECT target_account_id,character_id,event_id,kind,item_id,delta,reason,result_balance FROM dalmaru.operator_adjustments WHERE operator_account_id=? AND request_no=? FOR UPDATE")) {
+            query.setObject(1, operator); query.setLong(2, request);
+            try (var row = query.executeQuery()) {
+                if (!row.next()) return null;
+                return new Adjustment(operator, request, row.getObject(1, UUID.class), row.getObject(2, UUID.class), row.getObject(3, UUID.class), row.getString(4), row.getString(5), row.getInt(6), row.getString(7), row.getInt(8), row.getInt(8), true);
+            }
+        }
+    }
+
+    private static int apply(Connection connection, UUID character, Body body) throws SQLException {
         try {
             return switch (body.kind) {
                 case "copper" -> returning(connection, "INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,?) ON CONFLICT(character_id) DO UPDATE SET copper=dalmaru.character_wallet.copper+EXCLUDED.copper WHERE dalmaru.character_wallet.copper+EXCLUDED.copper>=0 RETURNING copper", character, null, body.delta);
@@ -101,7 +124,7 @@ public final class OperatorLedger {
         }
     }
 
-    private static int balance(Connection connection, UUID character, Request body) throws SQLException {
+    private static int balance(Connection connection, UUID character, Body body) throws SQLException {
         String sql = switch (body.kind) {
             case "copper" -> "SELECT COALESCE((SELECT copper FROM dalmaru.character_wallet WHERE character_id=?),0)";
             case "skill_points" -> "SELECT unspent_skill_points FROM dalmaru.character_profiles WHERE character_id=?";
@@ -115,28 +138,13 @@ public final class OperatorLedger {
         }
     }
 
-    private record Request(String kind, String itemId, int delta, String reason, int balance) {
-        static Request read(JsonObject payload) {
-            if (payload.get("kind") == null || payload.get("delta") == null || payload.get("reason") == null) throw new IllegalArgumentException("Adjustment body is incomplete.");
-            String kind = payload.get("kind").getAsString();
-            String itemId = payload.get("itemId") == null || payload.get("itemId").isJsonNull() ? null : payload.get("itemId").getAsString();
-            BigDecimal number = payload.get("delta").getAsBigDecimal();
-            if (number.stripTrailingZeros().scale() > 0) throw new IllegalArgumentException("Adjustment delta must be a whole number.");
-            int delta = number.intValueExact();
-            String reason = payload.get("reason").getAsString().trim();
-            int balance = payload.get("balance") == null || payload.get("balance").isJsonNull() ? -1 : payload.get("balance").getAsInt();
-            if (!kind.matches("copper|material|skill_points") || delta == 0 || delta < -1_000_000 || delta > 1_000_000 || reason.isEmpty() || reason.length() > 200) throw new IllegalArgumentException("Adjustment is not allowed.");
+    private record Body(String kind, String itemId, int delta, String reason) {
+        static Body read(String kind, String itemId, int delta, String reason) {
+            String cleaned = reason == null ? "" : reason.trim();
+            if (kind == null || !kind.matches("copper|material|skill_points") || delta == 0 || delta < -1_000_000 || delta > 1_000_000 || cleaned.isEmpty() || cleaned.length() > 200) throw new IllegalArgumentException("Adjustment is not allowed.");
             if ("material".equals(kind) ? itemId == null || !itemId.matches("[a-z][a-z0-9._]{0,63}") : itemId != null) throw new IllegalArgumentException("Adjustment item does not match its kind.");
-            return new Request(kind, itemId, delta, reason, balance);
+            return new Body(kind, itemId, delta, cleaned);
         }
-        JsonObject outcome(int applied) {
-            var result = new JsonObject();
-            result.addProperty("kind", kind);
-            if (itemId != null) result.addProperty("itemId", itemId);
-            result.addProperty("delta", delta);
-            result.addProperty("reason", reason);
-            result.addProperty("balance", applied);
-            return result;
-        }
+        boolean same(Adjustment stored) { return kind.equals(stored.kind()) && java.util.Objects.equals(itemId, stored.itemId()) && delta == stored.delta() && reason.equals(stored.reason()); }
     }
 }

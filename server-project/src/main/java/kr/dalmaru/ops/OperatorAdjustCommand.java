@@ -39,7 +39,7 @@ public final class OperatorAdjustCommand {
 									long request = LongArgumentType.getLong(context, "request");
 									String reason = StringArgumentType.getString(context, "reason");
 									CompletableFuture.runAsync(() -> {
-										String message = session == null ? "먼저 달마루 캐릭터를 선택하세요." : new OperatorLedger().submit(session.accountId(), session.connectionGeneration(), session.activeCharacterId(), target, kind, "-".equals(item) ? null : item, delta, request, reason);
+										String message = session == null ? "먼저 달마루 계정에 접속하세요." : new OperatorLedger().submit(session.accountId(), target, kind, "-".equals(item) ? null : item, delta, request, reason);
 										server.execute(() -> player.sendSystemMessage(Component.literal(message)));
 									});
 									return 1;

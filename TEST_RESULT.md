@@ -316,3 +316,7 @@
 ## MDF-P1 M08 통합 (2026-10-15)
 - PASS: --no-daemon verifyRunEncounterRules verifyPremergeRuntime verifyLoadoutJournal verifyEquipmentMoveJournal compileJava compileClientJava 1회 실행 (12초). M08 규칙/생산 메서드 회귀와 O28 장착·장비 이동 fixture 회귀 확인.
 - 운영·실제 접속 종료·인게임 조작 미실행. 잔류 사망 뒤 DB 런 FAILED 전이는 M11 추가 구현 대상으로 남습니다.
+
+## MDF-P1 M12b 수정 (2026-10-15)
+- PASS: --no-daemon verifyOperatorLedger compileJava (12초, compileClientJava 포함). oscar_p1_fixture에서 기존 operator_adjustments만 지우고 V027을 다시 적용했습니다. 다른 계정 캐릭터 지급, 운영자 계정과 대상 계정 분리, 선택하지 않은 대상, 같은 요청 재생, 초과 회수 거부, 대상 계정 잠금 대기 후 지급을 확인했습니다.
+- 접속 중인 대상에게 최신 프로필을 보내는 것, 인게임 명령, 권한 없는 플레이어, 라이브 서버는 실행하지 않았습니다.

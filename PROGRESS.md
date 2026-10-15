@@ -285,3 +285,6 @@
 ## MDF-P1 M08 통합 (2026-10-15)
 - god 지시에 따라 Creed+Jim PASS인 grok/mdf-p1-m08(ad1dc2c)을 Oscar 브랜치에 로컬 merge했습니다. PROGRESS/TEST_RESULT 말미 충돌은 양쪽 기록을 모두 보존했습니다. Networking 자동 합치기 diff는 RunRuntime에 COMBAT::hurtLinger를 연결하는 생성자 변경이며 O28 요청 경로는 유지합니다.
 - M11 추가 요구: 잔류 개체 사망으로 전멸할 때 DB 런이 PAUSED로 남지 않고 FAILED가 되도록 처리·검증해야 합니다. 현재 합치기에 완료로 포함하지 않습니다.
+
+## MDF-P1 M12b 수정 (2026-10-15)
+- 대상은 운영자의 활성 캐릭터와 무관합니다. 오프라인 캐릭터도 계정 행을 잠근 뒤 가감합니다. 원장은 operator_account_id와 target_account_id를 나눕니다. 같은 운영자 요청 번호는 한 번만 적용하고, 클라이언트 RequestJournal은 쓰지 않습니다. V027만 고쳤고 새 번호는 없습니다. 접속 중 대상에게 프로필을 보내는 일은 하지 않았습니다. 전체 PARTIAL.
