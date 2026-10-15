@@ -780,3 +780,44 @@
 | PowerShell ? ?? ??/P1/P2/postgres ?? 8? | PASS |
 | P3 ?? ?? | ??? |
 - ?? ?? ? DB ?? ??. S07 ?? ??? compileJava/compileClientJava PASS(12?)? guard ?? ??? ??.
+
+- 2026-10-15 cherry-pick 3e045a3 뒤 공식 tools/p1_regression.ps1. DB는 oscar_p3_fixture. 2차(최신) exit 1. 1차 FAIL은 verifyCharacterProfession, verifyProfessionGate, verifyStoryQuestCurve. init 없는 같은 태스크 gradlew --continue는 exit 0. 인게임 미실행.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyStarterSupply` | 예 | PASS |
+| `verifyGrowthRewardGrant` | 예 | PASS |
+| `verifyCharacterDeletion` | 예 | FAIL |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyQuestStages` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | FAIL |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyAccountVault` | 예 | PASS |
+| `verifySupplyStay` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `verifyWaypointReturn` | 예 | PASS |
+| `verifyStoryQuestCurve` | 예 | PASS |
+| `verifyStoryInvestigationLink` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |
