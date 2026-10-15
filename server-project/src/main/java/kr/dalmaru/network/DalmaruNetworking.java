@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 31;
+	public static final int PROTOCOL_VERSION = 32;
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
@@ -76,12 +76,15 @@ public final class DalmaruNetworking {
 	private static final SkillRepository SKILLS = new SkillRepository();
 	private static long currentTick;
     private static final java.util.Set<UUID> FINISHING_RUNS=new java.util.HashSet<>();
+    private static final kr.dalmaru.account.WaypointRepository WAYPOINTS=new kr.dalmaru.account.WaypointRepository();
 
 	private DalmaruNetworking() { }
 
 	public static void initialize() {
         COMBAT.contentSource(RUN_RUNTIME::content);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.WaypointRequest.TYPE,DalmaruPayloads.WaypointRequest.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.WaypointResponse.TYPE,DalmaruPayloads.WaypointResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.Welcome.TYPE, DalmaruPayloads.Welcome.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProbeRequest.TYPE, DalmaruPayloads.ProbeRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.ProbeResponse.TYPE, DalmaruPayloads.ProbeResponse.CODEC);
@@ -192,6 +195,7 @@ public final class DalmaruNetworking {
             ConnectionState state=CONNECTIONS.get(handler.getPlayer().getUUID());
             if(state!=null&&state.connection!=null&&state.connection!=handler)return;
             clearFieldRevive(handler.getPlayer());
+            WAYPOINT_CASTS.remove(handler.getPlayer().getUUID());
             cancelPreparation(handler.getPlayer().getUUID(),"파티원이 접속을 종료하여 준비가 취소되었습니다.");
             CONNECTIONS.remove(handler.getPlayer().getUUID());
             if(state!=null){
@@ -214,8 +218,9 @@ public final class DalmaruNetworking {
 			COMBAT.restoreAfterRespawn(oldPlayer,newPlayer);
             if(!alive){boolean dungeon=RUN_RUNTIME.runId(newPlayer)!=null;RUN_RUNTIME.afterRespawn(oldPlayer,newPlayer);if(dungeon){if(!newPlayer.isSpectator())COMBAT.revived(newPlayer,.25,true,currentTick);}else fieldRespawn(newPlayer);sendRunReviveState(newPlayer);}
 		});
-		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
+		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
+            if(entity instanceof ServerPlayer player&&baseDamageTaken>0)interruptWaypoint(player,"피격으로 귀환이 취소되었습니다.");
 			if (damageTaken > 0) {
 				if (source.getEntity() instanceof ServerPlayer player && hostileCombatEntity(player,entity)) COMBAT.recordValidHit(player, currentTick);
 				if (entity instanceof ServerPlayer player && hostileCombatEntity(player,source.getEntity())) COMBAT.recordValidHit(player, currentTick);
@@ -223,6 +228,7 @@ public final class DalmaruNetworking {
 		});
 		// AFTER_DAMAGE is not fired for lethal damage, so revives are counted here.
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+            if(entity instanceof ServerPlayer player)interruptWaypoint(player,"사망으로 귀환이 취소되었습니다.");
             if(source.getEntity() instanceof ServerPlayer player&&hostileCombatEntity(player,entity))COMBAT.recordValidHit(player,currentTick);
 			if(entity instanceof LivingEntity living)RUN_RUNTIME.mobDied(living);
 			if (entity instanceof ServerPlayer player){if(RUN_RUNTIME.runId(player)==null)fieldDeath(player);else {failRunAfterFinalDeath(player,serverFor(player));sendRunReviveState(player);}}
@@ -259,6 +265,10 @@ public final class DalmaruNetworking {
             .then(literal("equip").then(argument("id",StringArgumentType.word()).then(argument("request",com.mojang.brigadier.arguments.LongArgumentType.longArg(1)).executes(command->{moveEquipment(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"id"),com.mojang.brigadier.arguments.LongArgumentType.getLong(command,"request"),true);return 1;}))))
             .then(literal("unequip").then(argument("id",StringArgumentType.word()).then(argument("request",com.mojang.brigadier.arguments.LongArgumentType.longArg(1)).executes(command->{moveEquipment(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"id"),com.mojang.brigadier.arguments.LongArgumentType.getLong(command,"request"),false);return 1;}))))));
 
+        CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("dalmaru-waypoint")
+            .executes(command->{showWaypoints(command.getSource().getPlayerOrException());return 1;})
+            .then(literal("cancel").executes(command->{interruptWaypoint(command.getSource().getPlayerOrException(),"귀환을 취소했습니다.");return 1;}))
+            .then(literal("return").then(argument("waypoint",StringArgumentType.greedyString()).executes(command->{beginWaypoint(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"waypoint"));return 1;})))));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Hello.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.protocolVersion() != PROTOCOL_VERSION) {
@@ -270,6 +280,7 @@ public final class DalmaruNetworking {
 			sendCharacterSelectionReady(context.player(), state);
 		});
 
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointRequest.TYPE,(payload,context)->waypointRequest(context.player(),payload));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.ProbeRequest.TYPE, (payload, context) -> {
 			if (payload.requestId() <= 0) {
 				disconnect(context, "잘못된 달마루 연결 확인 요청입니다.");
@@ -552,7 +563,7 @@ public final class DalmaruNetworking {
 		if (!Float.isFinite(amount) || amount < 0) throw new IllegalArgumentException("Invalid incoming damage.");
 		if (amount == 0) return 0;
 		if (source.getEntity() instanceof ServerPlayer attacker && COMBAT.managed(attacker) && playerAttack(source)) {
-			COMBAT.attackStarted(attacker);boolean magic = COMBAT.magical(attacker);
+            interruptWaypoint(attacker,"공격으로 귀환이 취소되었습니다.");COMBAT.attackStarted(attacker);boolean magic = COMBAT.magical(attacker);
 			int defense = target instanceof ServerPlayer player ? COMBAT.defense(player, magic) : RUN_RUNTIME.bossDefense(target.getUUID(), magic);
 			double multiplier = source.is(DamageTypeTags.IS_PROJECTILE)&&source.getDirectEntity()!=null?Math.min(1,source.getDirectEntity().getDeltaMovement().length()/3.0):1;
 			return CombatUnits.toEngine(COMBAT.targetedAttack(attacker,target,multiplier,defense,true,currentTick));
@@ -1324,6 +1335,10 @@ public final class DalmaruNetworking {
 		private long equipmentRevision;
 		private Map<String, Integer> skillRanks = new HashMap<>();
         private kr.dalmaru.account.SafeCheckpoint checkpoint;private UUID checkpointCharacter;private String checkpointKey;private kr.dalmaru.skill.SkillLoadout loadout;private boolean manualCombat,startPending,startInvalidated;private long manualUntil,lastCastRequest,loadoutEpoch;private int loadoutWrites;
+        private UUID waypointCharacter,waypointRecoveredCharacter;
+        private long lastWaypointRequestNanos;
+        private final java.util.Set<String> seenWaypoints=new java.util.HashSet<>(),visitingWaypoints=new java.util.HashSet<>();
+        private long nextWaypointVisitTick;
 		private String accountFailure;
 		private boolean selectionReadySent;
 		private long lastProbeNanos = System.nanoTime() - RATE_LIMIT_NANOS;
@@ -1359,7 +1374,7 @@ public final class DalmaruNetworking {
     private static void loadout(ServerPlayer player,long request){
         var state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountSession==null||state.accountFailure!=null)return;var session=state.accountSession;if(session.activeCharacterId()==null)return;long epoch=++state.loadoutEpoch;
         CompletableFuture.supplyAsync(()->{try{TOWNS=CHARACTERS.towns();var active=RUNS.active(session.activeCharacterId());return new LoadedSlots(active==null?LOADOUTS.load(session.activeCharacterId()):RUNS.frozenLoadout(active.runId(),session.activeCharacterId()),SAFETY.load(session.activeCharacterId()));}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
-            .thenAccept(result->serverFor(player).execute(()->{var current=serverFor(player).getPlayerList().getPlayer(player.getUUID());if(current==null||CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session||state.loadoutEpoch!=epoch||state.startPending||!session.activeCharacterId().equals(result.slots().characterId()))return;state.loadout=result.slots();state.checkpoint=result.checkpoint();state.checkpointCharacter=session.activeCharacterId();sendLoadout(current,state,request,"");}))
+            .thenAccept(result->serverFor(player).execute(()->{var current=serverFor(player).getPlayerList().getPlayer(player.getUUID());if(current==null||CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session||state.loadoutEpoch!=epoch||state.startPending||!session.activeCharacterId().equals(result.slots().characterId()))return;state.loadout=result.slots();state.checkpoint=result.checkpoint();state.checkpointCharacter=session.activeCharacterId();sendLoadout(current,state,request,"");recoverWaypoint(current,state);}))
             .exceptionally(error->{LOGGER.warn("Failed to load skill slots.",error);return null;});
     }
     private static void sendLoadout(ServerPlayer player,ConnectionState state,long request,String status){if(cachedForActive(state))ServerPlayNetworking.send(player,new DalmaruPayloads.LoadoutResponse(request,state.loadout.characterId(),state.loadout.revision(),state.loadout.slots(),!state.startPending&&RUN_RUNTIME.runId(player)==null&&(town(player)||PREPARATIONS.containsKey(player.getUUID())),status));}
@@ -1388,6 +1403,7 @@ public final class DalmaruNetworking {
             });return null;});
     }
     private static void castSlot(ServerPlayer player,DalmaruPayloads.SkillUseRequest payload){
+        interruptWaypoint(player,"기술 사용으로 귀환이 취소되었습니다.");
         var state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||!cachedForActive(state)||!payload.characterId().equals(state.accountSession.activeCharacterId())||payload.revision()!=state.loadout.revision()||payload.requestId()<=state.lastCastRequest||payload.slot()<1||payload.slot()>5||!combatMode(player,state)||state.startPending||!player.isAlive()||player.isSpectator())return;
         state.lastCastRequest=payload.requestId();String skill=state.loadout.skill(payload.slot());if(skill.isEmpty())return;
         switch(skill){
@@ -1494,9 +1510,94 @@ public final class DalmaruNetworking {
 
     private static void clearStarting(PreparedRun prep){for(int i=0;i<prep.players.size();i++){var member=CONNECTIONS.get(prep.players.get(i));if(member!=null&&member.accountSession==prep.sessions.get(i)){member.startPending=false;member.startInvalidated=false;}}}
 
+    private record WaypointCast(AccountSession session,kr.dalmaru.account.WaypointChannel channel,UUID request){}
+    private static void waypointRequest(ServerPlayer player,DalmaruPayloads.WaypointRequest request) {
+        var state=CONNECTIONS.get(player.getUUID());
+        if(request.requestId()<=0||!waypointEligible(player,state)||!request.characterId().equals(state.accountSession.activeCharacterId()))return;
+        long now=System.nanoTime();if(!request.action().equals("cancel")&&now-state.lastWaypointRequestNanos<RATE_LIMIT_NANOS){ServerPlayNetworking.send(player,new DalmaruPayloads.WaypointResponse(request.requestId(),request.characterId(),"요청이 너무 빠릅니다. 잠시 후 다시 시도하세요.",java.util.List.of()));return;}state.lastWaypointRequestNanos=now;
+        var session=state.accountSession;String status;java.util.List<String> ids=java.util.List.of();
+        try {
+            switch(request.action()) {
+                case "list" -> {ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());status="해금 역참 목록";}
+                case "return" -> {beginWaypoint(player,request.waypointId());status=WAYPOINT_CASTS.containsKey(player.getUUID())?"귀환 준비 중: 8초 동안 이동하지 마세요.":"귀환을 시작하지 못했습니다. 채팅 안내를 확인하세요.";}
+                case "cancel" -> {interruptWaypoint(player,"귀환을 취소했습니다.");status="귀환 준비 취소";}
+                default -> {return;}
+            }
+            ServerPlayNetworking.send(player,new DalmaruPayloads.WaypointResponse(request.requestId(),session.activeCharacterId(),status,ids));
+        }catch(Exception error){LOGGER.warn("Waypoint request failed for {}",session.accountId(),error);ServerPlayNetworking.send(player,new DalmaruPayloads.WaypointResponse(request.requestId(),session.activeCharacterId(),"역참 요청을 처리하지 못했습니다.",java.util.List.of()));}
+    }
+    private static final Map<UUID,WaypointCast> WAYPOINT_CASTS=new HashMap<>();
+    private static boolean waypointEligible(ServerPlayer player,ConnectionState state) {
+        return state!=null&&state.compatible&&state.accountFailure==null&&state.accountSession!=null&&state.accountSession.activeCharacterId()!=null&&cachedForActive(state)&&player.isAlive()&&!player.isSpectator()&&!state.startPending&&!FIELD_REVIVES.containsKey(player.getUUID())&&player.containerMenu==player.inventoryMenu;
+    }
+    private static void interruptWaypoint(ServerPlayer player,String message){if(WAYPOINT_CASTS.remove(player.getUUID())!=null)player.sendSystemMessage(Component.literal(message));}
+    private static void showWaypoints(ServerPlayer player) {
+        var state=CONNECTIONS.get(player.getUUID());if(!waypointEligible(player,state))return;var session=state.accountSession;
+        try{var ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());player.sendSystemMessage(Component.literal(ids.isEmpty()?"직접 방문한 마을의 역참이 해금됩니다.":"해금 역참: "+String.join(", ",ids)));player.sendSystemMessage(Component.literal("/dalmaru-waypoint return <역참 이름> · 8초 준비 · 15분 재사용 / cancel로 취소"));}
+        catch(Exception error){LOGGER.warn("Cannot list waypoints for {}",session.accountId(),error);player.sendSystemMessage(Component.literal("역참 목록을 읽지 못했습니다."));}
+    }
+    private static void beginWaypoint(ServerPlayer player,String id) {
+        var state=CONNECTIONS.get(player.getUUID());if(!waypointEligible(player,state)||RUN_RUNTIME.runId(player)!=null||COMBAT.remainingCombatTicks(player.getUUID(),currentTick)>0){player.sendSystemMessage(Component.literal("던전 밖 비전투 상태에서 보관함을 닫고 귀환하세요."));return;}
+        if(WAYPOINT_CASTS.containsKey(player.getUUID())){player.sendSystemMessage(Component.literal("이미 귀환을 준비하고 있습니다."));return;}
+        if(PREPARATIONS.containsKey(player.getUUID())){player.sendSystemMessage(Component.literal("던전 입장 준비를 먼저 취소하세요."));return;}
+        var session=state.accountSession;
+        try {
+            var pending=WAYPOINTS.pending(session.accountId(),session.connectionGeneration(),session.activeCharacterId());if(pending!=null){applyWaypoint(player,state,pending);return;}
+            WAYPOINTS.check(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),id);
+            var channel=new kr.dalmaru.account.WaypointChannel(session.activeCharacterId(),session.connectionGeneration(),id,player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ(),currentTick);
+            WAYPOINT_CASTS.put(player.getUUID(),new WaypointCast(session,channel,UUID.randomUUID()));player.sendSystemMessage(Component.literal("귀환 준비 8초: 이동·공격·피격 시 취소됩니다."));
+        }catch(IllegalArgumentException error){player.sendSystemMessage(Component.literal(error.getMessage()));}
+        catch(Exception error){waypointFailure(player,state,error);}
+    }
+    private static void applyWaypoint(ServerPlayer player,ConnectionState state,kr.dalmaru.account.WaypointRepository.Return result) {
+        if(!result.pending())return;
+        try {
+        var session=state.accountSession;
+        if(!waypointEligible(player,state)||PREPARATIONS.containsKey(player.getUUID())||RUN_RUNTIME.runId(player)!=null||COMBAT.remainingCombatTicks(player.getUUID(),currentTick)>0){WAYPOINTS.finish(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),result.request(),false);player.sendSystemMessage(Component.literal("귀환 상태가 바뀌어 취소했습니다. 쿨다운은 소모되지 않습니다."));return;}
+        var point=result.target();var id=net.minecraft.resources.Identifier.tryParse(point.dimension());
+        var level=id==null?null:serverFor(player).getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,id));
+        var safe=level==null?null:safeFieldPosition(player,level,point);
+        if(safe==null){WAYPOINTS.finish(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),result.request(),false);player.sendSystemMessage(Component.literal("역참의 안전한 도착 위치를 찾지 못해 취소했습니다."));return;}
+        try{player.teleportTo(level,safe.x,safe.y,safe.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);if(player.level()!=level||player.position().distanceToSqr(safe)>.01)throw new IllegalStateException("Teleport did not reach the waypoint");}
+        catch(RuntimeException error){WAYPOINTS.finish(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),result.request(),false);LOGGER.warn("Waypoint teleport failed for {}: {}",player.getUUID(),error.getClass().getName());player.sendSystemMessage(Component.literal("귀환 이동에 실패해 취소했습니다."));return;}
+        WAYPOINTS.finish(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),result.request(),true);
+        player.sendSystemMessage(Component.literal("역참 귀환을 완료했습니다. 재사용 대기시간은 15분입니다."));
+        }catch(Exception error){waypointFailure(player,state,error);}
+    }
+    private static void waypointFailure(ServerPlayer player,ConnectionState state,Exception error){state.accountFailure="귀환 저장 결과 확인이 필요합니다.";LOGGER.error("Waypoint result requires recovery for {}",player.getUUID(),error);player.connection.disconnect(Component.literal("귀환 저장 결과를 확인하지 못했습니다. 재접속하여 복구하세요."));}
+    private static void recoverWaypoint(ServerPlayer player,ConnectionState state) {
+        var session=state.accountSession;if(session==null||session.activeCharacterId()==null||session.activeCharacterId().equals(state.waypointRecoveredCharacter))return;
+        try{var pending=WAYPOINTS.pending(session.accountId(),session.connectionGeneration(),session.activeCharacterId());if(pending!=null)applyWaypoint(player,state,pending);state.waypointRecoveredCharacter=session.activeCharacterId();}
+        catch(Exception error){waypointFailure(player,state,error);}
+    }
+    private static void tickWaypoints(MinecraftServer server) {
+        for(var entry:new java.util.ArrayList<>(WAYPOINT_CASTS.entrySet())) {
+            var player=server.getPlayerList().getPlayer(entry.getKey());var state=CONNECTIONS.get(entry.getKey());var cast=entry.getValue();
+            if(player==null||state==null){WAYPOINT_CASTS.remove(entry.getKey());continue;}
+            var status=cast.channel().poll(state.accountSession==null?null:state.accountSession.activeCharacterId(),state.accountSession==null?0:state.accountSession.connectionGeneration(),player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ(),waypointEligible(player,state)&&!PREPARATIONS.containsKey(player.getUUID())&&state.accountSession==cast.session(),COMBAT.remainingCombatTicks(player.getUUID(),currentTick)>0,RUN_RUNTIME.runId(player)!=null,currentTick);
+            if(status==kr.dalmaru.account.WaypointChannel.Status.CANCEL){interruptWaypoint(player,"이동·전투 또는 캐릭터 상태 변경으로 귀환이 취소되었습니다.");continue;}
+            if(status!=kr.dalmaru.account.WaypointChannel.Status.READY)continue;
+            WAYPOINT_CASTS.remove(entry.getKey());var session=cast.session();
+            try{applyWaypoint(player,state,WAYPOINTS.prepare(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),cast.request(),cast.channel().waypoint()));}
+            catch(IllegalArgumentException error){player.sendSystemMessage(Component.literal(error.getMessage()));}
+            catch(Exception error){waypointFailure(player,state,error);}
+        }
+        for(var player:server.getPlayerList().getPlayers()) {
+            var state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null||!player.isAlive()||player.isSpectator()||RUN_RUNTIME.runId(player)!=null)continue;
+            var session=state.accountSession;
+            if(!session.activeCharacterId().equals(state.waypointCharacter)){state.waypointCharacter=session.activeCharacterId();state.seenWaypoints.clear();state.visitingWaypoints.clear();state.nextWaypointVisitTick=0;}
+            if(currentTick<state.nextWaypointVisitTick)continue;
+            var pos=player.blockPosition();var zone=TOWNS.stream().filter(town->town.contains(player.level().dimension().identifier().toString(),pos.getX(),pos.getY(),pos.getZ())).findFirst().orElse(null);
+            if(zone==null||state.seenWaypoints.contains(zone.waypointId())||!state.visitingWaypoints.add(zone.waypointId()))continue;
+            String dimension=player.level().dimension().identifier().toString();double x=player.getX(),y=player.getY(),z=player.getZ();
+            CompletableFuture.runAsync(()->{try{WAYPOINTS.unlock(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),zone.waypointId(),dimension,x,y,z);}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
+                .whenComplete((ignored,error)->server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||!session.activeCharacterId().equals(state.waypointCharacter))return;state.visitingWaypoints.remove(zone.waypointId());if(error==null&&state.accountSession==session)state.seenWaypoints.add(zone.waypointId());else if(error!=null){state.nextWaypointVisitTick=currentTick+20;LOGGER.warn("Waypoint visit save failed for {}",player.getUUID(),error);}}));
+        }
+    }
+
     private record DodgeMotion(net.minecraft.world.phys.Vec3 direction,long until){}
     private static final Map<UUID,DodgeMotion> DODGES=new java.util.HashMap<>();
-    public static void attackStarted(ServerPlayer player){COMBAT.attackStarted(player);}
+    public static void attackStarted(ServerPlayer player){interruptWaypoint(player,"공격으로 귀환이 취소되었습니다.");COMBAT.attackStarted(player);}
     public static boolean managedGuard(LivingEntity entity){return entity instanceof ServerPlayer player&&COMBAT.managed(player);}
     public static boolean resistsStagger(LivingEntity entity){return entity instanceof ServerPlayer player&&COMBAT.resistsStagger(player.getUUID(),currentTick);}
     private static void dodge(ServerPlayer player,int direction){

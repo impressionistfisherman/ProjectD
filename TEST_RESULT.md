@@ -489,3 +489,42 @@
 | `verifyTrialGrowth` | 예 | PASS |
 | `verifyProfessionGate` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
+
+
+## P2-S08 구현 및 검증 (2026-10-15)
+- 첫 직접 방문 해금, 비전투 160tick 준비, 이동·공격·기술·피격·사망·캐릭터/세션 변경 취소. 던전과 입장 준비 중 일반 귀환 금지. 캐릭터 전체 900초 쿨다운.
+- V031 character_waypoints + 공통 RequestJournal. 예약·결과 확정 원자 처리, 취소 환불, ACK 후 취소 불가, UUID 재전송·재접속 복구. 안전한 도착점 없거나 이동 실패 시 취소, ACK 결과 불명확 시 접속 종료 후 복구.
+- 역참 요청/응답 패킷 및 O 안내 화면의 역참 버튼. 서버 소유권·요청 속도·입력 길이 확인. 최종 개발 protocol32 유지 지시 반영. 기존 전직 패킷 보존, 이야기/조사 패킷은 해당 후속 조각에서 추가.
+- verifyWaypointReturn: 상태 경계·실제 적용/피격 메서드 실행·DB 소유권/재방문/ACTIVE·PAUSED/동시 목적지/UUID/세대복구/취소·ACK/확정실패 롤백/코덱 검사 PASS. compileJava/compileClientJava PASS.
+- 전체 회귀 실제 27개 PASS, exit0/86.30초. 임시 서버35565 기동·RunRespawnMixin PASS. 사후 P2 DB accounts0/requests0/schema31. 사람 플레이/클라이언트 실화면 검증 미실행.
+- e9842b 후속: S08 커밋 → 그록2911d22 --no-ff 머지 → VillageCatalog를 마을 좌표 원본으로 통합 → 전체 P2 회귀 → S06/S07. 현재 이 후속은 미완료.
+
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `verifyWaypointReturn` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |

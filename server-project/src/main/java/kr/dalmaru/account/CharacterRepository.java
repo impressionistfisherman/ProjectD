@@ -398,8 +398,8 @@ public final class CharacterRepository {
         }
     }
     public java.util.List<TownZone> towns()throws SQLException{
-        try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT dimension,x,y,z,radius FROM dalmaru.town_safe_zones");var rows=q.executeQuery()){
-            var zones=new java.util.ArrayList<TownZone>();while(rows.next())zones.add(new TownZone(rows.getString(1),rows.getInt(2),rows.getInt(3),rows.getInt(4),rows.getInt(5)));return java.util.List.copyOf(zones);
+        try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT dimension,x,y,z,radius,name FROM dalmaru.town_safe_zones");var rows=q.executeQuery()){
+            var zones=new java.util.ArrayList<TownZone>();while(rows.next())zones.add(new TownZone(rows.getString(1),rows.getInt(2),rows.getInt(3),rows.getInt(4),rows.getInt(5),rows.getString(6)));return java.util.List.copyOf(zones);
         }
     }
     public void registerTown(String name,String dimension,int x,int y,int z,int radius) throws SQLException {

@@ -8,13 +8,13 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import kr.dalmaru.network.DalmaruNetworking;
 import kr.dalmaru.network.DalmaruPayloads;
 
-/** Protocol 31 gate: constant, handshake codecs, and the mismatch-reject path on both sides. */
+/** Protocol 32 gate: constant, handshake codecs, and the mismatch-reject path on both sides. */
 public final class ProtocolVersionCheck {
     public static void main(String[] args) throws Exception {
-        require(DalmaruNetworking.PROTOCOL_VERSION == 31, "PROTOCOL_VERSION is not 31");
+        require(DalmaruNetworking.PROTOCOL_VERSION == 32, "PROTOCOL_VERSION is not 32");
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         try {
-            for (int version : new int[]{30, 31}) {
+            for (int version : new int[]{31, 32}) {
                 DalmaruPayloads.Hello.CODEC.encode(buffer, new DalmaruPayloads.Hello(version));
                 require(DalmaruPayloads.Hello.CODEC.decode(buffer).protocolVersion() == version, "Hello roundtrip changed");
                 DalmaruPayloads.Welcome.CODEC.encode(buffer, new DalmaruPayloads.Welcome(version));
@@ -43,7 +43,7 @@ public final class ProtocolVersionCheck {
         int equal = state.indexOf("protocolVersion == DalmaruNetworking.PROTOCOL_VERSION", accept);
         int set = state.indexOf("compatible = true;", accept);
         require(accept >= 0 && equal > accept && set > equal, "Client accepts Welcome without version equality");
-        System.out.println("Protocol 31 constant/handshake/mismatch-reject PASS");
+        System.out.println("Protocol 32 constant/handshake/mismatch-reject PASS");
     }
 
     private static void require(boolean ok, String message) { if (!ok) throw new AssertionError(message); }

@@ -35,6 +35,9 @@ public final class DalmaruClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		DalmaruStaminaHud.register();
+        ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointResponse.TYPE,(payload,context)->{
+            if(context.client().screen instanceof DalmaruWaypointScreen screen)screen.accept(payload);
+        });
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 			ClientConnectionState.resetForConnection();
 		ClientCharacterState.resetForConnection();

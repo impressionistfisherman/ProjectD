@@ -13,6 +13,29 @@ import java.util.UUID;
 public final class DalmaruPayloads {
 	private DalmaruPayloads() { }
 
+    public record WaypointRequest(long requestId, UUID characterId, String action, String waypointId) implements CustomPacketPayload {
+        public static final Type<WaypointRequest> TYPE=DalmaruPayloads.type("waypoint_request");
+        public static final StreamCodec<RegistryFriendlyByteBuf,WaypointRequest> CODEC=StreamCodec.composite(
+            ByteBufCodecs.VAR_LONG,WaypointRequest::requestId,
+            ByteBufCodecs.VAR_LONG,r->r.characterId().getMostSignificantBits(),
+            ByteBufCodecs.VAR_LONG,r->r.characterId().getLeastSignificantBits(),
+            ByteBufCodecs.stringUtf8(16),WaypointRequest::action,
+            ByteBufCodecs.stringUtf8(128),WaypointRequest::waypointId,
+            (request,most,least,action,id)->new WaypointRequest(request,new UUID(most,least),action,id));
+        @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+    }
+    public record WaypointResponse(long requestId, UUID characterId, String status, List<String> waypoints) implements CustomPacketPayload {
+        public static final Type<WaypointResponse> TYPE=DalmaruPayloads.type("waypoint_response");
+        public static final StreamCodec<RegistryFriendlyByteBuf,WaypointResponse> CODEC=StreamCodec.composite(
+            ByteBufCodecs.VAR_LONG,WaypointResponse::requestId,
+            ByteBufCodecs.VAR_LONG,r->r.characterId().getMostSignificantBits(),
+            ByteBufCodecs.VAR_LONG,r->r.characterId().getLeastSignificantBits(),
+            ByteBufCodecs.STRING_UTF8,WaypointResponse::status,
+            ByteBufCodecs.collection(ArrayList::new,ByteBufCodecs.stringUtf8(128)),WaypointResponse::waypoints,
+            (request,most,least,status,ids)->new WaypointResponse(request,new UUID(most,least),status,List.copyOf(ids)));
+        @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+    }
+
 	public record Hello(int protocolVersion) implements CustomPacketPayload {
 		public static final CustomPacketPayload.Type<Hello> TYPE = DalmaruPayloads.type("hello");
 		public static final StreamCodec<RegistryFriendlyByteBuf, Hello> CODEC = StreamCodec.composite(

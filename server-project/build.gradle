@@ -369,3 +369,4 @@ tasks.register('verifyProtocolVersion', JavaExec) { group = 'verification'; clas
 tasks.register('verifyTrialGrowth', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.TrialGrowthCheck' }
 
 tasks.register('verifyProfessionGate', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProfessionGateCheck' }
+tasks.register('verifyWaypointReturn', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.WaypointReturnCheck' }

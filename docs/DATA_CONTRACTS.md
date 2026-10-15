@@ -16,7 +16,7 @@ V025의 `operation_requests`는 UUID 봉투의 서버 계산 SHA-256 본문 해�
 
 S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operation_request`/`operation_receipt`를 사용한다. 첫 적용은 강화다. 작업 이름64자·본문8192자 한도로 디코딩하고 서버가 작업·본문·세대·활성 캐릭터를 검증한다. 영수증은 원결과, 이벤트 UUID, 상태와 재생 여부를 구분한다. 클라이언트는 요청 ID·상관 ID·현재 문맥을 확인하고 100tick 뒤 같은 불변 봉투를 재전송한다. 확정 불가능한 DB 통신 오류는 `accepted` 상태로 유지해 동일 UUID로 복구하며, 확실한 검증 거부만 `rejected`다. 인벤토리는 항상 최신 조회로 갱신한다. 라이브 protocol28 배포와 실제 월드 반영 ACK는 포함하지 않는다.
 
-개발판 protocol은 31이다(M14a). protocol30 이후 추가된 `refinement_state_request`/`refinement_state_response`(S09i2) 등 신규 패킷을 포함하며, 서버·클라이언트가 `DalmaruNetworking.PROTOCOL_VERSION` 한 상수를 공유한다. Hello 버전이 다르면 서버가 접속을 끊고("달마루 통신 버전이 맞지 않습니다.") Welcome을 보내지 않으며, 클라이언트는 같은 버전의 Welcome만 호환으로 인정한다. `verifyProtocolVersion`이 상수, 핸드셰이크 코덱, 불일치 거부 순서를 검사한다. 라이브 protocol28과 운영 설정은 바꾸지 않았다.
+개발판 protocol은 32이다(P2). 역참 요청/응답을 포함한다. protocol30 이후 추가된 `refinement_state_request`/`refinement_state_response`(S09i2) 등 신규 패킷을 포함하며, 서버·클라이언트가 `DalmaruNetworking.PROTOCOL_VERSION` 한 상수를 공유한다. Hello 버전이 다르면 서버가 접속을 끊고("달마루 통신 버전이 맞지 않습니다.") Welcome을 보내지 않으며, 클라이언트는 같은 버전의 Welcome만 호환으로 인정한다. `verifyProtocolVersion`이 상수, 핸드셰이크 코덱, 불일치 거부 순서를 검사한다. 라이브 protocol28과 운영 설정은 바꾸지 않았다.
 
 이 문서는 달마루의 콘텐츠 정의, 영구 저장, 서버 요청·응답이 지켜야 할 최소 계약을 정한다. 이는 Java 클래스나 DB 마이그레이션 파일이 아니라 구현이 따라야 하는 형태와 불변 조건이다. 수치 자체는 [시험 콘텐츠 명세](PILOT_CONTENT_SPEC.md), 게임 규칙은 [세부 규칙과 예외 처리](RULES_AND_OPERATIONS.md)를 따른다.
 
@@ -197,3 +197,9 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 | 네 갈래의 길 이야기 완료 | `story.four_paths` |
 
 키와 버전은 `CharacterRepository.professionGateFlags()` 및 `PROFESSION_GATE_VERSION`으로 공유한다. S06 이야기·S10 마을 연동 전에는 시험 데이터에서만 완료 증명을 만든다. 클라이언트 요청에 완료 플래그를 추가하거나 전직 요청 자체로 증명을 생성하지 않는다. 이 조건 변경은 기존 보상 지급과 분리하며, 이미 확정한 동일 UUID 요청은 원래 결과를 재생한다.
+
+## 10. 역참 귀환 (P2-S08)
+- `waypoint_request(requestId, characterId, action, waypointId)`: action은 list/return/cancel. 캐릭터는 선택된 서버 세션과 일치해야 한다. 이름 길이는 128자, action 16자 제한. 최초 해금은 서버 위치만 판정하며 클라이언트 완료 주장은 없다.
+- `waypoint_response(requestId, characterId, status, waypoints)`: 목록과 처리 안내. 클라이언트는 현재 화면 요청·캐릭터와 일치하는 응답만 표시한다. 최종 이동 결과는 서버 채팅으로 알린다. 개발 명령 `/dalmaru-waypoint [return <id>|cancel]`도 동일 서버 처리 경로를 사용한다.
+- 160tick 후에만 `waypoint_return` UUID 요청과 900초 쿨다운을 같은 트랜잭션으로 확정한다. 준비 중 취소에는 쿨다운이 없다. 완료 후 ACK, 실패 시 기존 쿨다운 복구. 취소·성공 처리 완료 요청은 다시 이동하지 않는다. 저장 결과가 불명확하면 접속을 종료하고 재접속 시 pending_recovery를 처리한다.
+- V031 테이블은 캐릭터 FK cascade. 마을 설정 제거 시 해금 기록을 보존한다. 되돌릴 때 기능을 비활성화하고 테이블/요청 기록을 보존하며 자동 DROP하지 않는다. 완료 DB 호출은 서버 스레드에서 짧은 연결/statement/lock timeout을 사용한다.

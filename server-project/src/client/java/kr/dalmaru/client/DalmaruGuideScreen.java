@@ -13,6 +13,8 @@ final class DalmaruGuideScreen extends Screen {
 
 	@Override
 	protected void init() {
+        addRenderableWidget(Button.builder(Component.literal("역참 귀환"),button->minecraft.setScreen(new DalmaruWaypointScreen()))
+            .bounds(width/2-75,height/2+16,150,20).build());
 		probeButton = addRenderableWidget(Button.builder(Component.literal("연결 확인"), button -> DalmaruClient.requestProbe())
 			.bounds(width / 2 - 75, height / 2 - 10, 150, 20).build());
 	}

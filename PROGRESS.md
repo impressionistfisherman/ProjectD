@@ -399,3 +399,16 @@
 - 564cfc 추가지시: 전체 p1_regression.ps1을 oscar_p2_fixture로 실제1회 실행, exit0/77.59초. S03/새 전직/기존전직·기술 검사 포함25gates+임시서버smoke1개 모두PASS. 내부 assemble PASS6초. 성공검사 재실행 없음.
 - P1고정DB가 있던16개 검사와4개 연결부를 명시 fixture whitelist로 수정, regression/smoke는 DB를 덮어쓰지 않고 전달합니다. P1branch의 도구는 변경하지 않았습니다.
 - 사후 P2 fixture accounts0/requests0/schema28(description: character supply grants). 이 작업은 V028이나 새 마이그레이션을 적용하지 않았습니다. P2초기화는V001~27이었고 스키마28은 다른작업의 확장으로 관측됩니다. 플레이DB/PID14160/운영환경/배포/push 미접근·미변경. 인게임·실제마을/이야기연동 미실행. 독립리뷰 요청 대상입니다.
+
+## Active Spec P2-S08 (2026-10-15)
+- oscar/mdf-p2-s08 / P2worktree / basef9e017e. V031 character_waypoints를 P2 DB에 적용하고 TownZone 설정 ID 호환을 추가했습니다. 첫 직접방문만해금,8초/이동·공격·피격취소,캐릭터전체15분DB쿨다운,던전금지. 명령 /dalmaru-waypoint(list/return/cancel), 역참 패킷·화면 추가, 임의좌표없음. 좌표는기존등록마을/S10데이터만.
+- 요청journal·예약쿨다운/월드적용ACK·실패취소·재접속복구를같은UUID로처리. 준비중취소무비용. Rare완료DB호출은기존선택과같이서버스레드에서짧은DBtimeout사용. 목표검사 verifyWaypointReturn+전체회귀P2DB. 운영·플레이DB미접근.
+- 추가지시26125a/731707: S08커밋뒤그록399d3dc(--no-ff)머지/환경변수fixture방식유지/V028·V029유지,전체회귀후S06. 큰Java충돌은god보고.
+
+## P2-S08 구현 및 검증 (2026-10-15)
+- 첫 직접 방문 해금, 비전투 160tick 준비, 이동·공격·기술·피격·사망·캐릭터/세션 변경 취소. 던전과 입장 준비 중 일반 귀환 금지. 캐릭터 전체 900초 쿨다운.
+- V031 character_waypoints + 공통 RequestJournal. 예약·결과 확정 원자 처리, 취소 환불, ACK 후 취소 불가, UUID 재전송·재접속 복구. 안전한 도착점 없거나 이동 실패 시 취소, ACK 결과 불명확 시 접속 종료 후 복구.
+- 역참 요청/응답 패킷 및 O 안내 화면의 역참 버튼. 서버 소유권·요청 속도·입력 길이 확인. 최종 개발 protocol32 유지 지시 반영. 기존 전직 패킷 보존, 이야기/조사 패킷은 해당 후속 조각에서 추가.
+- verifyWaypointReturn: 상태 경계·실제 적용/피격 메서드 실행·DB 소유권/재방문/ACTIVE·PAUSED/동시 목적지/UUID/세대복구/취소·ACK/확정실패 롤백/코덱 검사 PASS. compileJava/compileClientJava PASS.
+- 전체 회귀 실제 27개 PASS, exit0/86.30초. 임시 서버35565 기동·RunRespawnMixin PASS. 사후 P2 DB accounts0/requests0/schema31. 사람 플레이/클라이언트 실화면 검증 미실행.
+- e9842b 후속: S08 커밋 → 그록2911d22 --no-ff 머지 → VillageCatalog를 마을 좌표 원본으로 통합 → 전체 P2 회귀 → S06/S07. 현재 이 후속은 미완료.
