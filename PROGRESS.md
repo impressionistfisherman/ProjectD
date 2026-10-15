@@ -353,3 +353,5 @@
 ## MDF-P1 담당 조정 (2026-10-15)
 - god 지시 2026-10-15T03-48-55-466Z-4172db: run writer 저널은 그록 g214 / grok/mdf-p1-runwriter 담당입니다. Oscar S09k2(70448dc)·S09k3(2e8bfa0) 완료, 다음은 M14입니다.
 - M11b 1f7a9e9는 god 통보 기준 Creed PASS / Jim 재QA 중이며 Oscar는 아직 합치지 않았습니다. 재QA 뒤 god 머지 지시와 run writer 결과를 받아 통합 회귀·개발 protocol31 상향을 진행합니다. 운영환경 변경 없음, 전체 PARTIAL.
+
+- 2026-10-15 MDF-P1 M14a: 개발 protocol 30→31 (DalmaruNetworking.PROTOCOL_VERSION, 서버·클라이언트 공유; S09i2 RefinementState 패킷 포함). verifyProtocolVersion 추가(상수·Hello/Welcome 코덱·불일치 거부 순서). PASS compileJava compileClientJava testClasses verifyProtocolVersion verifyOperationWire (15s). 실제 서버·클라이언트 접속·운영 변경 없음, 전체 PARTIAL.

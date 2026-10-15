@@ -357,3 +357,4 @@ tasks.register('verifyQuestAcceptanceJournal', JavaExec) { group = 'verification
 tasks.register('verifyQuestAcceptanceWire', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.QuestAcceptanceWireCheck' }
 
 tasks.register('verifyQuestKillJournal', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.QuestKillJournalCheck' }
+tasks.register('verifyProtocolVersion', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProtocolVersionCheck' }

@@ -365,3 +365,5 @@
 ## QA MDF-P1 S09k3 (2026-10-15)
 - PASS: --no-daemon verifyQuestKillJournal verifyQuestAcceptanceJournal compileJava compileClientJava (16초). 동시 동일처치/미수락 no-op replay/자동보상 일회/원결과 재생 억제/확정 실패시 진행·XP·journal rollback/동일entity retry/old generation 거부/DB-only completed 확인.
 - fixture oscar_p1_fixture localhost:15432: accounts0/operation_requests0/schema27. 실제 게임·패킷 왕복·운영 서버는 미검증. 실패 이벤트의 프로세스 재시작 후 자동 재수집은 이번 범위에 없으며 오류는 로그로 남깁니다. 독립 QA 대기, 전체 PARTIAL.
+
+- 2026-10-15 MDF-P1 M14a: PASS --no-daemon compileJava compileClientJava testClasses verifyProtocolVersion verifyOperationWire (15s). 상수 31, Hello/Welcome 코덱 왕복, 서버 불일치 시 disconnect→return이 compatible/Welcome보다 앞섬, 클라이언트 동일 버전 Welcome만 수락(소스 순서 검사). 실제 불일치 접속은 미실행.
