@@ -288,3 +288,14 @@
 ## MDF-P1 S09i2 (2026-10-15)
 - refine_item common UUID router와 client requestRefinement/receipt parser 연결. 원 grade/failures/success receipt는 캐시에 적용하지 않고 별도 RefinementStateRequest/Response로 최신 상태를 조회합니다. 조회도 현재 세대·활성 캐릭터 소유권을 검증하고, client는 장비별 correlation·유효범위·선택 경계로 오래된 상태를 거릅니다.
 - 기존 전투 계산은 refinement_grade를 소비하지 않습니다. 이번 조각은 전송/조회 API까지 연결하고 일반 장비 화면의 새 재련 버튼은 추가하지 않았습니다. 재련 효과 연결 및 UI 노출은 별도 범위 확인이 필요합니다. 계승/run·quest 등 O28/M11/M13b/M14 남음. M12/V027 그록 담당·OscarV028부터 유지. 전체 PARTIAL.
+
+## MDF-P1 분담·범위 갱신 (2026-10-15)
+- god 통보: 재련 효과(refinement_grade 전투 반영)·재련 버튼 UI는 P3 이관. P1 S09i는 wire/조회 API까지 완료 처리하고 일반 버튼 미노출 유지합니다. S09i2는 Creed g170/Jim BATCH15 g171 검증 배정 통보이며 별도 PASS 결과로 추정하지 않습니다.
+- M13b(O44 인증 문서 평가)는 그록 별도 worktree @42974c8 담당. Oscar 잔여 순서는 O28 계승/run·quest → M11(잔류 개체 사망 전멸 DB FAILED 포함) → M14. M12/V027 그록 예약·OscarV028부터 유지합니다.
+
+- god 추가 통보: S09i2 Creed PASS(MDF_P1_S09i2_CREED.md). **미완료: protocol 31 상향** — 새 RefinementState 패킷과 남은 O28 변경을 모아 M14에서 개발 protocol 30→31을 한 번에 수행합니다. 지금은 30 유지, 운영 protocol/설정 변경 없음.
+
+## MDF-P1 S09j1 (2026-10-15)
+- 계승 UUID 저널/long adapter 연결. account→journal→equipment 순서로 이전 replay-before-owner 경로를 차단하고, 원본 소모/잔액 증가/귀속/이력/저널을 같은 트랜잭션에 확정합니다. 원래 이전액과 최신 잔액·장비 목록을 구분합니다. 대상이 나중에 소모되어도 저장 UUID 결과는 유지하고 최신 잔액 null/목록 부재로 표현합니다.
+- 기존 계승식 (이전잔액+강화단계*10)*70/100은 BALANCE_AND_ECONOMY 6절의 실제 종류별 지출70%/이전잔액 제외 규칙과 다릅니다. 이번 O28은 본문 일치·소유권·재생·원자성 변경이며 계산식은 바꾸지 않았습니다. 실행 caller/UI는 현재 없고 별도 경제 구현 범위 판단이 필요합니다.
+- god 분담 추가: M11a 잔류 개체 전멸 DB FAILED는 그록 grok/mdf-p1-m11a @42974c8(RunRuntime/RunRepository 전멸·종료 경로) 담당. Oscar는 O28 계승/run·quest→M11 나머지 이벤트/재접속ACK→M14. 같은 RunRepository 메서드 변경 필요 시 사전 통보합니다. 전체 PARTIAL.

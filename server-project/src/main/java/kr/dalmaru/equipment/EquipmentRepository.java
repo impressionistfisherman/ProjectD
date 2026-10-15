@@ -212,11 +212,23 @@ public final class EquipmentRepository {
             }
         }
     }
-    public InheritanceResult inherit(UUID accountId, long generation, long requestId, UUID targetId, UUID sourceId) throws SQLException {
-        if (generation < 1 || requestId < 1 || targetId.equals(sourceId) || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid inheritance request.");
-        try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try {
-            try (var replay = connection.prepareStatement("SELECT target_equipment_id, source_equipment_id, credit FROM dalmaru.character_inheritance_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!targetId.equals(rows.getObject(1, UUID.class)) || !sourceId.equals(rows.getObject(2, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); connection.commit(); return new InheritanceResult(targetId, rows.getInt(3), true); } } }
+    public record InheritanceOutcome(InheritanceResult original,UUID sourceEquipmentId,Integer currentCredit,List<EquipmentRecord> equipment,RequestJournal.Receipt receipt){
+        public InheritanceOutcome{equipment=List.copyOf(equipment);}
+    }
+    public InheritanceResult inherit(UUID accountId,long generation,long requestId,UUID targetId,UUID sourceId)throws SQLException {
+        return inheritJournaled(accountId,generation,requestId,targetId,sourceId,null).original();
+    }
+    public InheritanceOutcome inheritJournaled(UUID accountId,long generation,long requestId,UUID targetId,UUID sourceId,RequestEnvelope envelope)throws SQLException {
+        if(generation<1||requestId<1||targetId==null||sourceId==null||targetId.equals(sourceId))throw new IllegalArgumentException("Invalid inheritance request.");
+        if(password==null||password.isBlank())throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try(var connection=DriverManager.getConnection(url,username,password)){connection.setAutoCommit(false);try{
             UUID characterId; try (var active = connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")) { active.setObject(1, accountId); active.setLong(2, generation); try (var rows = active.executeQuery()) { if (!rows.next() || rows.getObject(1) == null) throw new IllegalArgumentException("No active character."); characterId = rows.getObject(1, UUID.class); } }
+            var body=new JsonObject();body.addProperty("targetEquipmentId",targetId.toString());body.addProperty("sourceEquipmentId",sourceId.toString());
+            if(envelope==null)envelope=RequestEnvelope.legacy(accountId,generation,characterId,"inherit_equipment",requestId,body);
+            if(envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(characterId)||!envelope.operation().equals("inherit_equipment")||!envelope.payload().equals(body))throw new IllegalArgumentException("Inheritance envelope does not match active session/body");
+            var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
+            if(stored.result()!=null){var original=stored.result();var result=latestInheritance(connection,characterId,sourceId,new InheritanceResult(targetId,original.get("credit").getAsInt(),true),stored.receipt());connection.commit();return result;}
+            try (var replay = connection.prepareStatement("SELECT target_equipment_id, source_equipment_id, credit FROM dalmaru.character_inheritance_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!targetId.equals(rows.getObject(1, UUID.class)) || !sourceId.equals(rows.getObject(2, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); if(!characterId.equals(read(connection,targetId).characterId()))throw new IllegalArgumentException("Legacy inheritance target is not owned by active character.");var original=new InheritanceResult(targetId,rows.getInt(3),true);var result=confirmInheritance(connection,stored,characterId,sourceId,original);connection.commit();return result; } } }
             String targetItem; int targetLevel; try (var target = connection.prepareStatement("SELECT item_id, required_level FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? AND location='EQUIPPED' FOR UPDATE")) { target.setObject(1, targetId); target.setObject(2, characterId); try (var rows = target.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Target must be equipped by active character."); targetItem = rows.getString(1); targetLevel = rows.getInt(2); } }
             String sourceItem; int sourceLevel; int enhancement; int credit; try (var source = connection.prepareStatement("SELECT item_id, required_level, enhancement, inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? AND location='INVENTORY' FOR UPDATE")) { source.setObject(1, sourceId); source.setObject(2, characterId); try (var rows = source.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Source must be inventory equipment owned by active character."); sourceItem = rows.getString(1); sourceLevel = rows.getInt(2); enhancement = rows.getInt(3); credit = rows.getInt(4); } }
             if (!targetItem.equals(sourceItem) || targetLevel < sourceLevel) throw new IllegalArgumentException("Equipment family or level does not allow inheritance.");
@@ -226,8 +238,18 @@ public final class EquipmentRepository {
             try(var binding=connection.prepareStatement("UPDATE dalmaru.character_equipment SET binding=?,bound=? WHERE equipment_id=?")){binding.setString(1,inherited.name());binding.setBoolean(2,inherited!=EquipmentBinding.FREE);binding.setObject(3,targetId);binding.executeUpdate();}
             try (var delete = connection.prepareStatement("DELETE FROM dalmaru.character_equipment WHERE equipment_id=?")) { delete.setObject(1, sourceId); delete.executeUpdate(); }
             try (var request = connection.prepareStatement("INSERT INTO dalmaru.character_inheritance_requests VALUES (?, ?, ?, ?, ?, ?)")) { request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId); request.setObject(4, targetId); request.setObject(5, sourceId); request.setInt(6, gained); request.executeUpdate(); }
-            connection.commit(); return new InheritanceResult(targetId, gained, false);
+            var result=confirmInheritance(connection,stored,characterId,sourceId,new InheritanceResult(targetId,gained,false));connection.commit();return result;
         } catch (Exception exception) { connection.rollback(); throw exception; } }
+    }
+    private static InheritanceOutcome confirmInheritance(Connection connection,RequestJournal.Stored stored,UUID character,UUID source,InheritanceResult original)throws SQLException {
+        var outcome=new JsonObject();outcome.addProperty("targetEquipmentId",original.targetEquipmentId().toString());outcome.addProperty("sourceEquipmentId",source.toString());outcome.addProperty("credit",original.credit());
+        return latestInheritance(connection,character,source,original,RequestJournal.confirm(connection,stored,outcome));
+    }
+    private static InheritanceOutcome latestInheritance(Connection connection,UUID character,UUID source,InheritanceResult original,RequestJournal.Receipt receipt)throws SQLException {
+        Integer current=null;try(var query=connection.prepareStatement("SELECT inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=?")){
+            query.setObject(1,original.targetEquipmentId());query.setObject(2,character);try(var row=query.executeQuery()){if(row.next())current=row.getInt(1);}
+        }
+        return new InheritanceOutcome(original,source,current,list(connection,character),receipt);
     }
     public List<EquipmentRecord> listOrCreate(UUID characterId) throws SQLException {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");

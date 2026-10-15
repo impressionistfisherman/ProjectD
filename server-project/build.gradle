@@ -336,3 +336,5 @@ tasks.register('verifyEquipmentMoveJournal', JavaExec) { group = 'verification';
 tasks.register('verifyRefinementJournal', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementJournalCheck' }
 
 tasks.register('verifyRefinementWireReceipt', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementWireReceiptCheck' }
+
+tasks.register('verifyInheritanceJournal', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.InheritanceJournalCheck' }
