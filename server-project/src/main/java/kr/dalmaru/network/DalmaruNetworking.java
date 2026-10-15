@@ -624,7 +624,8 @@ public final class DalmaruNetworking {
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null){rejectOperation(player,correlation,envelope.requestId());return;}
         var session=state.accountSession;
-        CompletableFuture.supplyAsync(()->{try{return QUEST_STAGES.actJournaled(session.accountId(),session.connectionGeneration(),correlation,envelope.activeCharacterId(),stage,action,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+        var place=new kr.dalmaru.quest.QuestStageRepository.Place(player.level().dimension().identifier().toString(), player.getBlockX(), player.getBlockY(), player.getBlockZ(), COMBAT.remainingCombatTicks(player.getUUID(), currentTick) > 0);
+        CompletableFuture.supplyAsync(()->{try{return QUEST_STAGES.actJournaled(session.accountId(),session.connectionGeneration(),correlation,envelope.activeCharacterId(),stage,action,envelope,place);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Quest stage request failed for {}",session.accountId(),error);});return null;});
     }

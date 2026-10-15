@@ -1,0 +1,7 @@
+{
+  "dimension": "minecraft:overworld",
+  "field": {"x": 800, "y": 64, "z": 800, "radius": 24},
+  "device": {"x": 800, "y": 64, "z": 800, "radius": 4},
+  "evidenceItem": "quest.seal_fragment",
+  "report": {"x": 820, "y": 64, "z": 800, "radius": 4}
+}
