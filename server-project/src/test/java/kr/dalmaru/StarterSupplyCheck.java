@@ -15,7 +15,7 @@ public final class StarterSupplyCheck {
 	private StarterSupplyCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p2_fixture.");
+		if (!"oscar_p3_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p3_fixture.");
 		if (ContentCatalog.current().version() == null) throw new IllegalStateException("Pilot content did not load.");
 		applyMigration();
 		cleanup();

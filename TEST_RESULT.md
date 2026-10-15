@@ -772,3 +772,11 @@
 | `p1_integration_smoke.ps1` | 예 | FAIL |
 
 - 2026-10-15 P3-S02: PASS verifyAccountVault. DALMARU_DB_NAME=oscar_p3_fixture. 전 10을 맡기면 한 번만 빠지고 재생은 다시 빼지 않음. 잔액 부족은 롤백. 회복 물품과 캐릭터 귀속은 금고에 안 들어감. 다른 캐릭터가 전 4와 연철석 2를 찾음. 전체 회귀는 오스카 guard 커밋을 cherry-pick 한 뒤에 다시 돌린다. 인게임 미실행.
+
+## P3 guard isolated check (2026-10-15)
+| ?? | ?? |
+|---|---|
+| Java P3 ?? ? ??/P1/P2/postgres ?? 5? | PASS |
+| PowerShell ? ?? ??/P1/P2/postgres ?? 8? | PASS |
+| P3 ?? ?? | ??? |
+- ?? ?? ? DB ?? ??. S07 ?? ??? compileJava/compileClientJava PASS(12?)? guard ?? ??? ??.

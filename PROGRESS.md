@@ -471,3 +471,7 @@
 - 2026-10-15 P3-S01: 시작·전직·조사 지급 물품과 캐릭터 귀속은 창고·거래·우편으로 옮기지 못한다. 판정은 호출자 트랜잭션 안에서 `SupplyStay.refuseMove`가 하고, `StarterSupply.tradable`은 호출만 한다. 클라 확정은 받지 않는다. 통신 32. 인게임 미실행, 전체 PARTIAL. oscar_p3_fixture 통지 전이라 전체 회귀는 아직이다.
 
 - 2026-10-15 P3-S02: 계정 금고는 전과 재료를 캐릭터와 따로 둔다. 다른 캐릭터로 바꿔도 계정 분이 남는다. 입출금은 요청 저널이고, 재료는 SupplyStay를 먼저 본다. 지급 물품과 캐릭터 귀속은 들어가지 못한다. V032 account_holdings. 통신 패킷은 없다. 인게임 미실행, 전체 PARTIAL. 회귀 FAIL 8개 파일은 고치지 않았다.
+
+## P3 regression DB guard (2026-10-15)
+- P3 ??? ??? DB? oscar_p3_fixture? ??. Java 8? ? PowerShell ??/??? ?? ??, TrialGrowth JDBC ?? ??. ?? S07 ??? ?? ??.
+- DB ?? ?? Java ??/?? 5?, PowerShell ?? 8? PASS. ?? ??? ?? ???.
