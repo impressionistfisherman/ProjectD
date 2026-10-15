@@ -22,12 +22,15 @@ public final class DirectTrade {
 
 	public record Journaled(JsonObject result, RequestJournal.Receipt receipt, boolean replayed) { }
 
-	public Journaled actJournaled(UUID accountId, long generation, long requestId, UUID characterId, String action, UUID offerId, UUID partnerAccountId, String itemId, int quantity, RequestEnvelope envelope) throws SQLException {
+	public Journaled actJournaled(UUID accountId, long generation, long requestId, UUID characterId, String action, UUID offerId, UUID partnerAccountId, String itemId, int quantity, int version, RequestEnvelope envelope) throws SQLException {
 		if (generation < 1 || requestId < 1 || envelope == null || !characterId.equals(envelope.activeCharacterId())) throw new IllegalArgumentException("Invalid trade request.");
+		if ("open".equals(action) && (partnerAccountId == null || partnerAccountId.equals(accountId))) throw new IllegalArgumentException("Invalid trade offer.");
+		if (!"open".equals(action) && offerId == null) throw new IllegalArgumentException("Invalid trade offer.");
 		var body = envelope.payload();
 		if (!action.equals(text(body, "action"))) throw new IllegalArgumentException("Trade envelope does not match.");
-		if (!"open".equals(action) && (offerId == null || !offerId.toString().equals(text(body, "offerId")))) throw new IllegalArgumentException("Trade envelope does not match.");
+		if (!"open".equals(action) && !offerId.toString().equals(text(body, "offerId"))) throw new IllegalArgumentException("Trade envelope does not match.");
 		if (("open".equals(action) || "deposit".equals(action)) && (!itemId.equals(text(body, "itemId")) || !body.has("quantity") || !body.get("quantity").isJsonPrimitive() || body.get("quantity").getAsInt() != quantity)) throw new IllegalArgumentException("Trade envelope does not match.");
+		if ("confirm".equals(action) && (!body.has("version") || !body.get("version").isJsonPrimitive() || body.get("version").getAsInt() != version)) throw new IllegalArgumentException("Trade envelope does not match.");
 		try (var connection = connect()) {
 			connection.setAutoCommit(false);
 			try {
@@ -38,7 +41,8 @@ public final class DirectTrade {
 				var outcome = switch (action) {
 					case "open" -> open(connection, accountId, characterId, partnerAccountId, itemId, quantity);
 					case "deposit" -> deposit(connection, accountId, characterId, offerId, itemId, quantity);
-					case "confirm" -> confirm(connection, accountId, offerId);
+					case "withdraw" -> withdraw(connection, accountId, offerId);
+					case "confirm" -> confirm(connection, accountId, offerId, version);
 					case "cancel" -> cancel(connection, accountId, offerId);
 					default -> throw new IllegalArgumentException("Invalid trade action.");
 				};
@@ -50,11 +54,11 @@ public final class DirectTrade {
 	}
 
 	private JsonObject open(Connection connection, UUID accountId, UUID characterId, UUID partnerAccountId, String itemId, int quantity) throws SQLException {
-		if (partnerAccountId == null || partnerAccountId.equals(accountId) || quantity < 1) throw new IllegalArgumentException("Invalid trade offer.");
+		if (quantity < 1) throw new IllegalArgumentException("Invalid trade offer.");
 		UUID offerId = UUID.randomUUID();
-		String binding = takeBinding(connection, characterId, itemId);
+		String binding = "copper".equals(itemId) ? "FREE" : takeBinding(connection, characterId, itemId);
 		escrow(connection, characterId, itemId, quantity);
-		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.trade_offers(offer_id, opener_account_id, partner_account_id, state, expires_at) VALUES(?, ?, ?, 'reserved', clock_timestamp() + make_interval(secs => ?))")) {
+		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.trade_offers(offer_id, opener_account_id, partner_account_id, state, expires_at, version) VALUES(?, ?, ?, 'reserved', clock_timestamp() + make_interval(secs => ?), 1)")) {
 			insert.setObject(1, offerId);
 			insert.setObject(2, accountId);
 			insert.setObject(3, partnerAccountId);
@@ -62,7 +66,7 @@ public final class DirectTrade {
 			insert.executeUpdate();
 		}
 		insertLine(connection, offerId, accountId, characterId, itemId, quantity, binding);
-		return outcome(offerId, "reserved");
+		return outcome(offerId, "reserved", 1);
 	}
 
 	private JsonObject deposit(Connection connection, UUID accountId, UUID characterId, UUID offerId, String itemId, int quantity) throws SQLException {
@@ -70,31 +74,47 @@ public final class DirectTrade {
 		if (!accountId.equals(offer.partner)) throw new IllegalArgumentException("Only the partner can deposit.");
 		if (expired(connection, offerId)) return expire(connection, offerId);
 		if (!"reserved".equals(offer.state) || line(connection, offerId, accountId) != null || quantity < 1) throw new IllegalArgumentException("Trade deposit is closed.");
-		String binding = takeBinding(connection, characterId, itemId);
+		String binding = "copper".equals(itemId) ? "FREE" : takeBinding(connection, characterId, itemId);
 		escrow(connection, characterId, itemId, quantity);
 		insertLine(connection, offerId, accountId, characterId, itemId, quantity, binding);
-		return outcome(offerId, "reserved");
+		return outcome(offerId, "reserved", bump(connection, offerId));
 	}
 
-	private JsonObject confirm(Connection connection, UUID accountId, UUID offerId) throws SQLException {
+	private JsonObject withdraw(Connection connection, UUID accountId, UUID offerId) throws SQLException {
+		var offer = lockOffer(connection, offerId);
+		if (!accountId.equals(offer.opener) && !accountId.equals(offer.partner)) throw new IllegalArgumentException("Trade withdraw is closed.");
+		if (expired(connection, offerId)) return expire(connection, offerId);
+		if (!"reserved".equals(offer.state)) throw new IllegalArgumentException("Trade withdraw is closed.");
+		Line row = line(connection, offerId, accountId);
+		if (row == null) throw new IllegalArgumentException("Trade withdraw is closed.");
+		give(connection, row.characterId, row.itemId, row.quantity, row.binding);
+		try (var delete = connection.prepareStatement("DELETE FROM dalmaru.trade_lines WHERE offer_id=? AND account_id=?")) {
+			delete.setObject(1, offerId);
+			delete.setObject(2, accountId);
+			delete.executeUpdate();
+		}
+		return outcome(offerId, "reserved", bump(connection, offerId));
+	}
+
+	private JsonObject confirm(Connection connection, UUID accountId, UUID offerId, int version) throws SQLException {
 		var offer = lockOffer(connection, offerId);
 		if (!accountId.equals(offer.opener) && !accountId.equals(offer.partner)) throw new IllegalArgumentException("Trade confirm is closed.");
 		if (expired(connection, offerId)) return expire(connection, offerId);
-		if (!"reserved".equals(offer.state)) throw new IllegalArgumentException("Trade confirm is closed.");
+		if (!"reserved".equals(offer.state) || version != offer.version) throw new IllegalArgumentException("Trade confirm is closed.");
+		if (line(connection, offerId, offer.opener) == null || line(connection, offerId, offer.partner) == null) throw new IllegalArgumentException("Trade lines must be deposited before confirm.");
 		try (var update = connection.prepareStatement(accountId.equals(offer.opener)
 			? "UPDATE dalmaru.trade_offers SET opener_confirmed=TRUE WHERE offer_id=?"
 			: "UPDATE dalmaru.trade_offers SET partner_confirmed=TRUE WHERE offer_id=?")) {
 			update.setObject(1, offerId);
 			update.executeUpdate();
 		}
-		if (!bothConfirmed(connection, offerId) || line(connection, offerId, offer.opener) == null || line(connection, offerId, offer.partner) == null) return outcome(offerId, "reserved");
+		if (!bothConfirmed(connection, offerId)) return outcome(offerId, "reserved", offer.version);
 		var openerLine = line(connection, offerId, offer.opener);
 		var partnerLine = line(connection, offerId, offer.partner);
 		give(connection, partnerLine.characterId, openerLine.itemId, openerLine.quantity, openerLine.binding);
 		give(connection, openerLine.characterId, partnerLine.itemId, partnerLine.quantity, partnerLine.binding);
-		clearLines(connection, offerId);
 		setState(connection, offerId, "completed");
-		return outcome(offerId, "completed");
+		return outcome(offerId, "completed", offer.version);
 	}
 
 	private JsonObject cancel(Connection connection, UUID accountId, UUID offerId) throws SQLException {
@@ -104,16 +124,18 @@ public final class DirectTrade {
 		if (!"reserved".equals(offer.state)) throw new IllegalArgumentException("Trade cancel is closed.");
 		returnLines(connection, offerId);
 		setState(connection, offerId, "cancelled");
-		return outcome(offerId, "cancelled");
+		return outcome(offerId, "cancelled", offer.version);
 	}
 
 	private JsonObject expire(Connection connection, UUID offerId) throws SQLException {
+		var offer = lockOffer(connection, offerId);
 		returnLines(connection, offerId);
 		setState(connection, offerId, "expired");
-		return outcome(offerId, "expired");
+		return outcome(offerId, "expired", offer.version);
 	}
 
 	private void escrow(Connection connection, UUID characterId, String itemId, int quantity) throws SQLException {
+		if ("copper".equals(itemId)) { moveCopper(connection, characterId, -quantity, "trade.out"); return; }
 		Held row = lockMaterial(connection, characterId, itemId);
 		if (row == null || row.quantity < quantity) throw new IllegalArgumentException("Insufficient material.");
 		SupplyStay.refuseMove(connection, itemId, row.binding);
@@ -127,6 +149,7 @@ public final class DirectTrade {
 	}
 
 	private void give(Connection connection, UUID characterId, String itemId, int quantity, String binding) throws SQLException {
+		if ("copper".equals(itemId)) { moveCopper(connection, characterId, quantity, "trade.in"); return; }
 		Held row = lockMaterial(connection, characterId, itemId);
 		if (row != null && !row.binding.equals(binding)) throw new IllegalArgumentException("Material binding does not match the trade.");
 		setMaterial(connection, characterId, itemId, (row == null ? 0 : row.quantity) + quantity, binding);
@@ -134,7 +157,37 @@ public final class DirectTrade {
 
 	private void returnLines(Connection connection, UUID offerId) throws SQLException {
 		for (var row : lines(connection, offerId)) give(connection, row.characterId, row.itemId, row.quantity, row.binding);
-		clearLines(connection, offerId);
+	}
+
+	private void moveCopper(Connection connection, UUID characterId, int delta, String reason) throws SQLException {
+		int wallet = 0;
+		try (var query = connection.prepareStatement("SELECT copper FROM dalmaru.character_wallet WHERE character_id=? FOR UPDATE")) {
+			query.setObject(1, characterId);
+			try (var row = query.executeQuery()) { if (row.next()) wallet = row.getInt(1); }
+		}
+		if (wallet + delta < 0) throw new IllegalArgumentException("Insufficient copper.");
+		try (var update = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=? WHERE character_id=?")) {
+			update.setInt(1, wallet + delta);
+			update.setObject(2, characterId);
+			if (update.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper.");
+		}
+		try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id, character_id, source_run_id, reason, copper_delta) VALUES(?, ?, NULL, ?, ?)")) {
+			ledger.setObject(1, UUID.randomUUID());
+			ledger.setObject(2, characterId);
+			ledger.setString(3, reason);
+			ledger.setInt(4, delta);
+			ledger.executeUpdate();
+		}
+	}
+
+	private int bump(Connection connection, UUID offerId) throws SQLException {
+		try (var update = connection.prepareStatement("UPDATE dalmaru.trade_offers SET version=version+1, opener_confirmed=FALSE, partner_confirmed=FALSE WHERE offer_id=? AND state='reserved' RETURNING version")) {
+			update.setObject(1, offerId);
+			try (var row = update.executeQuery()) {
+				if (!row.next()) throw new IllegalArgumentException("Trade state changed.");
+				return row.getInt(1);
+			}
+		}
 	}
 
 	private void insertLine(Connection connection, UUID offerId, UUID accountId, UUID characterId, String itemId, int quantity, String binding) throws SQLException {
@@ -164,11 +217,11 @@ public final class DirectTrade {
 	}
 
 	private Offer lockOffer(Connection connection, UUID offerId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT opener_account_id, partner_account_id, state FROM dalmaru.trade_offers WHERE offer_id=? FOR UPDATE")) {
+		try (var query = connection.prepareStatement("SELECT opener_account_id, partner_account_id, state, version FROM dalmaru.trade_offers WHERE offer_id=? FOR UPDATE")) {
 			query.setObject(1, offerId);
 			try (var row = query.executeQuery()) {
 				if (!row.next()) throw new IllegalArgumentException("Unknown trade offer.");
-				return new Offer(row.getObject(1, UUID.class), row.getObject(2, UUID.class), row.getString(3));
+				return new Offer(row.getObject(1, UUID.class), row.getObject(2, UUID.class), row.getString(3), row.getInt(4));
 			}
 		}
 	}
@@ -225,10 +278,6 @@ public final class DirectTrade {
 		return rows;
 	}
 
-	private void clearLines(Connection connection, UUID offerId) throws SQLException {
-		try (var delete = connection.prepareStatement("DELETE FROM dalmaru.trade_lines WHERE offer_id=?")) { delete.setObject(1, offerId); delete.executeUpdate(); }
-	}
-
 	private Held lockMaterial(Connection connection, UUID characterId, String itemId) throws SQLException {
 		try (var query = connection.prepareStatement("SELECT quantity, binding FROM dalmaru.character_materials WHERE character_id=? AND material_id=? FOR UPDATE")) {
 			query.setObject(1, characterId);
@@ -256,10 +305,11 @@ public final class DirectTrade {
 		}
 	}
 
-	private static JsonObject outcome(UUID offerId, String state) {
+	private static JsonObject outcome(UUID offerId, String state, int version) {
 		var outcome = new JsonObject();
 		outcome.addProperty("offerId", offerId.toString());
 		outcome.addProperty("state", state);
+		outcome.addProperty("version", version);
 		return outcome;
 	}
 
@@ -284,7 +334,7 @@ public final class DirectTrade {
 		}
 	}
 
-	private record Offer(UUID opener, UUID partner, String state) { }
+	private record Offer(UUID opener, UUID partner, String state, int version) { }
 	private record Held(int quantity, String binding) { }
 	private record Line(UUID characterId, String itemId, int quantity, String binding) { }
 	private record LineAccount(UUID characterId, String itemId, int quantity, String binding) { }
