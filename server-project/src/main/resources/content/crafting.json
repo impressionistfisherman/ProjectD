@@ -1,0 +1,19 @@
+{
+  "temporary": true,
+  "stations": [
+    {"id": "station.forge", "dimension": "minecraft:overworld", "x": 16, "y": 64, "z": 16, "radius": 4}
+  ],
+  "recipes": [
+    {
+      "id": "craft.iron_ingot",
+      "inputs": [{"itemId": "material.ironstone", "quantity": 1}],
+      "output": {"itemId": "material.iron_ingot", "quantity": 1, "binding": "FREE"}
+    },
+    {
+      "id": "craft.basic_fitting",
+      "station": "station.forge",
+      "inputs": [{"itemId": "material.iron_ingot", "quantity": 1}],
+      "output": {"itemId": "material.basic_fitting", "quantity": 1, "binding": "FREE"}
+    }
+  ]
+}

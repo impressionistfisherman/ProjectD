@@ -867,3 +867,6 @@
 
 - 2026-10-15 S03 재회귀: grok_p3_fixture, 연결 0, 계정 0, tools/p1_regression.ps1 exit 0. 표의 검사와 smoke 전부 PASS.
 - 2026-10-15 P3-S05: PASS verifyGatherNode. 공식 회귀 1회는 verifyStoryQuestCurve만 FAIL, 로그는 그 회차에 지워짐. 실패 출력을 남긴 재실행은 exit 1, FAIL은 verifyCharacterProfession. 본문: PSQLException, Driver ConnectTask.getResult, AccountRepository.openSession, CharacterProfessionCheck.main:17. 기대값/실제값 비교 전에는 접속이 끊겼다. StoryQuestCurve는 그 회차 PASS.
+
+- 2026-10-15 S05 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. tools/p1_regression.ps1 exit 0. verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, 저널·클라이언트 검사, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, p1_integration_smoke.ps1 모두 PASS.
+- 2026-10-15 P3-S06: PASS verifyBasicCraft. 가공은 위치와 무관하게 1회. 재생은 다시 만들지 않음. 캐릭터 귀속 연철석은 거절. 대장간 밖 제작은 철괴를 그대로 둠. 대장간 안에서는 철괴가 기초 부품 1이 됨.

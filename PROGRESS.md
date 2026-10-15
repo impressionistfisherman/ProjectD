@@ -484,3 +484,6 @@
 
 - 2026-10-15 S03 재회귀: 잔여 연결 0, 계정 0 확인 뒤 grok_p3_fixture 공식 회귀 1회 exit 0. 00bf7b7. 인게임 미실행.
 - 2026-10-15 P3-S05: 개인 채집. content/gathering.json 임시 지점. 계정 대기시간은 재접속 뒤에도 남고, 생활 경험치는 캐릭터별. 바닐라 캐기는 이 경로가 아니다. V034. verifyGatherNode PASS. 그 뒤 공식 회귀는 exit 1. 보존한 본문은 CharacterProfession의 접속 실패이고 StoryQuestCurve는 그 회차에서 PASS. 인게임 미실행.
+
+- 2026-10-15 S05 잠금 회귀: 06fc1cd, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
+- 2026-10-15 P3-S06: 연철석 1을 철괴 1로 가공한다. 철괴 1은 대장간(16,64,16, 반경 4) 안에서만 기초 부품이 된다. 캐릭터 귀속은 재료로 쓰지 못한다. content/crafting.json 임시. 마이그레이션 없음. verifyBasicCraft PASS. 인게임 미실행.
