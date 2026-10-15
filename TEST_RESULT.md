@@ -328,3 +328,7 @@
 ## MDF-P1 S09j2 (2026-10-15)
 - PASS: --no-daemon verifyInheritanceWireReceipt verifyInheritanceJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (19초). 실제 계승 receipt parser replay/reject/원이전액 캐시미적용·원본미복원·최신조회, 누락/분수/int넘침/음수/다른원본·대상 거부. 계승 DB 원자성/소모대상재생 및 공통 UUID/context/재시도 경계 회귀.
 - 실제 패킷 왕복·인게임은 미실행. P1 UI/일반호출자 노출 없으며 경제식 재구현은 P3입니다. 독립 QA 요청 대상입니다.
+
+## MDF-P1 M11b (2026-10-15)
+- PASS: --no-daemon verifyRequestJournal verifyClientRequestEnvelope compileJava compileClientJava (19초). 재접속 세대의 같은 UUID는 저장 결과와 같은 강화 이벤트를 돌려주고 구리를 다시 차감하지 않았습니다. 이전 세대 패킷과 다른 본문은 거부했습니다. 클라이언트는 끊긴 동안 재전송하지 않다가, 같은 캐릭터의 새 세대가 오면 같은 UUID를 다시 보냅니다.
+- 인게임 끊김·패킷 도착·라이브 서버·운영 DB는 실행하지 않았습니다.
