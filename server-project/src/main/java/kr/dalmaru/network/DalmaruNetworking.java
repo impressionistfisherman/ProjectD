@@ -67,6 +67,7 @@ public final class DalmaruNetworking {
 
 	private static final AccountRepository ACCOUNTS = new AccountRepository();
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
+	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static final QuestRepository QUESTS = new QuestRepository();
 	private static final EquipmentRepository EQUIPMENT = new EquipmentRepository();
@@ -323,8 +324,9 @@ public final class DalmaruNetworking {
 			AccountSession session = state.accountSession;
 			CompletableFuture.supplyAsync(() -> {
 				try {
+					var pending = CHARACTERS.pendingDeletions(session.accountId());
 					return CHARACTERS.list(session.accountId()).stream()
-						.map(character -> new DalmaruPayloads.CharacterSummary(character.characterId(), character.slot(), character.displayName(), character.characterId().equals(session.activeCharacterId())))
+						.map(character -> new DalmaruPayloads.CharacterSummary(character.characterId(), character.slot(), character.displayName(), character.characterId().equals(session.activeCharacterId()), pending.contains(character.characterId())))
 						.toList();
 				} catch (Exception exception) {
 					throw new IllegalStateException(exception);
@@ -478,6 +480,22 @@ public final class DalmaruNetworking {
                     if(body.size()!=0)throw new IllegalArgumentException("Invalid reset body");
                     resetStatsRequest(context,payload.correlationId(),envelope.activeCharacterId(),envelope);
                 }
+                case "delete_character","restore_character"->{
+                    if(body.size()!=1||!body.has("characterId")||!body.get("characterId").isJsonPrimitive()||!body.getAsJsonPrimitive("characterId").isString())throw new IllegalArgumentException("Invalid character life body");
+                    characterLifeRequest(context,payload.correlationId(),UUID.fromString(body.get("characterId").getAsString()),"restore_character".equals(envelope.operation()),envelope);
+                }
+                case "list_villages"->{
+                    if(body.size()!=0)throw new IllegalArgumentException("Invalid village list body");
+                    villageRequest(context,payload.correlationId(),null,envelope);
+                }
+                case "open_village"->{
+                    if(body.size()!=1||!body.has("villageId")||!body.get("villageId").isJsonPrimitive()||!body.getAsJsonPrimitive("villageId").isString())throw new IllegalArgumentException("Invalid village body");
+                    villageRequest(context,payload.correlationId(),body.get("villageId").getAsString(),envelope);
+                }
+                case "quest_stage"->{
+                    if(body.size()!=3||!body.has("questId")||!body.has("stage")||!body.has("action"))throw new IllegalArgumentException("Invalid quest stage body");
+                    questStageRequest(context,payload.correlationId(),body.get("stage").getAsString(),body.get("action").getAsString(),envelope);
+                }
                 case "invest_stat"->{
                     if(body.size()!=2||!body.has("statId")||!body.has("amount")||!body.get("statId").isJsonPrimitive()||!body.getAsJsonPrimitive("statId").isNumber()||!body.get("amount").isJsonPrimitive()||!body.getAsJsonPrimitive("amount").isNumber())throw new IllegalArgumentException("Invalid stat body");
                     int stat,amount;try{stat=body.get("statId").getAsBigDecimal().intValueExact();amount=body.get("amount").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid stat integer",error);}
@@ -608,6 +626,46 @@ public final class DalmaruNetworking {
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Profession request failed for {}",session.accountId(),error);
         });return null;});
+    }
+
+    private static void questStageRequest(ServerPlayNetworking.Context context,long correlation,String stage,String action,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return QUEST_STAGES.actJournaled(session.accountId(),session.connectionGeneration(),correlation,envelope.activeCharacterId(),stage,action,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Quest stage request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void characterLifeRequest(ServerPlayNetworking.Context context,long correlation,UUID characterId,boolean restore,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return restore?CHARACTERS.restoreJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope):CHARACTERS.deleteJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Character life request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void villageRequest(ServerPlayNetworking.Context context,long correlation,String villageId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        com.google.gson.JsonObject fresh;
+        try{fresh=villageId==null?villageList():villageOpen(villageId);}catch(IllegalArgumentException error){rejectOperation(player,correlation,envelope.requestId());return;}
+        CompletableFuture.supplyAsync(()->{try{return CHARACTERS.note(session.accountId(),session.connectionGeneration(),correlation,envelope,fresh);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Village request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static com.google.gson.JsonObject villageList(){
+        var villages=new com.google.gson.JsonArray();
+        for(var village:kr.dalmaru.content.VillageCatalog.current()){var item=new com.google.gson.JsonObject();item.addProperty("id",village.id());item.addProperty("name",village.name());villages.add(item);}
+        var root=new com.google.gson.JsonObject();root.add("villages",villages);return root;
+    }
+
+    private static com.google.gson.JsonObject villageOpen(String id){
+        var village=kr.dalmaru.content.VillageCatalog.get(id);var npc=village.npcs().getFirst();var root=new com.google.gson.JsonObject();
+        root.addProperty("id",village.id());root.addProperty("name",village.name());root.addProperty("x",village.zone().x());root.addProperty("y",village.zone().y());root.addProperty("z",village.zone().z());root.addProperty("npc",npc.name());root.addProperty("line",npc.lines().getFirst());return root;
     }
 
     private static void resetStatsRequest(ServerPlayNetworking.Context context,long correlation,UUID character,kr.dalmaru.request.RequestEnvelope envelope){

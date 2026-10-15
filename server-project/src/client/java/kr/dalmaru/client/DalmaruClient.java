@@ -194,6 +194,29 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientProfileState.delegateInvestmentRetry();ClientPlayNetworking.send(request);
     }
 
+    public static void requestCharacterLife(java.util.UUID characterId, boolean restore) {
+        var body=new com.google.gson.JsonObject();body.addProperty("characterId",characterId.toString());
+        var request=ClientRequestState.begin(ClientCharacterState.nextLifeRequestId(),restore?"restore_character":"delete_character",body);
+        if(request!=null)ClientPlayNetworking.send(request);
+    }
+
+    public static void requestVillages() {
+        var request=ClientRequestState.begin(ClientVillageState.nextId(),"list_villages",new com.google.gson.JsonObject());
+        if(request!=null)ClientPlayNetworking.send(request);
+    }
+
+    public static void requestQuestStage(String stage, String action) {
+        var body=new com.google.gson.JsonObject();body.addProperty("questId",kr.dalmaru.quest.QuestStageRepository.QUEST_ID);body.addProperty("stage",stage);body.addProperty("action",action);
+        var request=ClientRequestState.begin(ClientQuestStageState.nextId(),"quest_stage",body);
+        if(request!=null)ClientPlayNetworking.send(request);
+    }
+
+    public static void requestVillage(String villageId) {
+        var body=new com.google.gson.JsonObject();body.addProperty("villageId",villageId);
+        var request=ClientRequestState.begin(ClientVillageState.nextId(),"open_village",body);
+        if(request!=null)ClientPlayNetworking.send(request);
+    }
+
     public static void requestCharacterStatReset() {
         if(!ClientProfileState.beginReset())return;
         long correlation=ClientProfileState.currentResetRequestId();
@@ -306,10 +329,20 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
             for(String key:new String[]{"strength","dexterity","arcana","vitality","spirit"}){
                 if(!original.has(key)||!original.get(key).isJsonPrimitive()||!original.getAsJsonPrimitive(key).isNumber()||original.get(key).getAsBigDecimal().intValueExact()!=0)throw new IllegalStateException("Invalid reset receipt");
             }
-            if(!original.has("unspentStatPoints")||!original.get("unspentStatPoints").isJsonPrimitive()||!original.getAsJsonPrimitive("unspentStatPoints").isNumber()||original.get("unspentStatPoints").getAsBigDecimal().intValueExact()<0||!original.has("freeResetAvailable")||!original.get("freeResetAvailable").isJsonPrimitive()||!original.getAsJsonPrimitive("freeResetAvailable").isBoolean()||original.get("freeResetAvailable").getAsBoolean())throw new IllegalStateException("Invalid reset receipt");
-            status=receipt.replayed()?"이미 처리된 초기화입니다. 최신 능력치를 표시합니다.":"능력치를 초기화했습니다.";
+            if(!original.has("unspentStatPoints")||!original.get("unspentStatPoints").isJsonPrimitive()||!original.getAsJsonPrimitive("unspentStatPoints").isNumber()||original.get("unspentStatPoints").getAsBigDecimal().intValueExact()<0||!original.has("freeResetAvailable")||!original.get("freeResetAvailable").isJsonPrimitive()||!original.getAsJsonPrimitive("freeResetAvailable").isBoolean()||original.get("freeResetAvailable").getAsBoolean()||!original.has("copperCost")||!original.get("copperCost").isJsonPrimitive()||!original.getAsJsonPrimitive("copperCost").isNumber())throw new IllegalStateException("Invalid reset receipt");
+            int copperCost=original.get("copperCost").getAsBigDecimal().intValueExact();
+            status=receipt.replayed()?"이미 처리된 초기화입니다. 최신 능력치를 표시합니다.":copperCost==0?"능력치를 초기화했습니다.":copperCost+"전으로 초기화했습니다.";
         }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){status="초기화 결과 확인에 실패했습니다.";}
         ClientProfileState.completeReset(receipt.correlationId(),status);
+    }
+
+    private static void acceptLifeOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+            var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
+            if(!original.has("characterId")||!original.get("characterId").getAsString().equals(expected.get("characterId").getAsString())||!original.has("pending"))throw new IllegalStateException("Invalid life receipt");
+        }catch(RuntimeException error){ClientCharacterState.acceptList(new DalmaruPayloads.CharacterListResponse(0,"삭제 결과를 확인하는 중입니다.",ClientCharacterState.characters()));}
+        requestCharacterList();
     }
 
     private static void acceptStatOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
@@ -351,6 +384,9 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}
         if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
+        if("delete_character".equals(request.operation())||"restore_character".equals(request.operation())){acceptLifeOperation(request,receipt);return;}
+        if("list_villages".equals(request.operation())||"open_village".equals(request.operation())){ClientVillageState.accept(request.operation(),receipt.result(),"rejected".equals(receipt.state()));return;}
+        if("quest_stage".equals(request.operation())){ClientQuestStageState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;

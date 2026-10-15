@@ -104,14 +104,15 @@ public final class DalmaruPayloads {
 		public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 	}
 
-	public record CharacterSummary(UUID characterId, int slot, String displayName, boolean active) {
+	public record CharacterSummary(UUID characterId, int slot, String displayName, boolean active, boolean pendingDeletion) {
 		public static final StreamCodec<RegistryFriendlyByteBuf, CharacterSummary> CODEC = StreamCodec.composite(
 			ByteBufCodecs.VAR_LONG, summary -> summary.characterId().getMostSignificantBits(),
 			ByteBufCodecs.VAR_LONG, summary -> summary.characterId().getLeastSignificantBits(),
 			ByteBufCodecs.VAR_INT, CharacterSummary::slot,
 			ByteBufCodecs.STRING_UTF8, CharacterSummary::displayName,
 			ByteBufCodecs.BOOL, CharacterSummary::active,
-			(most, least, slot, name, active) -> new CharacterSummary(new UUID(most, least), slot, name, active));
+			ByteBufCodecs.BOOL, CharacterSummary::pendingDeletion,
+			(most, least, slot, name, active, pendingDeletion) -> new CharacterSummary(new UUID(most, least), slot, name, active, pendingDeletion));
 	}
 
 	public record CharacterListResponse(long requestId, String status, List<CharacterSummary> characters) implements CustomPacketPayload {

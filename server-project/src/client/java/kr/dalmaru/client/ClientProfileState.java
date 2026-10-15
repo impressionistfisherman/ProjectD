@@ -64,11 +64,11 @@ final class ClientProfileState {
 		if (response.accepted()) current = new DalmaruPayloads.CharacterProfileResponse(response.characterId(), response.profile());
 	}
 	static boolean beginReset() {
-		if (current == null || !current.profile().freeResetAvailable() || resetWaiting || investmentWaiting) return false;
+		if (current == null || resetWaiting || investmentWaiting) return false;
 		currentResetRequestId = nextResetRequestId++;
 		resetWaiting = true;
 		resetDeadline=tick+100;resetRequest=new DalmaruPayloads.CharacterStatResetRequest(currentResetRequestId,current.characterId());
-		status = "무료 초기화를 처리하는 중입니다.";
+		status = current.profile().freeResetAvailable() ? "무료 초기화를 처리하는 중입니다." : "유료 초기화를 처리하는 중입니다.";
 		return true;
 	}
 	static void acceptReset(DalmaruPayloads.CharacterStatResetResponse response) {
@@ -130,6 +130,6 @@ final class ClientProfileState {
 	static long currentInvestmentRequestId() { return currentInvestmentRequestId; }
 	static long currentResetRequestId() { return currentResetRequestId; }
 	static boolean canInvest() { return current != null && current.profile().unspentStatPoints() > 0 && !investmentWaiting && !resetWaiting && !professionWaiting; }
-	static boolean canReset() { return current != null && current.profile().freeResetAvailable() && !investmentWaiting && !resetWaiting && !professionWaiting; }
+	static boolean canReset() { return current != null && !investmentWaiting && !resetWaiting && !professionWaiting; }
 	static String status() { return status; }
 }

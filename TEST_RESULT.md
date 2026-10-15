@@ -426,6 +426,14 @@
 - 2026-10-15 P2-S09: PASS verifyPaidStatReset (8초). DALMARU_DB_NAME=oscar_p2_fixture. 무료 1회는 전 0에서도 능력치만 되돌림. 잔액 9전은 거절하고 능력치 불변. 30전에서 10전을 한 번 걷고 재생은 추가 차감 없음. 5레벨은 50전. 원장 행은 유료만. verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, 20개 검사와 smoke PASS. 인게임 미실행.
 
 - 2026-10-15 P2-S10: PASS verifyVillageRoutes (9초). 태평현에서 직업 4마을로 가고, 각 마을은 태평현으로 돌아온다. 주민 외형은 minecraft:villager, 대사는 초안. 구역은 겹치지 않는다. DB 없음. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture, 20개 검사와 smoke PASS. 인게임 미실행.
+
+- 2026-10-15 P2 통신: PASS verifyProtocolVersion (프로토콜 32, 삭제·복구·마을 목록·마을 열기). verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture, 아래 20개 검사와 smoke PASS. 인게임 미실행.
+
+- 2026-10-15 P2 삭제 확인: PASS verifyClientScreenBounds. 삭제 버튼 문구만 2단계로 바꿨다. 화면 경계 검사는 캐릭터 화면을 포함하지 않는다. 인게임 미실행.
+
+- 2026-10-15 P2-S07: PASS verifyQuestStages. DALMARU_DB_NAME은 환경 변수만 본다. 실패 구간만 지우고 확정 단계는 유지. 현장은 나중 참여자도 확정. 증거는 개인. 최종 보고 재생은 경험치와 조사 보상을 다시 주지 않음. 파트너는 20전 유지. reportConfirmed는 넘긴 연결에서만 읽는다. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture. 기존 20개 검사, smoke, verifyQuestStages PASS. 인게임 미실행.
+
+- 2026-10-15 P2 사람 플레이 가이드: 문서만 추가. 빌드와 회귀는 실행하지 않음. 키와 채팅 문구는 그록·오스카 소스에서 대조했다. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |
