@@ -10,6 +10,7 @@ public final class PilotEquipment {
     private static final Map<String,ContentCatalog.Item> ITEMS=ContentCatalog.current().items();
     private PilotEquipment() { }
 
+    public static boolean tradable(String itemId) { return kr.dalmaru.account.StarterSupply.tradable(itemId); }
     public static int slot(String itemId) {
         ContentCatalog.Item item=ITEMS.get(itemId);
         if(item==null||!item.enabled()) throw new IllegalArgumentException("Undefined equipment cannot be equipped.");

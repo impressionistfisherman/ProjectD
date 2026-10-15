@@ -414,6 +414,18 @@
 - 실제 메서드 본문 하네스로 실패 연결 뒤 다음 플레이어 처리/부활 횟수 유지/경고 UUID·클래스/Error 동일 객체 전파/성공 부활1회·재생중복방지 검증. 기존 현상 확인용 예외 누출 단언을 교체했습니다.
 - p1_regression.ps1에 verifyRunAutoRespawnSafety 포함, 실제1회 exit0/68.67초, 검사20개+임시서버smoke1개 PASS. 내부 assemble PASS6초, protocol31 JAR 재생성 sha256 56b9847ffa4cb7c3e4a3dda6282b36932f5223dbb68750923ce9ec3fc294d68b.
 - fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
+
+- 2026-10-15 P2-S01: PASS --no-daemon verifyStarterSupply (18초). oscar_p1_fixture에 V028 적용. 생성 시 구리 20·회복 4·귀속 수련 장비 1·지급 행 1. 같은 요청 재생과 starter 재호출 후에도 수량 불변. 다른 캐릭터는 따로 1회. supply.training_gear·supply.recovery는 거래 불가, 전직 무기는 그대로. 검사 계정은 정리. 인게임 미실행.
+
+- 2026-10-15 P2-S01 검사 수정: PASS tools/p1_regression.ps1 exit 0 (64초), DALMARU_DB_NAME=oscar_p2_fixture. 검사 20개와 p1_integration_smoke PASS. verifyRequestJournal, verifyRefinementJournal, verifyRunRewards PASS (13초). verifyStarterSupply PASS (7초). 제품 지급 코드는 그대로. 인게임 미실행.
+
+- 2026-10-15 P2-S02: PASS --no-daemon verifyGrowthRewardGrant verifyStarterSupply (10초, compileTestJava 재실행). DALMARU_DB_NAME=oscar_p2_fixture, V028 적용. 전사 키트 6개 1회, 재호출 불변. 강화 3인 무기를 15레벨로 교체해도 강화 3 유지. 조사 후 구리 60·회복 8·수련 장비 유지. 무직 조사는 롤백. 궁수는 궁수 장비만. 10·15레벨 직업 장비는 거래 불가, 20레벨 무기와 장신구는 가능. 검사 계정 정리. oscar_p1_fixture의 V028은 그대로 두고 더 쓰지 않음. 인게임 미실행.
+
+- 2026-10-15 P2-S04: PASS verifyCharacterDeletion (9초, compileTestJava 재실행). DALMARU_DB_NAME=oscar_p2_fixture, V029 적용. 7일 안 슬롯·이름 유지, 재삭제는 시각 불변, 복구 후 무료 초기화 불가와 클리어 2회 유지, 선택은 삭제 중에만 거부. 8일 뒤 목록이 행을 지우고 새 캐릭터는 20전 1회. 다른 계정의 이름도 7일 유지. tools/p1_regression.ps1 exit 0. 인게임 미실행.
+
+- 2026-10-15 P2-S09: PASS verifyPaidStatReset (8초). DALMARU_DB_NAME=oscar_p2_fixture. 무료 1회는 전 0에서도 능력치만 되돌림. 잔액 9전은 거절하고 능력치 불변. 30전에서 10전을 한 번 걷고 재생은 추가 차감 없음. 5레벨은 50전. 원장 행은 유료만. verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, 20개 검사와 smoke PASS. 인게임 미실행.
+
+- 2026-10-15 P2-S10: PASS verifyVillageRoutes (9초). 태평현에서 직업 4마을로 가고, 각 마을은 태평현으로 돌아온다. 주민 외형은 minecraft:villager, 대사는 초안. 구역은 겹치지 않는다. DB 없음. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture, 20개 검사와 smoke PASS. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |

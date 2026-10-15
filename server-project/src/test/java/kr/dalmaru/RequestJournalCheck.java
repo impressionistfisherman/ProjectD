@@ -47,9 +47,10 @@ public final class RequestJournalCheck {
             check(value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",rolled)==0,"Rollback retained journal");
             var repository=new EquipmentRepository();UUID gear=repository.listOrCreate(character).getFirst().equipmentId();
             UUID failed=UUID.randomUUID();var gearBody=new JsonObject();gearBody.addProperty("equipmentId",gear.toString());
+            execute("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,0) ON CONFLICT(character_id) DO UPDATE SET copper=0",character);
             reject(()->repository.enhance(account,generation,91,gear,new RequestEnvelope(failed,generation,character,"enhance_item",gearBody)));
             check(value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",failed)==0&&value("SELECT count(*) FROM dalmaru.character_enhancement_requests WHERE account_id=?",account)==0,"Failed domain retained journal/debit");
-            execute("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000)",character);
+            execute("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000) ON CONFLICT(character_id) DO UPDATE SET copper=1000",character);
             var explicit=new RequestEnvelope(UUID.randomUUID(),generation,character,"enhance_item",gearBody);
             EnhancementResult enhanced;
             try(var workers=Executors.newFixedThreadPool(2)){

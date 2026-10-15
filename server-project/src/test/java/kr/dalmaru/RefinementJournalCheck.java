@@ -17,7 +17,7 @@ public final class RefinementJournalCheck {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();long generation=session.connectionGeneration();
             UUID character=characters.create(account,generation,1,1,"refine_"+account.toString().substring(0,8)).character().characterId();characters.selectActive(account,generation,2,character);
             UUID inactive=characters.create(account,generation,99,2,"refother_"+account.toString().substring(0,8)).character().characterId();
-            sql("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000)",character);
+            sql("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000) ON CONFLICT(character_id) DO UPDATE SET copper=1000",character);
             var repository=new EquipmentRepository();UUID item=repository.listOrCreate(character).getFirst().equipmentId(),foreign=repository.listOrCreate(inactive).getFirst().equipmentId();
             var first=envelope(UUID.randomUUID(),generation,character,item);var pool=Executors.newFixedThreadPool(2);EquipmentRepository.RefinementOutcome saved;
             try {

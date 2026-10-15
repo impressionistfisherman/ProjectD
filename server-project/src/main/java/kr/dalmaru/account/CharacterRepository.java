@@ -27,6 +27,7 @@ public final class CharacterRepository {
 	}
 
 	private static final Pattern ALLOWED_NAME = Pattern.compile("[가-힣A-Za-z0-9_]+");
+	public static final int PAID_RESET_COPPER_PER_LEVEL = 10;
 	private final String url;
 	private final String username;
 	private final String password;
@@ -47,15 +48,26 @@ public final class CharacterRepository {
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
 		UUID characterId = UUID.randomUUID();
 		String sql = "INSERT INTO dalmaru.characters (character_id, account_id, slot, display_name, normalized_name) VALUES (?, ?, ?, ?, ?)";
-		try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement(sql)) {
-			statement.setObject(1, characterId);
-			statement.setObject(2, accountId);
-			statement.setInt(3, slot);
-			statement.setString(4, displayName);
-			statement.setString(5, normalizedName);
-			statement.executeUpdate();
-			insertStartingProfile(connection, characterId);
-			return new CharacterRecord(characterId, accountId, slot, displayName, normalizedName);
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try {
+				releaseExpiredHold(connection, accountId, slot, normalizedName);
+				rejectHeld(connection, accountId, slot, normalizedName);
+				try (var statement = connection.prepareStatement(sql)) {
+					statement.setObject(1, characterId);
+					statement.setObject(2, accountId);
+					statement.setInt(3, slot);
+					statement.setString(4, displayName);
+					statement.setString(5, normalizedName);
+					statement.executeUpdate();
+				}
+				insertStartingProfile(connection, characterId);
+				connection.commit();
+				return new CharacterRecord(characterId, accountId, slot, displayName, normalizedName);
+			} catch (Exception exception) {
+				connection.rollback();
+				throw exception;
+			}
 		}
 	}
 
@@ -177,7 +189,16 @@ public final class CharacterRepository {
 					}
 				}
 				CharacterProfile before = profileForUpdate(connection, characterId);
-				if (!before.freeResetAvailable()) throw new IllegalArgumentException("Free stat reset was already used.");
+				if (!before.freeResetAvailable()) {
+					int cost = Math.multiplyExact(before.level(), PAID_RESET_COPPER_PER_LEVEL);
+					try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) {
+						wallet.setInt(1, cost); wallet.setObject(2, characterId); wallet.setInt(3, cost);
+						if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper.");
+					}
+					try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id,character_id,source_run_id,reason,copper_delta) VALUES(?,?,NULL,'stat_reset',?)")) {
+						ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setInt(3, -cost); ledger.executeUpdate();
+					}
+				}
 				int refunded = before.strength() + before.dexterity() + before.arcana() + before.vitality() + before.spirit();
 				try (var statement = connection.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_stat_points = unspent_stat_points + ?, strength = 0, dexterity = 0, arcana = 0, vitality = 0, spirit = 0, free_reset_available = FALSE WHERE character_id = ?")) {
 					statement.setInt(1, refunded); statement.setObject(2, characterId);
@@ -243,6 +264,16 @@ public final class CharacterRepository {
 
 	public List<CharacterRecord> list(UUID accountId) throws SQLException {
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try {
+				releaseExpiredAccount(connection, accountId);
+				connection.commit();
+			} catch (Exception exception) {
+				connection.rollback();
+				throw exception;
+			}
+		}
 		String sql = "SELECT character_id, account_id, slot, display_name, normalized_name FROM dalmaru.characters WHERE account_id = ? ORDER BY slot";
 		try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement(sql)) {
 			statement.setObject(1, accountId);
@@ -254,8 +285,59 @@ public final class CharacterRepository {
 		}
 	}
 
+	public void delete(UUID accountId, UUID characterId) throws SQLException {
+		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try {
+				own(connection, accountId, characterId);
+				try (var mark = connection.prepareStatement("INSERT INTO dalmaru.character_deletions(character_id, deleted_at) VALUES(?, clock_timestamp()) ON CONFLICT DO NOTHING")) {
+					mark.setObject(1, characterId);
+					mark.executeUpdate();
+				}
+				try (var clear = connection.prepareStatement("UPDATE dalmaru.accounts SET active_character_id=NULL WHERE account_id=? AND active_character_id=?")) {
+					clear.setObject(1, accountId);
+					clear.setObject(2, characterId);
+					clear.executeUpdate();
+				}
+				connection.commit();
+			} catch (Exception exception) {
+				connection.rollback();
+				throw exception;
+			}
+		}
+	}
+
+	public void restore(UUID accountId, UUID characterId) throws SQLException {
+		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try {
+				own(connection, accountId, characterId);
+				try (var restore = connection.prepareStatement("DELETE FROM dalmaru.character_deletions WHERE character_id=? AND deleted_at > clock_timestamp() - interval '7 days'")) {
+					restore.setObject(1, characterId);
+					if (restore.executeUpdate() != 1) {
+						try (var expired = connection.prepareStatement("SELECT 1 FROM dalmaru.character_deletions WHERE character_id=?")) {
+							expired.setObject(1, characterId);
+							try (var row = expired.executeQuery()) {
+								throw new IllegalArgumentException(row.next() ? "Recovery window has closed." : "Character is not deleted.");
+							}
+						}
+					}
+				}
+				connection.commit();
+			} catch (Exception exception) {
+				connection.rollback();
+				throw exception;
+			}
+		}
+	}
+
 	public void selectActive(UUID accountId, UUID characterId) throws SQLException {
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			if (pendingDeletion(connection, accountId, characterId)) throw new IllegalArgumentException("Character is pending deletion.");
+		}
 		String sql = "UPDATE dalmaru.accounts SET active_character_id = ? WHERE account_id = ? AND EXISTS (SELECT 1 FROM dalmaru.characters WHERE character_id = ? AND account_id = ?)";
 		try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement(sql)) {
 			statement.setObject(1, characterId); statement.setObject(2, accountId); statement.setObject(3, characterId); statement.setObject(4, accountId);
@@ -296,6 +378,7 @@ public final class CharacterRepository {
                         save.setObject(1,previous); save.setString(2,vanillaSnapshot); save.executeUpdate();
                     }
                 }
+                if (pendingDeletion(connection, accountId, characterId)) throw new IllegalArgumentException("Character is pending deletion.");
                 if (!replayed) {
                     try(var update=connection.prepareStatement("UPDATE dalmaru.accounts SET active_character_id=? WHERE account_id=? AND connection_generation=? AND EXISTS(SELECT 1 FROM dalmaru.characters WHERE character_id=? AND account_id=?)")) {
                         update.setObject(1,characterId); update.setObject(2,accountId); update.setLong(3,generation); update.setObject(4,characterId); update.setObject(5,accountId);
@@ -441,6 +524,8 @@ public final class CharacterRepository {
 						}
 					}
 				}
+				releaseExpiredHold(connection, accountId, slot, normalizedName);
+				rejectHeld(connection, accountId, slot, normalizedName);
 				String characterSql = "INSERT INTO dalmaru.characters (character_id, account_id, slot, display_name, normalized_name) VALUES (?, ?, ?, ?, ?)";
 				try (var statement = connection.prepareStatement(characterSql)) {
 					statement.setObject(1, characterId); statement.setObject(2, accountId); statement.setInt(3, slot); statement.setString(4, displayName); statement.setString(5, normalizedName);
@@ -497,6 +582,70 @@ public final class CharacterRepository {
 		try (var statement = connection.prepareStatement("INSERT INTO dalmaru.character_profiles (character_id) VALUES (?)")) {
 			statement.setObject(1, characterId);
 			statement.executeUpdate();
+		}
+		StarterSupply.grant(connection, characterId);
+	}
+
+	private void own(java.sql.Connection connection, UUID accountId, UUID characterId) throws SQLException {
+		try (var own = connection.prepareStatement("SELECT 1 FROM dalmaru.characters WHERE character_id=? AND account_id=? FOR UPDATE")) {
+			own.setObject(1, characterId);
+			own.setObject(2, accountId);
+			try (var row = own.executeQuery()) {
+				if (!row.next()) throw new IllegalArgumentException("Character does not belong to this account.");
+			}
+		}
+	}
+
+	private boolean pendingDeletion(java.sql.Connection connection, UUID accountId, UUID characterId) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.characters c JOIN dalmaru.character_deletions d ON d.character_id=c.character_id WHERE c.character_id=? AND c.account_id=? AND d.deleted_at > clock_timestamp() - interval '7 days'")) {
+			query.setObject(1, characterId);
+			query.setObject(2, accountId);
+			try (var row = query.executeQuery()) { return row.next(); }
+		}
+	}
+
+	private void rejectHeld(java.sql.Connection connection, UUID accountId, int slot, String normalizedName) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.characters c JOIN dalmaru.character_deletions d ON d.character_id=c.character_id WHERE ((c.account_id=? AND c.slot=?) OR c.normalized_name=?) AND d.deleted_at > clock_timestamp() - interval '7 days'")) {
+			query.setObject(1, accountId);
+			query.setInt(2, slot);
+			query.setString(3, normalizedName);
+			try (var row = query.executeQuery()) {
+				if (row.next()) throw new IllegalArgumentException("Name or slot is held for 7 days.");
+			}
+		}
+	}
+
+	private void releaseExpiredHold(java.sql.Connection connection, UUID accountId, int slot, String normalizedName) throws SQLException {
+		String match = "((c.account_id=? AND c.slot=?) OR c.normalized_name=?) AND d.deleted_at <= clock_timestamp() - interval '7 days'";
+		clearExpired(connection, match, accountId, slot, normalizedName);
+	}
+
+	private void releaseExpiredAccount(java.sql.Connection connection, UUID accountId) throws SQLException {
+		clearExpired(connection, "c.account_id=? AND d.deleted_at <= clock_timestamp() - interval '7 days'", accountId, null, null);
+	}
+
+	private void clearExpired(java.sql.Connection connection, String match, UUID accountId, Integer slot, String normalizedName) throws SQLException {
+		try (var clear = connection.prepareStatement("UPDATE dalmaru.accounts a SET active_character_id=NULL FROM dalmaru.characters c JOIN dalmaru.character_deletions d ON d.character_id=c.character_id WHERE a.active_character_id=c.character_id AND " + match)) {
+			bindHold(clear, accountId, slot, normalizedName);
+			clear.executeUpdate();
+		}
+		for (String table : List.of("dalmaru.character_profiles", "dalmaru.character_selection_requests", "dalmaru.character_stat_investment_requests", "dalmaru.character_stat_reset_requests", "dalmaru.skill_loadout_requests")) {
+			try (var child = connection.prepareStatement("DELETE FROM " + table + " t USING dalmaru.characters c JOIN dalmaru.character_deletions d ON d.character_id=c.character_id WHERE t.character_id=c.character_id AND " + match)) {
+				bindHold(child, accountId, slot, normalizedName);
+				child.executeUpdate();
+			}
+		}
+		try (var drop = connection.prepareStatement("DELETE FROM dalmaru.characters c USING dalmaru.character_deletions d WHERE c.character_id=d.character_id AND " + match)) {
+			bindHold(drop, accountId, slot, normalizedName);
+			drop.executeUpdate();
+		}
+	}
+
+	private static void bindHold(java.sql.PreparedStatement statement, UUID accountId, Integer slot, String normalizedName) throws SQLException {
+		statement.setObject(1, accountId);
+		if (slot != null) {
+			statement.setInt(2, slot);
+			statement.setString(3, normalizedName);
 		}
 	}
 

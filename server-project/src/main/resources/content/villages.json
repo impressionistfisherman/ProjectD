@@ -1,0 +1,74 @@
+{
+  "villages": [
+    {
+      "id": "taepyeong",
+      "name": "태평현",
+      "profession": "",
+      "dimension": "minecraft:overworld",
+      "x": 0,
+      "y": 64,
+      "z": 0,
+      "radius": 32,
+      "routes": ["cheolwi", "cheongnim", "unhak", "heukjo"],
+      "npcs": [
+        {"id": "taepyeong.guide", "name": "현리", "appearance": "minecraft:villager/librarian", "lines": ["태평현 안내입니다. 이 문안은 초안입니다."]}
+      ]
+    },
+    {
+      "id": "cheolwi",
+      "name": "철위성",
+      "profession": "WARRIOR",
+      "dimension": "minecraft:overworld",
+      "x": 400,
+      "y": 64,
+      "z": 0,
+      "radius": 32,
+      "routes": ["taepyeong"],
+      "npcs": [
+        {"id": "cheolwi.guide", "name": "대장장이", "appearance": "minecraft:villager/weaponsmith", "lines": ["철위성 전사 마을입니다. 이 문안은 초안입니다."]}
+      ]
+    },
+    {
+      "id": "cheongnim",
+      "name": "청림촌",
+      "profession": "ARCHER",
+      "dimension": "minecraft:overworld",
+      "x": 0,
+      "y": 64,
+      "z": 400,
+      "radius": 32,
+      "routes": ["taepyeong"],
+      "npcs": [
+        {"id": "cheongnim.guide", "name": "사수", "appearance": "minecraft:villager/fletcher", "lines": ["청림촌 궁수 마을입니다. 이 문안은 초안입니다."]}
+      ]
+    },
+    {
+      "id": "unhak",
+      "name": "운학촌",
+      "profession": "MAGE",
+      "dimension": "minecraft:overworld",
+      "x": -400,
+      "y": 64,
+      "z": 0,
+      "radius": 32,
+      "routes": ["taepyeong"],
+      "npcs": [
+        {"id": "unhak.guide", "name": "도사", "appearance": "minecraft:villager/cleric", "lines": ["운학촌 법사 마을입니다. 이 문안은 초안입니다."]}
+      ]
+    },
+    {
+      "id": "heukjo",
+      "name": "흑조포",
+      "profession": "ROGUE",
+      "dimension": "minecraft:overworld",
+      "x": 0,
+      "y": 64,
+      "z": -400,
+      "radius": 32,
+      "routes": ["taepyeong"],
+      "npcs": [
+        {"id": "heukjo.guide", "name": "포구지기", "appearance": "minecraft:villager/leatherworker", "lines": ["흑조포 도적 마을입니다. 이 문안은 초안입니다."]}
+      ]
+    }
+  ]
+}

@@ -18,11 +18,12 @@ public final class RunRewardCheck {
             var session = accounts.openSession(ACCOUNT); var character = characters.create(ACCOUNT, 1, "달마루_보상시험14");
             characters.selectActive(ACCOUNT, session.connectionGeneration(), 1401, character.characterId()); characters.grantExperience(character.characterId(), 8000);
             var first = runs.enter(ACCOUNT, session.connectionGeneration(), 1402, RunDifficulty.FIRST_STEP, List.of(character.characterId()));
+            int beforeReward = count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character.characterId());
             runs.finish(ACCOUNT, session.connectionGeneration(), 1403, first.runId(), true);
             var reward = runs.rewards(first.runId()).getFirst();
             if (reward.copper() != 70 || reward.ironstone() != 3 || reward.beaconToken() != 1 || !"equipment_box.level_15".equals(reward.equipmentBox())) throw new IllegalStateException("First-step reward is incorrect.");
             runs.finish(ACCOUNT, session.connectionGeneration(), 1403, first.runId(), true);
-            if (count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character.characterId()) != 70) throw new IllegalStateException("Reward replay changed wallet.");
+            if (count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character.characterId()) != beforeReward + 70) throw new IllegalStateException("Reward replay changed wallet.");
             if (count("SELECT COUNT(*) FROM dalmaru.character_currency_ledger WHERE character_id=?", character.characterId()) != 1) throw new IllegalStateException("Reward replay changed currency ledger.");
             var training = runs.enter(ACCOUNT, session.connectionGeneration(), 1404, RunDifficulty.TRAINING, List.of(character.characterId()));
             runs.finish(ACCOUNT, session.connectionGeneration(), 1405, training.runId(), true);
