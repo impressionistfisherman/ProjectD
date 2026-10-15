@@ -365,3 +365,12 @@
 ## QA MDF-P1 S09k3 (2026-10-15)
 - PASS: --no-daemon verifyQuestKillJournal verifyQuestAcceptanceJournal compileJava compileClientJava (16초). 동시 동일처치/미수락 no-op replay/자동보상 일회/원결과 재생 억제/확정 실패시 진행·XP·journal rollback/동일entity retry/old generation 거부/DB-only completed 확인.
 - fixture oscar_p1_fixture localhost:15432: accounts0/operation_requests0/schema27. 실제 게임·패킷 왕복·운영 서버는 미검증. 실패 이벤트의 프로세스 재시작 후 자동 재수집은 이번 범위에 없으며 오류는 로그로 남깁니다. 독립 QA 대기, 전체 PARTIAL.
+
+
+## MDF-P1 M11b (2026-10-15)
+- PASS: --no-daemon verifyRequestJournal verifyClientRequestEnvelope compileJava compileClientJava (19초). 재접속 세대의 같은 UUID는 저장 결과와 같은 강화 이벤트를 돌려주고 구리를 다시 차감하지 않았습니다. 이전 세대 패킷과 다른 본문은 거부했습니다. 클라이언트는 끊긴 동안 재전송하지 않다가, 같은 캐릭터의 새 세대가 오면 같은 UUID를 다시 보냅니다.
+- 인게임 끊김·패킷 도착·라이브 서버·운영 DB는 실행하지 않았습니다.
+
+## MDF-P1 M11b 수정 (2026-10-15)
+- 기준 b8779d1: 실패했던 6개 검사 PASS (26초). 그 결과는 잔여 행이 아니라 잠금 순서 회귀를 가릅니다.
+- 수정 후 --no-daemon verifySkillJournal verifyStatJournal verifyResetJournal verifyProfessionJournal verifyLoadoutJournal verifyRefinementJournal verifyRequestJournal PASS (24초). 인게임 끊김은 실행하지 않았습니다.

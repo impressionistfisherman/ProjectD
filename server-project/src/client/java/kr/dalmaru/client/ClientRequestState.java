@@ -10,11 +10,15 @@ final class ClientRequestState {
     private static int tick;
     private record Pending(DalmaruPayloads.OperationRequest request,int deadline){}
     private static final Map<UUID,Pending> pending=new HashMap<>();
-    static void reset(){character=null;generation=0;tick=0;pending.clear();}
-    static void selected(UUID id){character=id;generation=0;pending.clear();}
+    static void reset(){generation=0;tick=0;}
+    static void selected(UUID id){if(id!=null&&id.equals(character))return;character=id;generation=0;pending.clear();}
     static void accept(DalmaruPayloads.RequestContext context){
         if(context.connectionGeneration()<1||context.activeCharacterId().equals(new UUID(0,0))||(character!=null&&!character.equals(context.activeCharacterId()))||context.connectionGeneration()<generation)return;
-        if(context.connectionGeneration()>generation)pending.clear();character=context.activeCharacterId();generation=context.connectionGeneration();
+        boolean rebound=context.connectionGeneration()>generation;character=context.activeCharacterId();generation=context.connectionGeneration();
+        if(!rebound)return;
+        var kept=new HashMap<UUID,Pending>();
+        for(var entry:pending.entrySet()){var request=entry.getValue().request();if(!request.activeCharacterId().equals(character))continue;kept.put(request.requestId(),new Pending(new DalmaruPayloads.OperationRequest(request.correlationId(),request.requestId(),generation,character,request.operation(),request.payload()),tick));}
+        pending.clear();pending.putAll(kept);
     }
     static DalmaruPayloads.OperationRequest begin(long correlation,String operation,JsonObject payload){
         if(generation<1||character==null||correlation<1)return null;
@@ -22,7 +26,7 @@ final class ClientRequestState {
         pending.put(request.requestId(),new Pending(request,tick+100));return request;
     }
     static List<DalmaruPayloads.OperationRequest> tick(){
-        tick++;var retries=new ArrayList<DalmaruPayloads.OperationRequest>();
+        tick++;if(generation<1)return List.of();var retries=new ArrayList<DalmaruPayloads.OperationRequest>();
         for(var entry:pending.entrySet())if(tick>=entry.getValue().deadline()){
             var request=entry.getValue().request();retries.add(request);entry.setValue(new Pending(request,tick+100));
         }

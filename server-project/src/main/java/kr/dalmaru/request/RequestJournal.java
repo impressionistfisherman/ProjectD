@@ -23,8 +23,10 @@ public final class RequestJournal {
         try(var query=c.prepareStatement("SELECT account_id,connection_generation,character_id,operation,legacy_request_id,payload_hash,event_id,state,result::text FROM dalmaru.operation_requests WHERE request_id=? FOR UPDATE")){
             query.setObject(1,envelope.requestId());try(var row=query.executeQuery()){
                 if(row.next()){
-                    if(!account.equals(row.getObject(1,UUID.class))||envelope.connectionGeneration()!=row.getLong(2)||!envelope.activeCharacterId().equals(row.getObject(3,UUID.class))||!envelope.operation().equals(row.getString(4))||!hash.equals(row.getString(6)))throw new IllegalArgumentException("Request ID was reused with another owner or body");
-                    String result=row.getString(9);return new Stored(new Receipt(envelope.requestId(),row.getObject(7,UUID.class),row.getString(8)),row.getLong(5),result==null?null:JsonParser.parseString(result).getAsJsonObject());
+                    long storedGeneration=row.getLong(2);String result=row.getString(9);
+                    boolean sameBody=hash.equals(row.getString(6))||envelope.connectionGeneration()!=storedGeneration&&new RequestEnvelope(envelope.requestId(),storedGeneration,envelope.activeCharacterId(),envelope.operation(),envelope.payload()).bodyHash().equals(row.getString(6));
+                    if(!account.equals(row.getObject(1,UUID.class))||!envelope.activeCharacterId().equals(row.getObject(3,UUID.class))||!envelope.operation().equals(row.getString(4))||!sameBody||(envelope.connectionGeneration()!=storedGeneration&&result==null))throw new IllegalArgumentException("Request ID was reused with another owner or body");
+                    return new Stored(new Receipt(envelope.requestId(),row.getObject(7,UUID.class),row.getString(8)),row.getLong(5),result==null?null:JsonParser.parseString(result).getAsJsonObject());
                 }
             }
         }

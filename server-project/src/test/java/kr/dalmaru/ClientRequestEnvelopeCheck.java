@@ -43,6 +43,7 @@ public final class ClientRequestEnvelopeCheck {
                 var second=ClientRequestState.begin(2,"enhance_item",body);ClientRequestState.selected(b);check(ClientRequestState.accept(new DalmaruPayloads.OperationReceipt(2,second.requestId(),UUID.randomUUID(),"completed","{}",false))==null);
                 ClientRequestState.accept(new DalmaruPayloads.RequestContext(3,b));ClientRequestState.accept(new DalmaruPayloads.RequestContext(2,b));var third=ClientRequestState.begin(3,"enhance_item",body);check(third.connectionGeneration()==3);
                 check(ClientRequestState.accept(new DalmaruPayloads.OperationReceipt(3,third.requestId(),new UUID(0,0),"rejected","{}",false))==third);
+                ClientRequestState.selected(a);ClientRequestState.accept(new DalmaruPayloads.RequestContext(6,a));var kept=ClientRequestState.begin(9,"enhance_item",body);ClientRequestState.reset();for(int i=0;i<5;i++)check(ClientRequestState.tick().isEmpty());ClientRequestState.selected(a);check(ClientRequestState.tick().isEmpty());ClientRequestState.accept(new DalmaruPayloads.RequestContext(7,a));var resumed=ClientRequestState.tick();check(resumed.size()==1&&resumed.getFirst().requestId().equals(kept.requestId())&&resumed.getFirst().connectionGeneration()==7&&resumed.getFirst().correlationId()==9&&resumed.getFirst().payload().equals(kept.payload()));
                 check(ClientRequestState.begin(0,"enhance_item",body)==null);ClientRequestState.reset();for(int i=0;i<101;i++)check(ClientRequestState.tick().isEmpty());
             }
         }

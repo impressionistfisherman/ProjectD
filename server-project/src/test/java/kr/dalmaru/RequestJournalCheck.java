@@ -64,6 +64,15 @@ public final class RequestJournalCheck {
             var enhancedReplay=repository.enhance(account,generation,94,gear,explicit);
             check(enhancedReplay.replayed()&&enhancedReplay.receipt().eventId().equals(enhanced.receipt().eventId())&&value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==wallet&&value("SELECT count(*) FROM dalmaru.character_enhancement_requests WHERE account_id=?",account)==1,"UUID replay charged/new correlation reran domain");
             var nextSession=accounts.openSession(account);
+            var rebound=new RequestEnvelope(id,nextSession.connectionGeneration(),character,"test_operation",envelope.payload());
+            try(var c=EnhancementReplayCheck.connection()){
+                c.setAutoCommit(false);var replay=RequestJournal.begin(c,account,99,rebound);check(replay.legacyRequestId()==77&&replay.receipt().eventId().equals(receipt.eventId())&&replay.result().equals(outcome),"Reconnect generation did not return the stored result");c.rollback();
+            }
+            check(value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",id)==1,"Reconnect replay inserted another journal row");
+            var reboundGear=new RequestEnvelope(explicit.requestId(),nextSession.connectionGeneration(),character,"enhance_item",gearBody);
+            var gearReplay=repository.enhance(account,nextSession.connectionGeneration(),95,gear,reboundGear);
+            check(gearReplay.replayed()&&gearReplay.receipt().eventId().equals(enhanced.receipt().eventId())&&value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==wallet,"Reconnect replay charged again");
+            rejectTransaction(c->RequestJournal.begin(c,account,77,new RequestEnvelope(id,nextSession.connectionGeneration(),character,"test_operation",changed.payload())));
             rejectTransaction(c->RequestJournal.begin(c,account,77,envelope));
             rejectTransaction(c->RequestJournal.applied(c,account,generation,id));
             try(var c=EnhancementReplayCheck.connection()){c.setAutoCommit(false);RequestJournal.applied(c,account,nextSession.connectionGeneration(),id);c.commit();}
