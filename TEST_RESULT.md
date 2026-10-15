@@ -405,3 +405,5 @@
 | `verifyQuestKillJournal` | 예 | PASS |
 | `verifyProtocolVersion` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
+
+- 2026-10-15 MDF-P1 M14b: PASS --no-daemon verifyRunAutoRespawnSafety (8s, compileTestJava 재실행). null·connected=false는 호출 없음. 삼킨 패킷 3회와 닫힌 연결 예외는 차감 0. 완료 부활은 재생 포함 1회. 다른 플레이어·런 밖 플레이어 불변. tick의 autoRespawn 호출은 try 밖. 실제 ServerGamePacketListenerImpl·가짜 플레이어 연결은 미실행.

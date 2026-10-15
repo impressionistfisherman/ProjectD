@@ -373,3 +373,5 @@
 - 회귀 목록에 verifyQuest*·verifyProtocolVersion 추가. tools/p1_regression.ps1 1회 PASS(exit0, 69.85초): 실제 검사19개 + 임시서버 smoke1개 모두 PASS. schema27, 운영 PID14160/운영DB/운영JAR 변경·push 없음.
 - protocol31 사람 플레이용 JAR: server-project/build/libs/dalmaru-0.1.0.jar (1677074 bytes), DalmaruClient.class/fabric.mod.json 포함 확인. SHA256 1287212e5e769aff2953871a678435a502621ca2114c7dc5a814b5dadcead777.
 - fixture 사후 관측 accounts1/operation_requests0/schema27, 남은 계정 c9345596-3e13-4576-bccc-eab3cd8ae87b는 characters0. 소유·생성 주체 미확인으로 삭제하지 않음. 인게임·실제패킷·독립 통합QA 미실행, 최종 승인 대기. 운영 protocol과 호환되는 서버/클라이언트 동시 적용은 별도 승인 사항. 전체 PARTIAL.
+
+- 2026-10-15 MDF-P1 M14b: 체크리스트 3번 자동 부활을 verifyRunAutoRespawnSafety로 검사. 목록에서 빠진 플레이어·disconnect 이후·패킷만 삼킨 연결·예외를 던지는 연결은 부활 횟수를 깎지 않고, 완료된 부활은 재생해도 1회. 다른 플레이어 상태는 그대로. 실제 닫히는 리스너와 시험용 플레이어 연결은 서버가 필요해 사람 확인. 제품 코드 변경 없음, 전체 PARTIAL.
