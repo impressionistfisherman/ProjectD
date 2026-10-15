@@ -19,6 +19,7 @@ final class ClientEquipmentState {
         if(response.requestId()<minimumRequest||response.requestId()<lastEnhancementReply)return;
         lastEnhancementReply=response.requestId();status=response.status();statusUntil=System.nanoTime()+2_000_000_000L;
     }
+    static void movementStatus(String message){status=message;statusUntil=System.nanoTime()+2_000_000_000L;}
     static List<DalmaruPayloads.EquipmentData> equipment() { return equipment; }
     static String status() { return System.nanoTime()<statusUntil?status:listStatus; }
 }

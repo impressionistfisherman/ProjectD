@@ -429,7 +429,11 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "update_loadout"->{
+                    case "move_equipment"->{
+                    if(body.size()!=2||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString()||!body.has("equip")||!body.get("equip").isJsonPrimitive()||!body.getAsJsonPrimitive("equip").isBoolean())throw new IllegalArgumentException("Invalid equipment move body");
+                    moveEquipment(context.player(),body.get("equipmentId").getAsString(),payload.correlationId(),body.get("equip").getAsBoolean(),envelope);
+                }
+                case "update_loadout"->{
                     if(body.size()!=2||!body.has("revision")||!body.get("revision").isJsonPrimitive()||!body.getAsJsonPrimitive("revision").isNumber()||!body.has("slots")||!body.get("slots").isJsonArray()||body.getAsJsonArray("slots").size()!=5)throw new IllegalArgumentException("Invalid loadout body");
                     long revision;try{revision=body.get("revision").getAsBigDecimal().longValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid loadout revision",error);}
                     var slots=new java.util.ArrayList<String>();for(var slot:body.getAsJsonArray("slots")){if(!slot.isJsonPrimitive()||!slot.getAsJsonPrimitive().isString())throw new IllegalArgumentException("Invalid loadout slot");slots.add(slot.getAsString());}
@@ -477,19 +481,32 @@ public final class DalmaruNetworking {
     private static void sendRunFailure(ServerPlayNetworking.Context context,long requestId,Throwable error){
         ServerPlayNetworking.send(context.player(),new DalmaruPayloads.RunResponse(requestId,false,new UUID(0,0),0,0,"",runEntryStatus(error)));
     }
-    private static void moveEquipment(ServerPlayer player,String id,long requestId,boolean equip){
-        ConnectionState state=CONNECTIONS.get(player.getUUID());
-        if(state==null||!state.compatible||state.accountSession==null)return;
-        var stamina=COMBAT.stamina(player.getUUID(),currentTick);
-        if(RUN_RUNTIME.runId(player)!=null||(stamina!=null&&stamina.inCombat())){player.sendSystemMessage(Component.literal("전투·공략 중 장비를 변경할 수 없습니다."));return;}
-        AccountSession session=state.accountSession;
+    private static void moveEquipment(ServerPlayer player,String id,long requestId,boolean equip){moveEquipment(player,id,requestId,equip,null);}
+    private static void moveEquipment(ServerPlayer player,String id,long requestId,boolean equip,kr.dalmaru.request.RequestEnvelope envelope){
+        var state=CONNECTIONS.get(player.getUUID());
+        if(state==null||!state.compatible||state.accountSession==null||state.accountFailure!=null||requestId<1){if(envelope!=null)rejectOperation(player,requestId,envelope.requestId());return;}
+        var stamina=COMBAT.stamina(player.getUUID(),currentTick);boolean editable=!state.startPending&&RUN_RUNTIME.runId(player)==null&&(stamina==null||!stamina.inCombat());
+        if(envelope==null&&!editable){player.sendSystemMessage(Component.literal("전투·공략 중 장비를 변경할 수 없습니다."));return;}
+        var session=state.accountSession;
+        kr.dalmaru.equipment.EquipmentRepository.MovementResult result;
+        try{result=EQUIPMENT.moveJournaled(session.accountId(),session.connectionGeneration(),requestId,UUID.fromString(id),equip,envelope,editable);}
+        catch(Exception error){
+            LOGGER.warn("Equipment move outcome for {}",session.accountId(),error);
+            if(envelope==null)player.sendSystemMessage(Component.literal("장비 소유권·직업·레벨 조건을 확인하세요."));
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,requestId,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(requestId,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            return;
+        }
+        var items=result.equipment();
         try{
-            var items=EQUIPMENT.move(session.accountId(),session.connectionGeneration(),requestId,UUID.fromString(id),equip);
-            if(state.activeProfile!=null)COMBAT.equipment(player,state.activeProfile,EQUIPMENT.equipped(session.activeCharacterId()));
-            ServerPlayNetworking.send(player,new DalmaruPayloads.EquipmentListResponse(requestId,"장비를 변경했습니다.",items.stream().map(item->new DalmaruPayloads.EquipmentData(item.equipmentId(),item.slotId(),item.itemId(),item.enhancement(),item.consecutiveFailures(),item.bound())).toList()));
-        }catch(Exception error){LOGGER.warn("Rejected equipment move.",error);player.sendSystemMessage(Component.literal("장비 소유권·직업·레벨 조건을 확인하세요."));}
+            if(editable&&state.activeProfile!=null)COMBAT.equipment(player,state.activeProfile,items.stream().filter(item->item.slotId()>=0).toList());
+            ServerPlayNetworking.send(player,new DalmaruPayloads.EquipmentListResponse(requestId,"장비 이동 결과를 확인했습니다.",items.stream().map(item->new DalmaruPayloads.EquipmentData(item.equipmentId(),item.slotId(),item.itemId(),item.enhancement(),item.consecutiveFailures(),item.bound())).toList()));
+        }catch(Exception error){
+            LOGGER.error("Committed equipment move requires world recovery for {}",session.accountId(),error);
+            if(envelope==null)player.sendSystemMessage(Component.literal("이동은 저장됐으나 반영 확인이 필요합니다. 장비 목록을 다시 확인하세요."));
+        }
+        if(envelope!=null){var original=new com.google.gson.JsonObject();original.addProperty("equipmentId",result.equipmentId().toString());original.addProperty("slotId",result.slotId());var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(requestId,receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.replayed()));}
     }
-
 	private static MinecraftServer serverFor(ServerPlayer player) { return ((ServerLevel) player.level()).getServer(); }
 
     private static boolean hostileCombatEntity(ServerPlayer player,net.minecraft.world.entity.Entity other){

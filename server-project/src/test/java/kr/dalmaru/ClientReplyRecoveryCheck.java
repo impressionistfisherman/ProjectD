@@ -14,15 +14,23 @@ public final class ClientReplyRecoveryCheck {
                 String source=Files.readString(Path.of("src/client/java/kr/dalmaru/client/"+name+".java")).replace("package kr.dalmaru.client;","").replace("import kr.dalmaru.network.DalmaruPayloads;","");
                 Path file=dir.resolve(name+".java");Files.writeString(file,source);compilerArgs.add(file.toString());
             }
-            Path file=dir.resolve("ReplyHarness.java");Files.writeString(file,HARNESS);compilerArgs.add(file.toString());
+            String client=Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));
+            Path file=dir.resolve("ReplyHarness.java");Files.writeString(file,HARNESS.replace("/* MOVE RECEIPT */",method(client,"private static void acceptEquipmentMoveOperation(")));compilerArgs.add(file.toString());
             if(ToolProvider.getSystemJavaCompiler().run(null,null,null,compilerArgs.toArray(String[]::new))!=0)throw new AssertionError("Client reply fixture compile failed");
             try(var loader=new URLClassLoader(new java.net.URL[]{dir.toUri().toURL()},ClassLoader.getPlatformClassLoader())){loader.loadClass("ReplyHarness").getMethod("run").invoke(null);}
         }finally{try(var files=Files.walk(dir)){for(var path:files.sorted(Comparator.reverseOrder()).toList())Files.delete(path);}}
         System.out.println("Actual client classes: lost/reordered/foreign-character/loadout-recovery/rank-retry PASS");
     }
+    private static String method(String source,String signature){
+        int start=source.indexOf(signature);if(start<0)throw new AssertionError("Missing receipt handler");
+        int open=source.indexOf('{',start),depth=1,end=open+1;
+        while(depth>0){char value=source.charAt(end++);if(value=='{')depth++;if(value=='}')depth--;}
+        return source.substring(start,end);
+    }
     private static final String HARNESS="""
         import java.util.*;
         class DalmaruPayloads{
+            record OperationReceipt(long correlationId,UUID requestId,UUID eventId,String state,String result,boolean replayed){}
             record LoadoutResponse(long requestId,UUID characterId,long revision,List<String> slots,boolean editable,String status){}
             record SkillRank(String skillId,int rank){}
             record SkillRanksResponse(long requestId,List<SkillRank> ranks){}
@@ -40,6 +48,9 @@ public final class ClientReplyRecoveryCheck {
             record EquipmentEnhanceResponse(long requestId,boolean accepted,boolean success,int enhancement,int consecutiveFailures,String status){}
         }
         public class ReplyHarness{
+            static int equipmentQueries;
+            static void requestEquipment(){equipmentQueries++;}
+            /* MOVE RECEIPT */
             static void check(boolean value){if(!value)throw new AssertionError("Client reply recovery differs");}
             static DalmaruPayloads.LoadoutResponse load(long request,UUID character,long revision,String status){return new DalmaruPayloads.LoadoutResponse(request,character,revision,List.of("","","","",""),true,status);}
             static void deadline(String name)throws Exception{var field=ClientLoadoutState.class.getDeclaredField(name);field.setAccessible(true);field.setLong(null,System.nanoTime()-1);}
@@ -92,6 +103,8 @@ public final class ClientReplyRecoveryCheck {
                 ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(3,true,true,1,0,"already processed"));check(ClientEquipmentState.equipment().getFirst().enhancement()==2&&ClientEquipmentState.status().equals("already processed"));
                 ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(inventory2,"latest",List.of(latestItem)));check(ClientEquipmentState.status().equals("already processed"));
                 var expiry=ClientEquipmentState.class.getDeclaredField("statusUntil");expiry.setAccessible(true);expiry.setLong(null,System.nanoTime()-1);check(ClientEquipmentState.status().equals("latest"));
+                acceptEquipmentMoveOperation(new DalmaruPayloads.OperationReceipt(90,UUID.randomUUID(),UUID.randomUUID(),"completed","{}",true));check(equipmentQueries==1&&ClientEquipmentState.equipment().equals(List.of(latestItem))&&ClientEquipmentState.status().contains("최신"));
+                acceptEquipmentMoveOperation(new DalmaruPayloads.OperationReceipt(91,UUID.randomUUID(),new UUID(0,0),"rejected","{}",false));check(equipmentQueries==2&&ClientEquipmentState.equipment().equals(List.of(latestItem))&&ClientEquipmentState.status().contains("전투"));
                 long oldInventory=ClientEquipmentState.nextRequestId();ClientEquipmentState.selected();ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(oldInventory,"previous",List.of(latestItem)));check(ClientEquipmentState.equipment().isEmpty());
             }
         }

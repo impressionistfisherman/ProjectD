@@ -297,3 +297,7 @@
 ## MDF-P1 S09h1 (2026-10-15)
 - PASS: --no-daemon verifyEquipmentMoveJournal (13초). UUID/다른 correlation/동시 한 번 이동/legacy 채택, 원슬롯·최신 목록 분리, 본문·세대·비활성 캐릭터 장비·월드 잠금·레벨 거부, 교체 장비 밀어내기·귀속 뒤 이력 INSERT 실패 시 전체 rollback, 재시도 성공 후 교체·귀속 확인.
 - 실제 패킷 왕복·인게임 이동은 미검증. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09h2 (2026-10-15)
+- PASS: --no-daemon verifyEquipmentMoveJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (14초). 장비 이동 DB regression, 실제 이동 receipt handler의 저장결과/거부 안내·최신목록 조회·캐시 덮어쓰기 금지, 공통 UUID/context/선택/동일봉투 retry 경계 검사.
+- 최종 편집 가능 replay 전투 갱신 조건 수정 뒤 compileJava compileClientJava PASS(9초). 실제 패킷 왕복·월드 반영 실패주입·인게임 이동은 미실행. 독립 QA 요청 대상입니다.

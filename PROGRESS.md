@@ -264,3 +264,7 @@
 ## MDF-P1 S09h1 (2026-10-15)
 - 장비 이동 UUID 저널/long adapter 연결. 저장된 원래 장비ID·목표 슬롯과 최신 장비 목록을 분리하며 목록도 같은 트랜잭션에서 읽습니다. 장비 소유권과 장착 조건, 슬롯 교체·귀속·이력·저널 원자성을 유지합니다. 월드 잠금은 새 쓰기만 막고 확정 재생은 허용합니다.
 - S09g1/g2 Creed+Jim PASS 통보 확인. 그록 분담 요청에 M13a 시험DB 백업·복원 훈련(scripts/m13-fixture-recovery.ps1/docs/M13_RECOVERY_EVIDENCE.md, 기준1c1523a)을 제안했습니다. M08은 추가 확인 뒤 별도 합치기 지시 대기. 장비 이동 wire/나머지 O28/M11/M12/M13b/M14 남음. 전체 PARTIAL.
+
+## MDF-P1 S09h2 (2026-10-15)
+- 장비 이동 common UUID router/client 전송과 기존 명령 adapter 연결. 장비ID 문자열/equip boolean 본문·현재 세대·소유권 검증, 최신 목록 먼저·원슬롯 receipt 나중 전송. 불확실 저장 실패는 같은UUID 재시도 유지, 저장 후 월드 반영 오류는 확정 결과를 거부로 바꾸지 않습니다.
+- 전투/공략/입장처리 중 새 이동은 거부하고 저장 결과는 읽기재생합니다. 편집 가능 상태의 replay도 최신 장비로 전투 상태를 갱신합니다. client는 원슬롯을 적용하지 않고 최신 목록을 조회하며 거부 안내도 표시합니다. M11 실제 world ACK/reconnect는 남습니다.

@@ -223,11 +223,14 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 		long request=ClientEquipmentState.nextRequestId();ClientEquipmentState.queried(request);ClientPlayNetworking.send(new DalmaruPayloads.EquipmentListRequest(request));
 	}
 
-    public static void requestEquipmentMove(java.util.UUID equipmentId) {
-        if (net.minecraft.client.Minecraft.getInstance().player == null) return;
-        var item=ClientEquipmentState.equipment().stream().filter(record->record.equipmentId().equals(equipmentId)).findFirst().orElse(null);
-        if(item==null)return;
-        net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
+    public static void requestEquipmentMove(java.util.UUID equipmentId){
+        var item=ClientEquipmentState.equipment().stream().filter(record->record.equipmentId().equals(equipmentId)).findFirst().orElse(null);if(item==null)return;
+        long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("equipmentId",equipmentId.toString());body.addProperty("equip",item.slotId()<0);
+        var request=ClientRequestState.begin(correlation,"move_equipment",body);if(request==null)return;
+        ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
+    }
+    private static void acceptEquipmentMoveOperation(DalmaruPayloads.OperationReceipt receipt){
+        ClientEquipmentState.movementStatus("rejected".equals(receipt.state())?"장비 소유권·직업·레벨·전투 상태를 확인하세요.":"최신 장비 상태를 확인합니다.");requestEquipment();
     }
 
     private static void acceptLoadoutOperation(DalmaruPayloads.OperationReceipt receipt){
@@ -284,6 +287,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("move_equipment".equals(request.operation())){acceptEquipmentMoveOperation(receipt);return;}
         if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}
         if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
