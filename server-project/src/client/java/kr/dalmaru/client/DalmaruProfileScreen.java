@@ -16,13 +16,14 @@ final class DalmaruProfileScreen extends Screen {
 	private Button professionButton;
 	private Button skillButton;
 	private Button villageButton;
+	private Button investigationButton;
 	private boolean confirmReset;
 
 	DalmaruProfileScreen() { super(Component.literal("달마루 캐릭터 정보")); }
 
 	@Override
 	protected void init() {
-		int buttonWidth = Math.min(360, width - 16), left = (width - buttonWidth) / 2, step=Math.min(25,(height-20)/10),buttonHeight=Math.min(20,step-2),top=(height-(9*step+buttonHeight))/2;
+		int buttonWidth = Math.min(360, width - 16), left = (width - buttonWidth) / 2, step=Math.min(25,(height-20)/11),buttonHeight=Math.min(20,step-2),top=(height-(10*step+buttonHeight))/2;
 		statusButton = addRenderableWidget(Button.builder(Component.literal("프로필을 불러오는 중입니다."), button -> { }).bounds(left, top, buttonWidth, buttonHeight).build());
 		strengthButton = statButton("힘", 0, 25);
 		dexterityButton = statButton("재주", 1, 50);
@@ -37,12 +38,13 @@ final class DalmaruProfileScreen extends Screen {
 		professionButton = addRenderableWidget(Button.builder(Component.literal("전직 선택"), button -> minecraft.setScreen(new DalmaruProfessionScreen(this))).bounds(left, top + 7*step, buttonWidth, buttonHeight).build());
 		skillButton = addRenderableWidget(Button.builder(Component.literal("기술 습득"), button -> minecraft.setScreen(new DalmaruSkillScreen(this))).bounds(left, top + 8*step, buttonWidth, buttonHeight).build());
 		villageButton = addRenderableWidget(Button.builder(Component.literal("마을 안내"), button -> minecraft.setScreen(new DalmaruVillageScreen(this))).bounds(left, top + 9*step, buttonWidth, buttonHeight).build());
+		investigationButton = addRenderableWidget(Button.builder(Component.literal("조사"), button -> minecraft.setScreen(new DalmaruInvestigationScreen(this))).bounds(left, top + 10*step, buttonWidth, buttonHeight).build());
 		statusButton.active = false;
 		resetButton.active = false;
 	}
 
 	private Button statButton(String name, int statId, int yOffset) {
-		int buttonWidth = Math.min(360, width - 16),step=Math.min(25,(height-20)/10),buttonHeight=Math.min(20,step-2),top=(height-(9*step+buttonHeight))/2;
+		int buttonWidth = Math.min(360, width - 16),step=Math.min(25,(height-20)/11),buttonHeight=Math.min(20,step-2),top=(height-(10*step+buttonHeight))/2;
 		return addRenderableWidget(Button.builder(Component.literal(name), button -> DalmaruClient.requestCharacterStatInvestment(statId))
 			.bounds((width - buttonWidth) / 2, top + yOffset/25*step, buttonWidth, buttonHeight).build());
 	}

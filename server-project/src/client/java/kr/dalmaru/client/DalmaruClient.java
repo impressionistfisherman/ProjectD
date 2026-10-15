@@ -199,6 +199,12 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if(request!=null)ClientPlayNetworking.send(request);
     }
 
+    public static void requestQuestStage(String stage, String action) {
+        var body=new com.google.gson.JsonObject();body.addProperty("questId",kr.dalmaru.quest.QuestStageRepository.QUEST_ID);body.addProperty("stage",stage);body.addProperty("action",action);
+        var request=ClientRequestState.begin(ClientQuestStageState.nextId(),"quest_stage",body);
+        if(request!=null)ClientPlayNetworking.send(request);
+    }
+
     public static void requestVillage(String villageId) {
         var body=new com.google.gson.JsonObject();body.addProperty("villageId",villageId);
         var request=ClientRequestState.begin(ClientVillageState.nextId(),"open_village",body);
@@ -368,6 +374,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
         if("delete_character".equals(request.operation())||"restore_character".equals(request.operation())){acceptLifeOperation(request,receipt);return;}
         if("list_villages".equals(request.operation())||"open_village".equals(request.operation())){ClientVillageState.accept(request.operation(),receipt.result(),"rejected".equals(receipt.state()));return;}
+        if("quest_stage".equals(request.operation())){ClientQuestStageState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;

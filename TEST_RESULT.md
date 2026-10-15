@@ -430,6 +430,8 @@
 - 2026-10-15 P2 통신: PASS verifyProtocolVersion (프로토콜 32, 삭제·복구·마을 목록·마을 열기). verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture, 아래 20개 검사와 smoke PASS. 인게임 미실행.
 
 - 2026-10-15 P2 삭제 확인: PASS verifyClientScreenBounds. 삭제 버튼 문구만 2단계로 바꿨다. 화면 경계 검사는 캐릭터 화면을 포함하지 않는다. 인게임 미실행.
+
+- 2026-10-15 P2-S07: PASS verifyQuestStages. DALMARU_DB_NAME은 환경 변수만 본다. 실패 구간만 지우고 확정 단계는 유지. 현장은 나중 참여자도 확정. 증거는 개인. 최종 보고 재생은 경험치와 조사 보상을 다시 주지 않음. 파트너는 20전 유지. reportConfirmed는 넘긴 연결에서만 읽는다. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture. 기존 20개 검사, smoke, verifyQuestStages PASS. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |

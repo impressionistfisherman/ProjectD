@@ -67,6 +67,7 @@ public final class DalmaruNetworking {
 
 	private static final AccountRepository ACCOUNTS = new AccountRepository();
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
+	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static final QuestRepository QUESTS = new QuestRepository();
 	private static final EquipmentRepository EQUIPMENT = new EquipmentRepository();
@@ -483,6 +484,10 @@ public final class DalmaruNetworking {
                     if(body.size()!=1||!body.has("villageId")||!body.get("villageId").isJsonPrimitive()||!body.getAsJsonPrimitive("villageId").isString())throw new IllegalArgumentException("Invalid village body");
                     villageRequest(context,payload.correlationId(),body.get("villageId").getAsString(),envelope);
                 }
+                case "quest_stage"->{
+                    if(body.size()!=3||!body.has("questId")||!body.has("stage")||!body.has("action"))throw new IllegalArgumentException("Invalid quest stage body");
+                    questStageRequest(context,payload.correlationId(),body.get("stage").getAsString(),body.get("action").getAsString(),envelope);
+                }
                 case "invest_stat"->{
                     if(body.size()!=2||!body.has("statId")||!body.has("amount")||!body.get("statId").isJsonPrimitive()||!body.getAsJsonPrimitive("statId").isNumber()||!body.get("amount").isJsonPrimitive()||!body.getAsJsonPrimitive("amount").isNumber())throw new IllegalArgumentException("Invalid stat body");
                     int stat,amount;try{stat=body.get("statId").getAsBigDecimal().intValueExact();amount=body.get("amount").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid stat integer",error);}
@@ -613,6 +618,15 @@ public final class DalmaruNetworking {
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Profession request failed for {}",session.accountId(),error);
         });return null;});
+    }
+
+    private static void questStageRequest(ServerPlayNetworking.Context context,long correlation,String stage,String action,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return QUEST_STAGES.actJournaled(session.accountId(),session.connectionGeneration(),correlation,envelope.activeCharacterId(),stage,action,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Quest stage request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void characterLifeRequest(ServerPlayNetworking.Context context,long correlation,UUID characterId,boolean restore,kr.dalmaru.request.RequestEnvelope envelope){

@@ -38,7 +38,7 @@ public final class ProtocolVersionCheck {
         // Client: sends the shared constant and trusts only an equal Welcome.
         String client = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));
         require(client.contains("new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION)"), "Client Hello does not use PROTOCOL_VERSION");
-        require(server.contains("\"delete_character\"") && server.contains("\"restore_character\"") && server.contains("\"list_villages\"") && server.contains("\"open_village\""), "P2 packet operations missing");
+        require(server.contains("\"delete_character\"") && server.contains("\"restore_character\"") && server.contains("\"list_villages\"") && server.contains("\"open_village\"") && server.contains("\"quest_stage\""), "P2 packet operations missing");
         require(client.contains("requestCharacterLife") && client.contains("requestVillage") && Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruProfileScreen.java")).contains("전"), "P2 client screens missing");
         String state = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientConnectionState.java"));
         int accept = state.indexOf("acceptWelcome(int protocolVersion)");
