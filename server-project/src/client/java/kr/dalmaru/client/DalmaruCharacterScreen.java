@@ -16,6 +16,7 @@ final class DalmaruCharacterScreen extends Screen {
 	private Button createButton;
 	private java.util.UUID chosen;
 	private boolean chosenPending;
+	private boolean confirmDelete;
 	private final Map<Integer, Button> slotButtons = new HashMap<>();
 	private EditBox nameField;
 
@@ -39,8 +40,12 @@ final class DalmaruCharacterScreen extends Screen {
 		}
 		refreshButton = addRenderableWidget(Button.builder(Component.literal("목록 새로 고침"), button -> DalmaruClient.requestCharacterList())
 			.bounds(width / 2 - 150, height / 2 + 100, 140, 20).build());
-		deleteButton = addRenderableWidget(Button.builder(Component.literal("삭제"), button -> { if (chosen != null && !chosenPending) DalmaruClient.requestCharacterLife(chosen, false); })
-			.bounds(width / 2 - 5, height / 2 + 100, 70, 20).build());
+		deleteButton = addRenderableWidget(Button.builder(Component.literal("삭제"), button -> {
+			if (chosen == null || chosenPending) return;
+			if (!confirmDelete) { confirmDelete = true; return; }
+			confirmDelete = false;
+			DalmaruClient.requestCharacterLife(chosen, false);
+		}).bounds(width / 2 - 5, height / 2 + 100, 70, 20).build());
 		restoreButton = addRenderableWidget(Button.builder(Component.literal("복구"), button -> { if (chosen != null && chosenPending) DalmaruClient.requestCharacterLife(chosen, true); })
 			.bounds(width / 2 + 70, height / 2 + 100, 80, 20).build());
 	}
@@ -57,6 +62,7 @@ final class DalmaruCharacterScreen extends Screen {
 			slotButtons.get(slot).active = character != null && (character.pendingDeletion() || (ClientCharacterState.canSelect() && (ClientCharacterState.requiresSelection() || !character.active())));
 		}
 		createButton.active = firstEmptySlot() != 0 && ClientCharacterState.canCreate() && !nameField.getValue().isBlank();
+		deleteButton.setMessage(Component.literal(confirmDelete ? "확인: 삭제" : "삭제"));
 		deleteButton.active = chosen != null && !chosenPending;
 		restoreButton.active = chosen != null && chosenPending;
 	}
@@ -80,6 +86,7 @@ final class DalmaruCharacterScreen extends Screen {
 			if (character.slot() == slot) {
 				chosen = character.characterId();
 				chosenPending = character.pendingDeletion();
+				confirmDelete = false;
 				if (!chosenPending) DalmaruClient.requestCharacterSelection(character.characterId());
 				return;
 			}
