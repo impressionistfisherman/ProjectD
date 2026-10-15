@@ -78,7 +78,7 @@ public final class DalmaruNetworking {
 	private static long currentTick;
     private static final java.util.Set<UUID> FINISHING_RUNS=new java.util.HashSet<>();
     private static final kr.dalmaru.account.WaypointRepository WAYPOINTS=new kr.dalmaru.account.WaypointRepository();
-    private static final kr.dalmaru.quest.StoryQuestRepository STORY=new kr.dalmaru.quest.StoryQuestRepository();
+    private static final kr.dalmaru.quest.StoryQuestRepository STORY=new kr.dalmaru.quest.StoryQuestRepository(kr.dalmaru.quest.QuestStageRepository::reportConfirmed);
 
 	private DalmaruNetworking() { }
 

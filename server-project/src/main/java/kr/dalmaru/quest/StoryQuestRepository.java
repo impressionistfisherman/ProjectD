@@ -24,7 +24,7 @@ public final class StoryQuestRepository {
     }
     private static final StoryCatalog CATALOG=StoryCatalog.current();
     private final InvestigationEvidence investigation;
-    // shortcut: S07 supplies the real adapter after its merge; investigation reports stay closed until then.
+    // Unconfigured callers stay closed; networking injects the server's transactional evidence reader.
     public StoryQuestRepository(){this((connection,character)->false);}
     public StoryQuestRepository(InvestigationEvidence investigation){this.investigation=Objects.requireNonNull(investigation);}
     private Connection connection()throws SQLException {

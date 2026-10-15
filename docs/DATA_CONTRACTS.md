@@ -212,3 +212,5 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 - story_state_request(requestId,characterId) / story_state_response(requestId,characterId,state JSON). 현재 구간·전투 진척·등록NPC·부족조건을 전달한다. 클라이언트는 현재 캐릭터/기대 요청/수신 순서를 확인하고 다른 캐릭터·오래된 상태·형식 오류를 적용하지 않는다.
 - story_combat UUID는 캐릭터+처치entity UUID로 결정한다. 처치XP는 CharacterRepository.grantExperience와 같은 트랜잭션으로 진행에 반영한다. 클라이언트는 처치 XP·좌표를 보낼 수 없다. 시험은 양쪽 모두 같은 직업마을 안일 때만 해당 직업 .trial에 쌓인다.
 - 조사 보상/600XP는 S07 하나가 소유한다. S06은 InvestigationEvidence.completed(Connection,UUID)로 완료만 확인하며 보고 시 지급0이다. 실제 어댑터는 S07 reportConfirmed를 호출한다. 최초 공략500XP도 기존 공략 지급만 사용한다.
+
+S06/S07 실연결: Networking이 `QuestStageRepository::reportConfirmed`를 주입한다. 같은 Connection/자동커밋금지/FOR SHARE 계약을 유지한다. S07 report 보상600XP·조사물품만 한 번 지급하고 S06은 이야기REWARDED 전환만 수행한다. S07 신뢰경계 후속 수정은 별도 검증 전까지 미해결이다.

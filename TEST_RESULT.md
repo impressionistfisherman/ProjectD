@@ -634,3 +634,48 @@
 | `verifyWaypointReturn` | 예 | PASS |
 | `verifyStoryQuestCurve` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
+
+## P2 이야기·조사 통합 1차 (2026-10-15, 후속 결함 수정 대기)
+- S06 92c1cdb 후 그록0c4ea2d --no-ff 머지 f810500. S07/V030·통신32·삭제2단계·유료초기화·마을/NPC 화면 포함. 제품 Java 충돌 없음, PROGRESS양쪽 보존, 화면검사 충돌은 Story/Village/Investigation 대역과 각 버튼 수 모두 보존. protocol32 유지, V028~31 보존.
+- 생산 StoryQuestRepository에 QuestStageRepository::reportConfirmed 실제 주입. StoryInvestigationLinkCheck는 실제S07 최종보고 전 차단/완료후해금/동일Connection트랜잭션 강제/600XP와40전·회복4·15키트1회/S06보고추가지급0/양쪽UUID재생을 검증한다. 실제S07 포함 3570+전투450+조사600=4620으로 곡선600누락도 없음.
+- 실제 연결·확장화면 targeted PASS17초. 통합 전체35개 실제PASS exit0/112.46초. assemble PASS6초, 임시35565기동·RunRespawnMixin PASS. P2 localhost15432/oscar_p2_fixture 사후 accounts0/requests0/maxschema31, V028/29/30/31 모두존재. 운영·플레이DB/PID14160/배포/push미변경.
+- **미해결:** S07 confirm패킷에 실제 서버현장 증거가 없는 결함을 Oscar가 발견, god914964에서확정하고 그록에수정배정. 현재 테스트 성공은 그 결함의 해결을 뜻하지 않는다. 그록수정+Creed PASS뒤추가머지/관련검증을 완료해야 최종통합 대상이 된다. 사람플레이 미실행/마을좌표자리표시.
+- docs/P2_PLAYTEST_GUIDE를 실제통합 진입/시험200마을내처치/전직뒤이야기보고로장비수령/조사S06중복지급0에맞춰정리.
+
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyStarterSupply` | 예 | PASS |
+| `verifyGrowthRewardGrant` | 예 | PASS |
+| `verifyCharacterDeletion` | 예 | PASS |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyQuestStages` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `verifyWaypointReturn` | 예 | PASS |
+| `verifyStoryQuestCurve` | 예 | PASS |
+| `verifyStoryInvestigationLink` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |
