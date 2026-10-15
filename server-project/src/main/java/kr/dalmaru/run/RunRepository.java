@@ -22,6 +22,13 @@ public final class RunRepository {
             try {
                 UUID active = activeCharacter(connection, accountId, generation);
                 if (!participants.contains(active) || participants.stream().distinct().count() != participants.size()) throw new IllegalArgumentException("Active character must enter exactly once.");
+                var stored = kr.dalmaru.request.RequestJournal.begin(connection, accountId, requestId, kr.dalmaru.request.RequestEnvelope.legacy(accountId, generation, active, "enter_run", requestId, entryBody(difficulty, participants)));
+                requestId = stored.legacyRequestId();
+                if (stored.result() != null) {
+                    if (!difficulty.name().equals(stored.result().get("difficulty").getAsString()) || participants.size() != stored.result().get("partySize").getAsInt()) throw new IllegalArgumentException("Entry replay is no longer active or has different content.");
+                    var current = acceptedReplay(connection, UUID.fromString(stored.result().get("runId").getAsString()), difficulty, participants);
+                    connection.commit(); return current;
+                }
                 // Lock pending active runs too, so expiry cannot cross the entry check.
                 for(UUID characterId:participants)try(var pending=connection.prepareStatement("SELECT r.state FROM dalmaru.run_participants p JOIN dalmaru.run_instances r ON r.run_id=p.run_id WHERE p.character_id=? AND p.return_pending FOR UPDATE OF p,r")){
                     pending.setObject(1,characterId);try(var rows=pending.executeQuery()){
@@ -30,10 +37,9 @@ public final class RunRepository {
                 }
                 RunRecord replay=replay(connection,accountId,generation,requestId,"ENTER");
                 if(replay!=null){
-                    RunRecord current=lockRun(connection,replay.runId());
-                    if(!"ACTIVE".equals(current.state())||current.difficulty()!=difficulty||current.partySize()!=participants.size())throw new IllegalArgumentException("Entry replay is no longer active or has different content.");
-                    for(UUID id:participants)if(!participant(connection,current.runId(),id))throw new IllegalArgumentException("Entry replay roster differs.");
-                    connection.commit();return new RunRecord(current.runId(),current.difficulty(),current.partySize(),current.scalingTier(),current.state(),true);
+                    var current = acceptedReplay(connection, replay.runId(), difficulty, participants);
+                    kr.dalmaru.request.RequestJournal.confirm(connection, stored, entryOutcome(current));
+                    connection.commit(); return current;
                 }
                 for (UUID characterId : participants) validateParticipant(connection, characterId, difficulty);
                 int tier = participants.size() == 1 ? 1 : participants.size() == 2 ? 2 : 4;
@@ -45,7 +51,10 @@ public final class RunRepository {
                 UUID runId = UUID.randomUUID();
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_instances (run_id, content_id, difficulty, week_id, party_size, scaling_tier, state,content_version,content_snapshot) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE',?,?::jsonb)")) { insert.setObject(1, runId); insert.setString(2, CONTENT); insert.setString(3, difficulty.name()); insert.setObject(4, week); insert.setInt(5, participants.size()); insert.setInt(6, tier); insert.setString(7,content.version());insert.setString(8,content.snapshot());insert.executeUpdate(); }
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_participants (run_id, character_id,frozen_loadout,loadout_revision) VALUES (?, ?,?::jsonb,?)")) { for (UUID characterId : participants) { var loadout=kr.dalmaru.skill.LoadoutRepository.load(connection,characterId); insert.setObject(1, runId); insert.setObject(2, characterId); insert.setString(3,kr.dalmaru.skill.LoadoutRepository.encode(loadout.slots()));insert.setLong(4,loadout.revision());insert.addBatch(); } insert.executeBatch(); }
-                request(connection, accountId, generation, requestId, "ENTER", runId, "ACTIVE"); connection.commit(); return new RunRecord(runId, difficulty, participants.size(), tier, "ACTIVE", false);
+                request(connection, accountId, generation, requestId, "ENTER", runId, "ACTIVE");
+                var created = new RunRecord(runId, difficulty, participants.size(), tier, "ACTIVE", false);
+                kr.dalmaru.request.RequestJournal.confirm(connection, stored, entryOutcome(created));
+                connection.commit(); return created;
             } catch (Exception exception) { connection.rollback(); throw exception; }
         }
     }
@@ -158,6 +167,19 @@ public final class RunRepository {
     private void validateParticipant(Connection connection, UUID characterId, RunDifficulty difficulty) throws SQLException { try (var statement = connection.prepareStatement("SELECT level FROM dalmaru.character_profiles WHERE character_id=?")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { if (!result.next() || result.getInt(1) < difficulty.requiredLevel()) throw new IllegalArgumentException("Level requirement not met."); } } if (difficulty == RunDifficulty.TRAINING && !clearedFirstStep(connection, characterId)) throw new IllegalArgumentException("Training is locked."); }
     private boolean clearedFirstStep(Connection connection, UUID characterId) throws SQLException { try (var statement = connection.prepareStatement("SELECT 1 FROM dalmaru.character_run_weekly_clears WHERE character_id=? AND content_id=? AND difficulty='FIRST_STEP' AND clear_count>0 LIMIT 1")) { statement.setObject(1, characterId); statement.setString(2, CONTENT); try (var result = statement.executeQuery()) { return result.next(); } } }
     private void reserveAvailable(Connection connection, UUID characterId, RunDifficulty difficulty, LocalDate week) throws SQLException { try (var active = connection.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r ON r.run_id=p.run_id WHERE p.character_id=? AND r.state IN ('ACTIVE','PAUSED') FOR UPDATE")) { active.setObject(1, characterId); try (var result = active.executeQuery()) { if (result.next()) throw new IllegalArgumentException("Character already has an active run."); } } try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_run_weekly_clears (character_id, content_id, difficulty, week_id) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING")) { insert.setObject(1, characterId); insert.setString(2, CONTENT); insert.setString(3, difficulty.name()); insert.setObject(4, week); insert.executeUpdate(); } try (var statement = connection.prepareStatement("SELECT clear_count FROM dalmaru.character_run_weekly_clears WHERE character_id=? AND content_id=? AND difficulty=? AND week_id=? FOR UPDATE")) { statement.setObject(1, characterId); statement.setString(2, CONTENT); statement.setString(3, difficulty.name()); statement.setObject(4, week); try (var result = statement.executeQuery()) { result.next(); if (result.getInt(1) >= 3) throw new IllegalArgumentException("Weekly clear limit reached."); } } }
+    private static com.google.gson.JsonObject entryBody(RunDifficulty difficulty, List<UUID> participants) {
+        var body = new com.google.gson.JsonObject(); body.addProperty("difficulty", difficulty.name());
+        var ids = new com.google.gson.JsonArray(); for (UUID id : participants) ids.add(id.toString()); body.add("participants", ids); return body;
+    }
+    private static com.google.gson.JsonObject entryOutcome(RunRecord run) {
+        var json = new com.google.gson.JsonObject(); json.addProperty("runId", run.runId().toString()); json.addProperty("difficulty", run.difficulty().name()); json.addProperty("partySize", run.partySize()); json.addProperty("scalingTier", run.scalingTier()); json.addProperty("state", run.state()); return json;
+    }
+    private RunRecord acceptedReplay(Connection connection, UUID runId, RunDifficulty difficulty, List<UUID> participants) throws SQLException {
+        RunRecord current = lockRun(connection, runId);
+        if (!"ACTIVE".equals(current.state()) || current.difficulty() != difficulty || current.partySize() != participants.size()) throw new IllegalArgumentException("Entry replay is no longer active or has different content.");
+        for (UUID id : participants) if (!participant(connection, current.runId(), id)) throw new IllegalArgumentException("Entry replay roster differs.");
+        return new RunRecord(current.runId(), current.difficulty(), current.partySize(), current.scalingTier(), current.state(), true);
+    }
     private RunRecord replay(Connection connection, UUID accountId, long generation, long requestId, String action) throws SQLException { try (var statement = connection.prepareStatement("SELECT r.run_id, r.difficulty, r.party_size, r.scaling_tier, q.state FROM dalmaru.run_requests q JOIN dalmaru.run_instances r ON r.run_id=q.run_id WHERE q.account_id=? AND q.connection_generation=? AND q.request_id=?")) { statement.setObject(1, accountId); statement.setLong(2, generation); statement.setLong(3, requestId); try (var result = statement.executeQuery()) { if (!result.next()) return null; if (!action.equals(result.getString(5).equals("ACTIVE") ? "ENTER" : result.getString(5).equals("COMPLETED") ? "COMPLETE" : "FAIL")) throw new IllegalArgumentException("Request ID was reused."); return new RunRecord(result.getObject(1, UUID.class), RunDifficulty.valueOf(result.getString(2)), result.getInt(3), result.getInt(4), result.getString(5), true); } } }
     private RunRecord lockRun(Connection connection, UUID runId) throws SQLException { try (var statement = connection.prepareStatement("SELECT run_id, difficulty, party_size, scaling_tier, state FROM dalmaru.run_instances WHERE run_id=? FOR UPDATE")) { statement.setObject(1, runId); try (var result = statement.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Run was not found."); return new RunRecord(result.getObject(1, UUID.class), RunDifficulty.valueOf(result.getString(2)), result.getInt(3), result.getInt(4), result.getString(5), false); } } }
     private RunRecord activeForUpdate(Connection connection, UUID characterId) throws SQLException { try (var statement = connection.prepareStatement("SELECT r.run_id, r.difficulty, r.party_size, r.scaling_tier, r.state FROM dalmaru.run_instances r JOIN dalmaru.run_participants p ON p.run_id=r.run_id WHERE p.character_id=? AND r.state IN ('ACTIVE', 'PAUSED') ORDER BY r.started_at DESC LIMIT 1 FOR UPDATE")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { return result.next() ? new RunRecord(result.getObject(1, UUID.class), RunDifficulty.valueOf(result.getString(2)), result.getInt(3), result.getInt(4), result.getString(5), false) : null; } } }

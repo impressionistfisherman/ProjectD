@@ -374,3 +374,6 @@
 ## MDF-P1 M11b 수정 (2026-10-15)
 - 기준 b8779d1: 실패했던 6개 검사 PASS (26초). 그 결과는 잔여 행이 아니라 잠금 순서 회귀를 가릅니다.
 - 수정 후 --no-daemon verifySkillJournal verifyStatJournal verifyResetJournal verifyProfessionJournal verifyLoadoutJournal verifyRefinementJournal verifyRequestJournal PASS (24초). 인게임 끊김은 실행하지 않았습니다.
+
+## MDF-P1 run writer (2026-10-15)
+- PASS: --no-daemon verifyRunJournal verifyCharacterRun (10초). 같은 입장 요청은 런 하나와 저널 한 행만 만들고, 난이도를 바꾼 재사용은 거부했습니다. 인게임 입장과 운영 DB는 실행하지 않았습니다.
