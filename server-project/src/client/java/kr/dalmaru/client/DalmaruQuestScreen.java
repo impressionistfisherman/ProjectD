@@ -10,6 +10,7 @@ final class DalmaruQuestScreen extends Screen {
     DalmaruQuestScreen(Screen previous) { super(Component.literal(kr.dalmaru.content.ContentCatalog.current().display("pilot1.zombie_hunt").name())); this.previous = previous; }
     @Override protected void init() {
         int contentWidth=Math.min(360,width-20),left=(width-contentWidth)/2;
+        addRenderableWidget(Button.builder(Component.literal("1~20 이야기"),b->minecraft.setScreen(new DalmaruStoryScreen(this))).bounds(left,height/2-55,contentWidth,20).build());
         status = addRenderableWidget(Button.builder(Component.empty(), b -> DalmaruClient.requestQuest(false)).bounds(left, height / 2 - 30, contentWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal(kr.dalmaru.content.ContentCatalog.current().display("pilot1.zombie_hunt").name()+" 의뢰 수락"), b -> DalmaruClient.requestQuest(true)).bounds(left, height / 2, contentWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal("돌아가기"), b -> minecraft.setScreen(previous)).bounds(left, height / 2 + 30, contentWidth, 20).build());

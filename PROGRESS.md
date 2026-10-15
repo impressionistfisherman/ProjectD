@@ -431,3 +431,16 @@
 - TownZone의 반경/ID 검증, 마을 경계/동일 원본/좌표와 ID 분리/옛 DB 좌표 무시 검사 추가. 새 그록 검사5개를 전체 회귀에 포함.
 - 실제 전체회귀32개 PASS, exit0/100.12초. 임시35565 서버 기동·RunRespawnMixin PASS, assemble PASS6초. 프로토콜32. 인게임 미실행, 마을 좌표는 S10의 자리표시 그대로. P1플레이/운영DB/PID14160/배포/push 미변경.
 - f564a8: S07/V030은 그록 이관. Oscar 후속은 S06이며 기존 QuestRepository 시그니처 유지. 그록 protocol32 통신4b29272는 검토 후 추가 머지 지시 대기.
+
+## Active Spec P2-S06 (2026-10-15)
+- oscar/mdf-p2-s06 / 같은 P2 worktree / base08c9a7d. 11구간 제목/XP/NPC/증거를 content/story.json으로 분리, 새 StoryQuestRepository 및 기존 UUID OperationRequest 사용. QuestRepository 시그니처/V030/S07 미변경.
+- acb3c2 승인 임시판정: NPC+필수처치XP+개인보고, 직업방문키 소문자, 전직시험200은선택마을안처치, FIRST_STEP실제클리어. cfeb96: 조사600XP/물품은S07전담, S06은완료증거만/지급0. 머지전fake provider검사, 이후실제 reportConfirmed 연결.
+- 서버/클라이언트compile PASS. 전용검사 초기하네스classloader 및 fixture상관ID 재사용오류를 수정중(제품완료주장없음). 목표 verifyStoryQuestCurve 및 전체P2회귀. S06단위커밋후그록bd28dd9 --no-ff머지/실제조사연결/전체회귀.
+
+## P2-S06 단위 구현 (2026-10-15)
+- oscar/mdf-p2-s06 / 같은 P2 worktree / base08c9a7d. story.json에 11구간 제목/필수전투XP/퀘스트XP/NPC/증거/보상소유권 정의, 대사는 비움. StoryQuestRepository 추가, 기존 QuestRepository 시그니처와 그록 S07 파일 미변경.
+- 서버 위치로 등록 NPC/직업 마을 방문 확인, 소문자 직업 증명키, 같은 직업 마을 안 처치200 XP 시험, FIRST_STEP 실제 보상 기록. 실제 처치 UUID로 XP와 구간 진척을 같은 트랜잭션에 저장. 개인 보고 UUID/장비지급/XP 원자화·재생·재접속·동시요청 방어.
+- 조사 구간 rewardOwner=S07, S06의 XP/물품지급0. 곡선7920에는 S07의600과 실제 공략500을 각각 한 번 포함. S07 머지 전 InvestigationEvidence는 생산 false, 검사는 fake S07의 실제600XP·물품 지급으로 600누락/이중지급 부재를 검증.
+- U 의뢰 화면에서 1~20 이야기 진입. 현재 구간/부족 조건/NPC 위치/상호작용/개인 보고. 기존 OperationRequest 재시도·receipt 재사용, 별도 상태 패킷은 요청/캐릭터/순서 검증. protocol32 유지.
+- compileJava/compileClientJava PASS. verifyStoryQuestCurve 실제PASS18초(11구간7920XP→20레벨+35보관/기술점16, trial구역·정확한200, kit/journal 실패롤백, 상태/화면/codec). 전체회귀33개 PASS exit0/97.27초, 임시35565기동·Mixin PASS. 초기검사틀 classloader/상관ID 및 기존 화면 fixture 새진입버튼 갱신 오류를 수정, 최초전체96.68초의32PASS/화면FAIL 증거는 bounds_failure.log 보존.
+- 후속: 그록0c4ea2d(--no-ff) 병합, 실제 reportConfirmed 연결·실제조사 통합검사·전체회귀. S07 클라이언트 confirm 신뢰경계 결함은 god확정/그록수정중, 그 추가수정까지 최종통합 보류. 실제게임/사람플레이·배포 미실행.

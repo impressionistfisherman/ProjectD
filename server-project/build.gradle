@@ -375,3 +375,4 @@ tasks.register('verifyTrialGrowth', JavaExec) { group = 'verification'; classpat
 
 tasks.register('verifyProfessionGate', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProfessionGateCheck' }
 tasks.register('verifyWaypointReturn', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.WaypointReturnCheck' }
+tasks.register('verifyStoryQuestCurve', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.StoryQuestCurveCheck' }

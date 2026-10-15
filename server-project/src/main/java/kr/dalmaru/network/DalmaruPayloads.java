@@ -12,6 +12,18 @@ import java.util.UUID;
 
 public final class DalmaruPayloads {
 	private DalmaruPayloads() { }
+    public record StoryStateRequest(long requestId,UUID characterId) implements CustomPacketPayload {
+        public static final Type<StoryStateRequest> TYPE=DalmaruPayloads.type("story_state_request");
+        public static final StreamCodec<RegistryFriendlyByteBuf,StoryStateRequest> CODEC=StreamCodec.composite(
+            ByteBufCodecs.VAR_LONG,StoryStateRequest::requestId,ByteBufCodecs.VAR_LONG,r->r.characterId().getMostSignificantBits(),ByteBufCodecs.VAR_LONG,r->r.characterId().getLeastSignificantBits(),(request,most,least)->new StoryStateRequest(request,new UUID(most,least)));
+        @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+    }
+    public record StoryStateResponse(long requestId,UUID characterId,String state) implements CustomPacketPayload {
+        public static final Type<StoryStateResponse> TYPE=DalmaruPayloads.type("story_state_response");
+        public static final StreamCodec<RegistryFriendlyByteBuf,StoryStateResponse> CODEC=StreamCodec.composite(
+            ByteBufCodecs.VAR_LONG,StoryStateResponse::requestId,ByteBufCodecs.VAR_LONG,r->r.characterId().getMostSignificantBits(),ByteBufCodecs.VAR_LONG,r->r.characterId().getLeastSignificantBits(),ByteBufCodecs.stringUtf8(16384),StoryStateResponse::state,(request,most,least,state)->new StoryStateResponse(request,new UUID(most,least),state));
+        @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+    }
 
     public record WaypointRequest(long requestId, UUID characterId, String action, String waypointId) implements CustomPacketPayload {
         public static final Type<WaypointRequest> TYPE=DalmaruPayloads.type("waypoint_request");

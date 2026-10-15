@@ -1,0 +1,16 @@
+{
+  "contentVersion": "pilot-2",
+  "chapters": [
+    {"id":"story.dawn","title":"태평의 새벽","questXP":100,"combatXP":0,"targetLevel":2,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":[],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.waterway","title":"청하의 물길","questXP":220,"combatXP":190,"targetLevel":4,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":[],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.fields","title":"깨어난 들판","questXP":250,"combatXP":220,"targetLevel":6,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":[],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.beacon_rumors","title":"꺼진 봉화의 소문","questXP":300,"combatXP":280,"targetLevel":8,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":[],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.four_paths","title":"네 갈래의 길","questXP":360,"combatXP":300,"targetLevel":10,"npcs":["cheolwi.guide","cheongnim.guide","unhak.guide","heukjo.guide"],"combatScope":"FIELD","proofs":["PROFESSION_VILLAGE"],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.profession_trial","title":"전직 시험","questXP":400,"combatXP":200,"targetLevel":11,"npcs":["cheolwi.guide","cheongnim.guide","unhak.guide","heukjo.guide"],"combatScope":"PROFESSION_VILLAGE","proofs":["PROFESSION","PROFESSION_TRIAL"],"supplyGrant":"profession","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.new_weapon","title":"새 무기의 길","questXP":450,"combatXP":300,"targetLevel":13,"npcs":["cheolwi.guide","cheongnim.guide","unhak.guide","heukjo.guide"],"combatScope":"FIELD","proofs":["PROFESSION"],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.seal_investigation","title":"봉인 훼손 조사","questXP":600,"combatXP":450,"targetLevel":15,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":["INVESTIGATION"],"supplyGrant":"","dialogue":"","rewardOwner":"S07"},
+    {"id":"story.beacon_first","title":"폐봉수대 초행","questXP":800,"combatXP":500,"targetLevel":17,"npcs":["taepyeong.guide"],"combatScope":"FIRST_STEP_CLEAR","proofs":["FIRST_STEP_CLEAR"],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.beacon_records","title":"봉수패의 기록","questXP":700,"combatXP":550,"targetLevel":19,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":[],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"},
+    {"id":"story.rekindle","title":"불길 되살리기","questXP":400,"combatXP":350,"targetLevel":20,"npcs":["taepyeong.guide"],"combatScope":"FIELD","proofs":[],"supplyGrant":"","dialogue":"","rewardOwner":"STORY"}
+  ]
+}

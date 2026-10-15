@@ -30,6 +30,7 @@ public final class ClientScreenBoundsCheck {
         class RunScreen extends Screen{Button status,firstStep,training,ready;/* RUN */}
         class DalmaruProfessionScreen extends Screen{DalmaruProfessionScreen(Screen previous){}}
         class DalmaruSkillScreen extends Screen{DalmaruSkillScreen(Screen previous){}}
+        class DalmaruStoryScreen extends Screen{DalmaruStoryScreen(Screen previous){}}
         class DalmaruPayloads{record EquipmentData(UUID equipmentId,int slotId,String itemId,int enhancement,int consecutiveFailures){}}
         class ClientEquipmentState{static List<DalmaruPayloads.EquipmentData>items=List.of();static List<DalmaruPayloads.EquipmentData>equipment(){return items;}}
         class EquipmentScreen extends Screen{List<Button>buttons=new ArrayList<>();List<UUID>displayedIds=List.of();int page,displayedPage=-1;/* EQUIPMENT */}
@@ -37,7 +38,7 @@ public final class ClientScreenBoundsCheck {
         public class ScreenHarness{
         static void require(boolean condition,String reason){if(!condition)throw new AssertionError(reason);}
         public static void run(){for(int[]size:new int[][]{{320,180},{320,240},{427,240},{640,360},{960,540}})for(Screen screen:List.of(new SkillScreen(),new RunScreen(),new ProfileScreen(),new EquipmentScreen(),new QuestScreen())){
-        screen.width=size[0];screen.height=size[1];screen.init();require(screen.buttons.size()==(screen instanceof SkillScreen?14:screen instanceof RunScreen?5:screen instanceof ProfileScreen?9:3),"Missing actions");
+        screen.width=size[0];screen.height=size[1];screen.init();require(screen.buttons.size()==(screen instanceof SkillScreen?14:screen instanceof RunScreen?5:screen instanceof ProfileScreen?9:screen instanceof QuestScreen?4:3),"Missing actions");
         for(var b:screen.buttons)require(b.x>=0&&b.y>=0&&b.w>0&&b.h>0&&b.x+b.w<=screen.width&&b.y+b.h<=screen.height,"Clipped action at "+size[0]+"x"+size[1]);
         for(int i=0;i<screen.buttons.size();i++)for(int j=i+1;j<screen.buttons.size();j++){var a=screen.buttons.get(i);var b=screen.buttons.get(j);require(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y,"Overlapping actions at "+size[0]+"x"+size[1]);}
         }

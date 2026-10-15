@@ -205,3 +205,10 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 - V031 테이블은 캐릭터 FK cascade. 마을 설정 제거 시 해금 기록을 보존한다. 되돌릴 때 기능을 비활성화하고 테이블/요청 기록을 보존하며 자동 DROP하지 않는다. 완료 DB 호출은 서버 스레드에서 짧은 연결/statement/lock timeout을 사용한다.
 
 마을 경계 통합: 안전 전환·방문·역참 대상은 `VillageCatalog`의 설정만 읽는다. `waypointId`는 `village.id()`이며 좌표가 바뀌어도 해금 ID는 유지된다. 이전 `town_safe_zones`는 롤백용으로 보존하며 `/dalmaru-town` 등록 명령은 사용하지 않는다.
+
+## 11. 1~20 이야기 (P2-S06)
+- content/story.json의 pilot-2 구간 순서와 NPC/필수전투/증거/보상소유권을 사용한다. character_quest_progress에 현재 구간 ACTIVE, 보고 후 REWARDED와 개인 NPC 증거를 저장한다. S05 증명키·버전과 일치하며 client 완료 주장은 저장하지 않는다.
+- 기존 OperationRequest의 story_interact/story_report는 body {chapterId,npcId}만 허용한다. 서버 세션·등록NPC·서버위치를 확인하고 같은 UUID는 저장 결과로 재생한다. DB만 바꾸는 요청이므로 저널 완료 ACK까지 같은 트랜잭션에서 끝난다.
+- story_state_request(requestId,characterId) / story_state_response(requestId,characterId,state JSON). 현재 구간·전투 진척·등록NPC·부족조건을 전달한다. 클라이언트는 현재 캐릭터/기대 요청/수신 순서를 확인하고 다른 캐릭터·오래된 상태·형식 오류를 적용하지 않는다.
+- story_combat UUID는 캐릭터+처치entity UUID로 결정한다. 처치XP는 CharacterRepository.grantExperience와 같은 트랜잭션으로 진행에 반영한다. 클라이언트는 처치 XP·좌표를 보낼 수 없다. 시험은 양쪽 모두 같은 직업마을 안일 때만 해당 직업 .trial에 쌓인다.
+- 조사 보상/600XP는 S07 하나가 소유한다. S06은 InvestigationEvidence.completed(Connection,UUID)로 완료만 확인하며 보고 시 지급0이다. 실제 어댑터는 S07 reportConfirmed를 호출한다. 최초 공략500XP도 기존 공략 지급만 사용한다.

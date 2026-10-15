@@ -35,6 +35,7 @@ public final class DalmaruClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		DalmaruStaminaHud.register();
+        ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.StoryStateResponse.TYPE,(payload,context)->ClientStoryState.accept(payload));
         ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointResponse.TYPE,(payload,context)->{
             if(context.client().screen instanceof DalmaruWaypointScreen screen)screen.accept(payload);
         });
@@ -43,6 +44,7 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientCharacterState.resetForConnection();
 		ClientProfileState.resetForConnection();
 		ClientQuestState.resetForConnection();
+        ClientStoryState.reset();
 			ClientCombatState.resetForConnection();
 		ClientSkillState.resetForConnection();
 		ClientEquipmentState.resetForConnection();
@@ -55,6 +57,7 @@ public final class DalmaruClient implements ClientModInitializer {
 		ClientCharacterState.resetForConnection();
 		ClientProfileState.resetForConnection();
 		ClientQuestState.resetForConnection();
+        ClientStoryState.reset();
 			ClientCombatState.resetForConnection();
 			ClientSkillState.resetForConnection();
 			ClientEquipmentState.resetForConnection();
@@ -78,7 +81,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {
 				boolean switchingCharacter = ClientCharacterState.isSelectionConfirmed();
 				if (ClientCharacterState.acceptSelection(payload)) {
-                    ClientLoadoutState.selected(payload.characterId());ClientSkillState.selected();ClientQuestState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();ClientRequestState.selected(payload.characterId());requestLoadout();requestSkillRanks();
+                    ClientLoadoutState.selected(payload.characterId());ClientStoryState.selected(payload.characterId());ClientSkillState.selected();ClientQuestState.selected();ClientProfileState.selected(payload.characterId());ClientEquipmentState.selected();ClientRequestState.selected(payload.characterId());requestLoadout();requestSkillRanks();
 					if (switchingCharacter) context.client().disconnectFromWorld(net.minecraft.network.chat.Component.literal("캐릭터 전환이 완료되었습니다. 다시 접속해 새 캐릭터로 입장하세요."));
 					else context.client().setScreen(null);
 				}
@@ -333,8 +336,14 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){status="\uacb0\uacfc \ud655\uc778 \uc911\uc785\ub2c8\ub2e4. \ucd5c\uc2e0 \uae30\uc220 \uc0c1\ud0dc\ub97c \ubd88\ub7ec\uc635\ub2c8\ub2e4.";}
         ClientProfileState.completeSkill(receipt.correlationId(),status);requestSkillRanks();requestLoadout();
     }
+    static void requestStoryState(){var loadout=ClientLoadoutState.current();if(!ClientConnectionState.isCompatible()||loadout==null)return;ClientStoryState.selected(loadout.characterId());long request=ClientLoadoutState.next();ClientStoryState.queried(request);ClientPlayNetworking.send(new DalmaruPayloads.StoryStateRequest(request,loadout.characterId()));}
+    static void storyOperation(String operation,String npc){
+        var state=ClientStoryState.current();if(state==null||ClientStoryState.waiting()||state.get("finished").getAsBoolean())return;
+        long correlation=ClientLoadoutState.next();var body=new com.google.gson.JsonObject();body.addProperty("chapterId",state.get("chapterId").getAsString());body.addProperty("npcId",npc);var request=ClientRequestState.begin(correlation,operation,body);if(request!=null){ClientStoryState.pending(correlation);ClientPlayNetworking.send(request);}
+    }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if(java.util.Set.of("story_interact","story_report").contains(request.operation())){ClientStoryState.complete(receipt.correlationId(),"rejected".equals(receipt.state()));return;}
         if("accept_quest".equals(request.operation())){acceptQuestOperation(request,receipt);return;}
         if("inherit_equipment".equals(request.operation())){acceptInheritanceOperation(request,receipt);return;}
         if("refine_item".equals(request.operation())){acceptRefinementOperation(request,receipt);return;}

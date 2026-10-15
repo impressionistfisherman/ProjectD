@@ -77,6 +77,7 @@ public final class DalmaruNetworking {
 	private static long currentTick;
     private static final java.util.Set<UUID> FINISHING_RUNS=new java.util.HashSet<>();
     private static final kr.dalmaru.account.WaypointRepository WAYPOINTS=new kr.dalmaru.account.WaypointRepository();
+    private static final kr.dalmaru.quest.StoryQuestRepository STORY=new kr.dalmaru.quest.StoryQuestRepository();
 
 	private DalmaruNetworking() { }
 
@@ -84,6 +85,8 @@ public final class DalmaruNetworking {
         COMBAT.contentSource(RUN_RUNTIME::content);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.WaypointRequest.TYPE,DalmaruPayloads.WaypointRequest.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.StoryStateRequest.TYPE,DalmaruPayloads.StoryStateRequest.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.StoryStateResponse.TYPE,DalmaruPayloads.StoryStateResponse.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.WaypointResponse.TYPE,DalmaruPayloads.WaypointResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.Welcome.TYPE, DalmaruPayloads.Welcome.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProbeRequest.TYPE, DalmaruPayloads.ProbeRequest.CODEC);
@@ -235,7 +238,7 @@ public final class DalmaruNetworking {
 		});
 		ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((level, killer, killed, damageSource) -> {
 			if (killer instanceof ServerPlayer player) {
-				if(!CombatRewards.excludesRewardTags(killed.entityTags()))grantCombatExperience(player, level.getServer(), CombatRewards.experienceFor(killed.getType()));
+				if(!CombatRewards.excludesRewardTags(killed.entityTags()))grantCombatExperience(player, level.getServer(), CombatRewards.experienceFor(killed.getType()),killed.getUUID(),new kr.dalmaru.quest.StoryQuestRepository.Position(level.dimension().identifier().toString(),killed.getX(),killed.getY(),killed.getZ()));
 				UUID completedRun = RUN_RUNTIME.bossKilled(player, killed.getUUID());
 				if (completedRun != null) completeRun(player, level.getServer(), completedRun);
 				if (!CombatRewards.excludesRewardTags(killed.entityTags()) && killed.getType().getDescriptionId().equals("entity.minecraft.zombie")) recordQuestZombieKill(player, level.getServer(), killed.getUUID());
@@ -273,6 +276,7 @@ public final class DalmaruNetworking {
 		});
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointRequest.TYPE,(payload,context)->waypointRequest(context.player(),payload));
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.StoryStateRequest.TYPE,(payload,context)->storyState(context.player(),payload.requestId(),payload.characterId()));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.ProbeRequest.TYPE, (payload, context) -> {
 			if (payload.requestId() <= 0) {
 				disconnect(context, "잘못된 달마루 연결 확인 요청입니다.");
@@ -439,6 +443,7 @@ public final class DalmaruNetworking {
                 var envelope=new kr.dalmaru.request.RequestEnvelope(payload.requestId(),payload.connectionGeneration(),payload.activeCharacterId(),payload.operation(),com.google.gson.JsonParser.parseString(payload.payload()).getAsJsonObject());
                 var body=envelope.payload();
                 switch(envelope.operation()){
+                    case "story_interact","story_report" -> storyOperation(context.player(),payload.correlationId(),envelope);
                     case "enhance_item"->{
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
@@ -1201,16 +1206,45 @@ public final class DalmaruNetworking {
 		});
 	}
 
-	private static void grantCombatExperience(ServerPlayer player, MinecraftServer server, int amount) {
+    private static kr.dalmaru.quest.StoryQuestRepository.Position storyPosition(ServerPlayer player){return new kr.dalmaru.quest.StoryQuestRepository.Position(player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ());}
+    private static void storyState(ServerPlayer player,long correlation,UUID character) {
+        var state=CONNECTIONS.get(player.getUUID());if(correlation<1||!waypointEligible(player,state)||!character.equals(state.accountSession.activeCharacterId()))return;
+        long now=System.nanoTime();if(now-state.lastStoryNanos<RATE_LIMIT_NANOS)return;state.lastStoryNanos=now;
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return STORY.status(session.accountId(),session.connectionGeneration(),character).json().toString();}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
+            .thenAccept(result->serverFor(player).execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session)ServerPlayNetworking.send(player,new DalmaruPayloads.StoryStateResponse(correlation,character,result));}))
+            .exceptionally(error->{LOGGER.warn("Story state query failed for {}",session.accountId(),error);return null;});
+    }
+    private record StoryOutcome(kr.dalmaru.quest.StoryQuestRepository.Result result,String state,CharacterProfile profile){}
+    private static void storyOperation(ServerPlayer player,long correlation,kr.dalmaru.request.RequestEnvelope envelope) {
+        var state=CONNECTIONS.get(player.getUUID());
+        if(correlation<1||!waypointEligible(player,state)||envelope.connectionGeneration()!=state.accountSession.connectionGeneration()||!envelope.activeCharacterId().equals(state.accountSession.activeCharacterId())){rejectOperation(player,correlation,envelope.requestId());return;}
+        if(state.storyWritePending){ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));return;}
+        var session=state.accountSession;var position=storyPosition(player);state.storyWritePending=true;
+        CompletableFuture.supplyAsync(()->{try{var result=STORY.operate(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope,position);return new StoryOutcome(result,STORY.status(session.accountId(),session.connectionGeneration(),session.activeCharacterId()).json().toString(),CHARACTERS.profile(session.activeCharacterId()));}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
+            .thenAccept(outcome->serverFor(player).execute(()->{
+                state.storyWritePending=false;if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                var result=outcome.result();var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.original().toString(),result.replayed()));
+                ServerPlayNetworking.send(player,new DalmaruPayloads.StoryStateResponse(correlation,session.activeCharacterId(),outcome.state()));sendCharacterProfile(player,outcome.profile());
+                player.sendSystemMessage(Component.literal(envelope.operation().equals("story_report")?"이야기 보고 결과를 확인했습니다.":"이야기 NPC 상호작용을 확인했습니다."));
+            })).exceptionally(error->{serverFor(player).execute(()->{
+                state.storyWritePending=false;if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                LOGGER.warn("Story operation outcome for {}",session.accountId(),error);
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error)){rejectOperation(player,correlation,envelope.requestId());player.sendSystemMessage(Component.literal("이야기 NPC 위치와 완료 조건을 확인하세요."));}
+                else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            });return null;});
+    }
+	private static void grantCombatExperience(ServerPlayer player, MinecraftServer server, int amount,UUID killedEntity,kr.dalmaru.quest.StoryQuestRepository.Position killedPosition) {
 		if (amount < 1) return;
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
 		AccountSession session = state.accountSession;
+		var position=storyPosition(player);
 		CompletableFuture.supplyAsync(() -> {
-			try { return CHARACTERS.grantExperience(session.activeCharacterId(), amount); }
+			try { return STORY.combat(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),killedEntity,amount,position,killedPosition); }
 			catch (Exception exception) { throw new IllegalStateException(exception); }
 		}).thenAccept(profile -> server.execute(() -> {
-			if (CONNECTIONS.get(player.getUUID()) == state && state.accountSession == session) {
+			if (profile!=null&&CONNECTIONS.get(player.getUUID()) == state && state.accountSession == session) {
 				sendCharacterProfile(player, profile);
 				player.sendSystemMessage(Component.literal("처치 경험치 +" + amount + " (레벨 " + profile.level() + ")"));
 			}
@@ -1329,6 +1363,7 @@ public final class DalmaruNetworking {
         private kr.dalmaru.account.SafeCheckpoint checkpoint;private UUID checkpointCharacter;private String checkpointKey;private kr.dalmaru.skill.SkillLoadout loadout;private boolean manualCombat,startPending,startInvalidated;private long manualUntil,lastCastRequest,loadoutEpoch;private int loadoutWrites;
         private UUID waypointCharacter,waypointRecoveredCharacter;
         private long lastWaypointRequestNanos;
+        private long lastStoryNanos;private boolean storyWritePending;
         private final java.util.Set<String> seenWaypoints=new java.util.HashSet<>(),visitingWaypoints=new java.util.HashSet<>();
         private long nextWaypointVisitTick;
 		private String accountFailure;
@@ -1582,7 +1617,7 @@ public final class DalmaruNetworking {
             var pos=player.blockPosition();var zone=TOWNS.stream().filter(town->town.contains(player.level().dimension().identifier().toString(),pos.getX(),pos.getY(),pos.getZ())).findFirst().orElse(null);
             if(zone==null||state.seenWaypoints.contains(zone.waypointId())||!state.visitingWaypoints.add(zone.waypointId()))continue;
             String dimension=player.level().dimension().identifier().toString();double x=player.getX(),y=player.getY(),z=player.getZ();
-            CompletableFuture.runAsync(()->{try{WAYPOINTS.unlock(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),zone.waypointId(),dimension,x,y,z);}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
+            CompletableFuture.runAsync(()->{try{WAYPOINTS.unlock(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),zone.waypointId(),dimension,x,y,z);STORY.visit(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),new kr.dalmaru.quest.StoryQuestRepository.Position(dimension,x,y,z));}catch(Exception error){throw new IllegalStateException(error);}},LIFECYCLE_DB)
                 .whenComplete((ignored,error)->server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||!session.activeCharacterId().equals(state.waypointCharacter))return;state.visitingWaypoints.remove(zone.waypointId());if(error==null&&state.accountSession==session)state.seenWaypoints.add(zone.waypointId());else if(error!=null){state.nextWaypointVisitTick=currentTick+20;LOGGER.warn("Waypoint visit save failed for {}",player.getUUID(),error);}}));
         }
     }
