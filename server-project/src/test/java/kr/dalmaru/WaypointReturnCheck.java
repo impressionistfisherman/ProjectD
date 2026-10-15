@@ -13,30 +13,33 @@ public final class WaypointReturnCheck {
     public static void main(String[] args)throws Exception {
         check("oscar_p2_fixture".equals(FixtureDatabase.databaseName()),"Explicit P2 fixture required");
         channel();wire();WaypointApplicationCheck.run();
-        UUID account=UUID.randomUUID(),run=UUID.randomUUID();String town="waypoint_"+account,other=town+"_other",trap="wp_"+account.toString().replace("-","");
+        var firstVillage=kr.dalmaru.content.VillageCatalog.current().get(0);var secondVillage=kr.dalmaru.content.VillageCatalog.current().get(1);var zone=firstVillage.zone();var secondZone=secondVillage.zone();
+        UUID account=UUID.randomUUID(),run=UUID.randomUUID();String town=firstVillage.id(),other=secondVillage.id(),obsolete="obsolete_"+account,trap="wp_"+account.toString().replace("-","");
         var repo=new WaypointRepository();var characters=new CharacterRepository();
         try {
             long generation=new AccountRepository().openSession(account).connectionGeneration();
             UUID character=characters.create(account,generation,1,1,"wp_"+account.toString().substring(0,8)).character().characterId();characters.selectActive(account,generation,2,character);
-            sql("INSERT INTO dalmaru.town_safe_zones(name,dimension,x,y,z,radius) VALUES(?,'minecraft:overworld',10,64,20,4),(?,'minecraft:overworld',30,64,20,4)",town,other);
+            sql("INSERT INTO dalmaru.town_safe_zones(name,dimension,x,y,z,radius) VALUES(?,'minecraft:overworld',1000000,64,1000000,4)",obsolete);
+            check(!characters.inTown("minecraft:overworld",1000000,64,1000000),"Obsolete DB boundary overrides village configuration");
+            reject(()->repo.unlock(account,generation,character,obsolete,"minecraft:overworld",1000000,64,1000000));
             reject(()->repo.check(account,generation,character,town));
-            reject(()->repo.unlock(account,generation,character,town,"minecraft:the_nether",10,64,20));
-            reject(()->repo.unlock(account,generation,character,town,"minecraft:overworld",15,64,20));
-            reject(()->repo.unlock(account,generation+1,character,town,"minecraft:overworld",10,64,20));
-            reject(()->repo.unlock(account,generation,character,town,"minecraft:overworld",Double.NaN,64,20));
-            repo.unlock(account,generation,character,town,"minecraft:overworld",10,64,20);
+            reject(()->repo.unlock(account,generation,character,town,"test:wrong_dimension",zone.x(),zone.y(),zone.z()));
+            reject(()->repo.unlock(account,generation,character,town,zone.dimension(),zone.x()+zone.radius()+1,zone.y(),zone.z()));
+            reject(()->repo.unlock(account,generation+1,character,town,zone.dimension(),zone.x(),zone.y(),zone.z()));
+            reject(()->repo.unlock(account,generation,character,town,zone.dimension(),Double.NaN,zone.y(),zone.z()));
+            repo.unlock(account,generation,character,town,zone.dimension(),zone.x(),zone.y(),zone.z());
             long unlocked=value("SELECT extract(epoch FROM unlocked_at)*1000 FROM dalmaru.character_waypoints WHERE character_id=? AND waypoint_id=?",character,town);
-            repo.unlock(account,generation,character,town,"minecraft:overworld",10,64,20);
+            repo.unlock(account,generation,character,town,zone.dimension(),zone.x(),zone.y(),zone.z());
             check(unlocked==value("SELECT extract(epoch FROM unlocked_at)*1000 FROM dalmaru.character_waypoints WHERE character_id=? AND waypoint_id=?",character,town),"Repeated visit changed unlock timestamp");
             check(repo.list(account,generation,character).equals(List.of(town)),"List includes locked towns");
-            repo.unlock(account,generation,character,other,"minecraft:overworld",30,64,20);
+            repo.unlock(account,generation,character,other,secondZone.dimension(),secondZone.x(),secondZone.y(),secondZone.z());
             sql("INSERT INTO dalmaru.run_instances(run_id,content_id,difficulty,week_id,party_size,scaling_tier,state) VALUES(?,'waypoint-test','FIRST_STEP',CURRENT_DATE,1,1,'ACTIVE')",run);
             sql("INSERT INTO dalmaru.run_participants(run_id,character_id) VALUES(?,?)",run,character);
             reject(()->repo.check(account,generation,character,town));
             sql("UPDATE dalmaru.run_instances SET state='PAUSED' WHERE run_id=?",run);reject(()->repo.prepare(account,generation,character,UUID.randomUUID(),town));
             sql("DELETE FROM dalmaru.run_instances WHERE run_id=?",run);
             UUID request=UUID.randomUUID();var first=repo.prepare(account,generation,character,request,town);
-            check(first.pending()&&first.target().x()==10.5&&first.target().z()==20.5,"Return target must come from registered town");
+            check(first.pending()&&first.target().x()==zone.x()+.5&&first.target().z()==zone.z()+.5,"Return target must come from registered town");
             long cooldown=value("SELECT extract(epoch FROM cooldown_until)*1000 FROM dalmaru.character_waypoints WHERE character_id=? AND waypoint_id=?",character,town);
             long remaining=value("SELECT extract(epoch FROM cooldown_until-clock_timestamp()) FROM dalmaru.character_waypoints WHERE character_id=? AND waypoint_id=?",character,town);
             check(remaining>=895&&remaining<=900,"Cooldown is not 15 minutes");
@@ -68,7 +71,7 @@ public final class WaypointReturnCheck {
                 check(successes==1,"Concurrent towns bypassed character-wide cooldown");
             }finally{executor.shutdownNow();}
         } finally {
-            drop(trap);sql("DELETE FROM dalmaru.run_instances WHERE run_id=?",run);sql("DELETE FROM dalmaru.town_safe_zones WHERE name IN (?,?)",town,other);EnhancementReplayCheck.cleanup(account);
+            drop(trap);sql("DELETE FROM dalmaru.run_instances WHERE run_id=?",run);sql("DELETE FROM dalmaru.town_safe_zones WHERE name=?",obsolete);EnhancementReplayCheck.cleanup(account);
         }
         System.out.println("PASS waypoint first visit/ownership/dimension/unlock timestamp; 8-second boundaries/cancel; dungeon ACTIVE+PAUSED; shared 15-minute cooldown/concurrency; UUID replay/reconnect/cancel/ACK/rollback; application failure paths; packet roundtrip");
     }

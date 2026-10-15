@@ -476,20 +476,10 @@ public final class CharacterRepository {
     }
 
     public boolean inTown(String dimension, int x, int y, int z) throws SQLException {
-        try(var connection=DriverManager.getConnection(url,username,password);var query=connection.prepareStatement("SELECT 1 FROM dalmaru.town_safe_zones WHERE dimension=? AND abs(x-?)<=radius AND abs(y-?)<=radius AND abs(z-?)<=radius")) {
-            query.setString(1,dimension);query.setInt(2,x);query.setInt(3,y);query.setInt(4,z);try(var row=query.executeQuery()){return row.next();}
-        }
+        return towns().stream().anyMatch(zone->zone.contains(dimension,x,y,z));
     }
     public java.util.List<TownZone> towns()throws SQLException{
-        try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT dimension,x,y,z,radius,name FROM dalmaru.town_safe_zones");var rows=q.executeQuery()){
-            var zones=new java.util.ArrayList<TownZone>();while(rows.next())zones.add(new TownZone(rows.getString(1),rows.getInt(2),rows.getInt(3),rows.getInt(4),rows.getInt(5),rows.getString(6)));return java.util.List.copyOf(zones);
-        }
-    }
-    public void registerTown(String name,String dimension,int x,int y,int z,int radius) throws SQLException {
-        if(radius<1||radius>128)throw new IllegalArgumentException("Invalid town radius.");
-        try(var connection=DriverManager.getConnection(url,username,password);var insert=connection.prepareStatement("INSERT INTO dalmaru.town_safe_zones VALUES(?,?,?,?,?,?) ON CONFLICT(name) DO UPDATE SET dimension=EXCLUDED.dimension,x=EXCLUDED.x,y=EXCLUDED.y,z=EXCLUDED.z,radius=EXCLUDED.radius")) {
-            insert.setString(1,name);insert.setString(2,dimension);insert.setInt(3,x);insert.setInt(4,y);insert.setInt(5,z);insert.setInt(6,radius);insert.executeUpdate();
-        }
+        return kr.dalmaru.content.VillageCatalog.current().stream().map(kr.dalmaru.content.VillageCatalog.Village::zone).toList();
     }
 
 	public CharacterCreationResult create(UUID accountId, long connectionGeneration, long requestId, int slot, String displayName) throws SQLException {

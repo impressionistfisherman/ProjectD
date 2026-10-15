@@ -51,7 +51,7 @@ public final class VillageCatalog {
 				}
 				var routes = new ArrayList<String>();
 				for (var route : village.getAsJsonArray("routes")) routes.add(route.getAsString());
-				villages.add(new Village(village.get("id").getAsString(), village.get("name").getAsString(), village.get("profession").getAsString(), new TownZone(village.get("dimension").getAsString(), village.get("x").getAsInt(), village.get("y").getAsInt(), village.get("z").getAsInt(), village.get("radius").getAsInt()), routes, npcs));
+				villages.add(new Village(village.get("id").getAsString(), village.get("name").getAsString(), village.get("profession").getAsString(), new TownZone(village.get("dimension").getAsString(), village.get("x").getAsInt(), village.get("y").getAsInt(), village.get("z").getAsInt(), village.get("radius").getAsInt(), village.get("id").getAsString()), routes, npcs));
 			}
 			var ids = villages.stream().map(Village::id).distinct().toList();
 			if (ids.size() != villages.size()) throw new IllegalStateException("Village ids are not unique.");

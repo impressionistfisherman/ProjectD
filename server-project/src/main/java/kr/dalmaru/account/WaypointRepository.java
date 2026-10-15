@@ -17,23 +17,22 @@ public final class WaypointRepository {
             q.setObject(1,account);q.setLong(2,generation);q.setObject(3,character);try(var row=q.executeQuery()){if(!row.next())throw new IllegalArgumentException("귀환 캐릭터 세션이 바뀌었습니다.");}
         }
     }
-    private static TownZone town(Connection c,String id)throws SQLException {
+    private static TownZone town(String id) {
         if(id==null||id.isBlank()||id.length()>128)throw new IllegalArgumentException("역참 이름을 확인하세요.");
-        try(var q=c.prepareStatement("SELECT dimension,x,y,z,radius FROM dalmaru.town_safe_zones WHERE name=? FOR SHARE")){
-            q.setString(1,id);try(var row=q.executeQuery()){if(!row.next())throw new IllegalArgumentException("등록되지 않은 역참입니다.");return new TownZone(row.getString(1),row.getInt(2),row.getInt(3),row.getInt(4),row.getInt(5),id);}
-        }
+        return kr.dalmaru.content.VillageCatalog.get(id).zone();
     }
     public void unlock(UUID account,long generation,UUID character,String id,String dimension,double x,double y,double z)throws SQLException {
         if(!Double.isFinite(x)||!Double.isFinite(y)||!Double.isFinite(z))throw new IllegalArgumentException("Invalid visit position");
         try(var c=open()){c.setAutoCommit(false);try{
-            owner(c,account,generation,character);var zone=town(c,id);
+            owner(c,account,generation,character);var zone=town(id);
             if(!zone.contains(dimension,(int)Math.floor(x),(int)Math.floor(y),(int)Math.floor(z)))throw new IllegalArgumentException("직접 방문한 역참만 해금됩니다.");
             try(var q=c.prepareStatement("INSERT INTO dalmaru.character_waypoints(character_id,waypoint_id) VALUES(?,?) ON CONFLICT DO NOTHING")){q.setObject(1,character);q.setString(2,id);q.executeUpdate();}c.commit();
         }catch(SQLException|RuntimeException error){c.rollback();throw error;}}
     }
     public List<String> list(UUID account,long generation,UUID character)throws SQLException {
         try(var c=open()){c.setAutoCommit(false);try{owner(c,account,generation,character);var result=new ArrayList<String>();
-            try(var q=c.prepareStatement("SELECT w.waypoint_id FROM dalmaru.character_waypoints w JOIN dalmaru.town_safe_zones t ON t.name=w.waypoint_id WHERE w.character_id=? ORDER BY w.waypoint_id")){q.setObject(1,character);try(var row=q.executeQuery()){while(row.next())result.add(row.getString(1));}}
+            var registered=kr.dalmaru.content.VillageCatalog.current().stream().map(kr.dalmaru.content.VillageCatalog.Village::id).collect(java.util.stream.Collectors.toSet());
+            try(var q=c.prepareStatement("SELECT waypoint_id FROM dalmaru.character_waypoints WHERE character_id=? ORDER BY waypoint_id")){q.setObject(1,character);try(var row=q.executeQuery()){while(row.next())if(registered.contains(row.getString(1)))result.add(row.getString(1));}}
             c.commit();return List.copyOf(result);
         }catch(SQLException|RuntimeException error){c.rollback();throw error;}}
     }
@@ -44,14 +43,14 @@ public final class WaypointRepository {
         try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.operation_requests WHERE character_id=? AND operation='waypoint_return' AND state='pending_recovery'")){q.setObject(1,character);try(var row=q.executeQuery()){if(row.next())throw new IllegalArgumentException("이전 귀환을 복구한 뒤 다시 요청하세요.");}}
     }
     public void check(UUID account,long generation,UUID character,String id)throws SQLException {
-        try(var c=open()){c.setAutoCommit(false);try{owner(c,account,generation,character);town(c,id);available(c,character,id);c.commit();}catch(SQLException|RuntimeException error){c.rollback();throw error;}}
+        try(var c=open()){c.setAutoCommit(false);try{owner(c,account,generation,character);town(id);available(c,character,id);c.commit();}catch(SQLException|RuntimeException error){c.rollback();throw error;}}
     }
     public Return prepare(UUID account,long generation,UUID character,UUID request,String id)throws SQLException {
         var body=new JsonObject();body.addProperty("waypointId",id);var envelope=new RequestEnvelope(request,generation,character,"waypoint_return",body);long correlation=request.getLeastSignificantBits()&Long.MAX_VALUE;
         try(var c=open()){c.setAutoCommit(false);try{
             var stored=RequestJournal.begin(c,account,correlation==0?1:correlation,envelope);
             if(stored.result()!=null){var result=read(request,stored.result(),stored.receipt().state());c.commit();return result;}
-            var zone=town(c,id);available(c,character,id);
+            var zone=town(id);available(c,character,id);
             var result=new JsonObject();result.addProperty("waypointId",id);result.addProperty("dimension",zone.dimension());result.addProperty("x",zone.x()+.5);result.addProperty("y",zone.y());result.addProperty("z",zone.z()+.5);
             try(var q=c.prepareStatement("SELECT cooldown_until FROM dalmaru.character_waypoints WHERE character_id=? AND waypoint_id=?")){q.setObject(1,character);q.setString(2,id);try(var row=q.executeQuery()){row.next();var previous=row.getTimestamp(1);if(previous==null)result.add("previousCooldown",JsonNull.INSTANCE);else result.addProperty("previousCooldown",previous.toInstant().toEpochMilli());}}
             try(var q=c.prepareStatement("UPDATE dalmaru.character_waypoints SET cooldown_until=date_trunc('milliseconds',clock_timestamp())+(? * interval '1 second') WHERE character_id=? AND waypoint_id=? RETURNING cooldown_until")){

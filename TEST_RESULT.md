@@ -540,3 +540,45 @@
 | `verifyProfessionGate` | 예 | PASS |
 | `verifyWaypointReturn` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
+
+## P2 S08 + 그록 통합 (2026-10-15)
+- S08 f8467a7, 그록2911d22 --no-ff merge cb2b3e1. S01/S02/S04/S09/S10 포함. Java 제품 충돌 없음. 검사DB 고정 충돌은 명시 환경변수 방식 유지, PROGRESS는 양쪽 보존. V028/V029 보존.
+- VillageCatalog(content/villages.json)을 안전 전환·최초 방문·귀환 좌표의 단일 원본으로 사용. waypoint ID는 마을 ID로 고정하여 좌표 교체와 분리. DB town_safe_zones 기록은 보존하지만 실행 판정에서는 사용하지 않음. 이전 dalmaru-town 쓰기 명령 제거, 좌표는 설정파일에서 변경.
+- TownZone의 반경/ID 검증, 마을 경계/동일 원본/좌표와 ID 분리/옛 DB 좌표 무시 검사 추가. 새 그록 검사5개를 전체 회귀에 포함.
+- 실제 전체회귀32개 PASS, exit0/100.12초. 임시35565 서버 기동·RunRespawnMixin PASS, assemble PASS6초. 프로토콜32. 인게임 미실행, 마을 좌표는 S10의 자리표시 그대로. P1플레이/운영DB/PID14160/배포/push 미변경.
+- f564a8: S07/V030은 그록 이관. Oscar 후속은 S06이며 기존 QuestRepository 시그니처 유지. 그록 protocol32 통신4b29272는 검토 후 추가 머지 지시 대기.
+
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyStarterSupply` | 예 | PASS |
+| `verifyGrowthRewardGrant` | 예 | PASS |
+| `verifyCharacterDeletion` | 예 | PASS |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `verifyWaypointReturn` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |

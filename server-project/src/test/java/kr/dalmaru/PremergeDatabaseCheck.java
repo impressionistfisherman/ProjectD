@@ -41,8 +41,8 @@ public final class PremergeDatabaseCheck {
         var quest=quests.recordZombieKill(character);
         require(quest.profile().profession().equals("WARRIOR")&&quest.profile().unspentSkillPoints()==6,"O02 quest erased profession/points");
         pass("O02/O03");
-        characters.registerTown("fixture","minecraft:overworld",0,100,0,5);
-        require(characters.inTown("minecraft:overworld",5,100,0)&&!characters.inTown("minecraft:overworld",6,100,0)&&!characters.inTown("minecraft:the_nether",0,100,0),"O12 unsafe location accepted");
+        var town=kr.dalmaru.content.VillageCatalog.current().getFirst().zone();
+        require(characters.inTown(town.dimension(),town.x()+town.radius(),town.y(),town.z())&&!characters.inTown(town.dimension(),town.x()+town.radius()+1,town.y(),town.z())&&!characters.inTown("test:unknown",town.x(),town.y(),town.z()),"O12 unsafe location accepted");
         UUID blockingRun=run(character);
         reject(()->characters.selectActive(account,generation,20,second));
         sql("UPDATE dalmaru.run_instances SET state='FAILED' WHERE run_id=?",blockingRun);

@@ -253,14 +253,6 @@ public final class DalmaruNetworking {
 				.then(kr.dalmaru.ops.OperatorAdjustCommand.command(player -> { var state = CONNECTIONS.get(player.getUUID()); return state == null ? null : state.accountSession; }, (server, profile) -> { for (var online : server.getPlayerList().getPlayers()) { var state = CONNECTIONS.get(online.getUUID()); if (state != null && state.accountSession != null && profile.characterId().equals(state.accountSession.activeCharacterId())) sendCharacterProfile(online, profile); } }))
 		));
 
-        CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("dalmaru-town")
-            .requires(source->source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
-            .then(argument("name",StringArgumentType.word()).then(argument("radius",IntegerArgumentType.integer(1,128)).executes(command->{
-                var player=command.getSource().getPlayerOrException();
-                try{CHARACTERS.registerTown(StringArgumentType.getString(command,"name"),player.level().dimension().identifier().toString(),player.blockPosition().getX(),player.blockPosition().getY(),player.blockPosition().getZ(),IntegerArgumentType.getInteger(command,"radius"));}
-                catch(Exception error){LOGGER.error("Failed to register town safety boundary.",error);player.sendSystemMessage(Component.literal("마을 경계 저장에 실패했습니다."));}
-                return 1;
-            })))));
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("dalmaru-equipment")
             .then(literal("equip").then(argument("id",StringArgumentType.word()).then(argument("request",com.mojang.brigadier.arguments.LongArgumentType.longArg(1)).executes(command->{moveEquipment(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"id"),com.mojang.brigadier.arguments.LongArgumentType.getLong(command,"request"),true);return 1;}))))
             .then(literal("unequip").then(argument("id",StringArgumentType.word()).then(argument("request",com.mojang.brigadier.arguments.LongArgumentType.longArg(1)).executes(command->{moveEquipment(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"id"),com.mojang.brigadier.arguments.LongArgumentType.getLong(command,"request"),false);return 1;}))))));

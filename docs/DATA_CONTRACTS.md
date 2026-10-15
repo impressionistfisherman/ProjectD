@@ -203,3 +203,5 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 - `waypoint_response(requestId, characterId, status, waypoints)`: 목록과 처리 안내. 클라이언트는 현재 화면 요청·캐릭터와 일치하는 응답만 표시한다. 최종 이동 결과는 서버 채팅으로 알린다. 개발 명령 `/dalmaru-waypoint [return <id>|cancel]`도 동일 서버 처리 경로를 사용한다.
 - 160tick 후에만 `waypoint_return` UUID 요청과 900초 쿨다운을 같은 트랜잭션으로 확정한다. 준비 중 취소에는 쿨다운이 없다. 완료 후 ACK, 실패 시 기존 쿨다운 복구. 취소·성공 처리 완료 요청은 다시 이동하지 않는다. 저장 결과가 불명확하면 접속을 종료하고 재접속 시 pending_recovery를 처리한다.
 - V031 테이블은 캐릭터 FK cascade. 마을 설정 제거 시 해금 기록을 보존한다. 되돌릴 때 기능을 비활성화하고 테이블/요청 기록을 보존하며 자동 DROP하지 않는다. 완료 DB 호출은 서버 스레드에서 짧은 연결/statement/lock timeout을 사용한다.
+
+마을 경계 통합: 안전 전환·방문·역참 대상은 `VillageCatalog`의 설정만 읽는다. `waypointId`는 `village.id()`이며 좌표가 바뀌어도 해금 ID는 유지된다. 이전 `town_safe_zones`는 롤백용으로 보존하며 `/dalmaru-town` 등록 명령은 사용하지 않는다.
