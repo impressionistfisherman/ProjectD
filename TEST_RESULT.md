@@ -295,7 +295,7 @@
 - 실제 패킷 왕복·파티 준비 알림·인게임 조작은 미실행. M11 실제 world ACK/reconnect는 남습니다. 독립 QA 요청 대상입니다.
 
 ## MDF-P1 M12a (2026-10-15)
-- PASS: --no-daemon verifyOperatorLedger compileJava (14초, compileClientJava 포함). oscar_p1_fixture에만 V027 적용. 구리 지급·같은 요청 재생·이후 지급과 저장 잔액 구분, 초과 회수 롤백, 빈 사유·0 증감·다른 본문 거부, 기술점·재료 지급과 음수 회수 거부를 확인했습니다. 검사 계정과 원장 행은 정리했습니다.
+- PASS: --no-daemon verifyOperatorLedger compileJava (10초, compileClientJava 포함). oscar_p1_fixture에만 V027 적용. 구리 지급·같은 요청 재생·이후 지급과 저장 잔액 구분, 초과 회수 롤백, 빈 사유·0 증감·다른 본문 거부, 기술점·재료 지급과 음수 회수 거부를 확인했습니다. 구리 행은 기존 currency ledger에 공략 없이 같은 eventId로 1건만 남습니다. 검사 계정과 원장 행은 정리했습니다.
 - 운영자 명령, 인게임, 라이브 서버, 운영 DB는 실행하지 않았습니다.
 
 ## MDF-P1 S09h1 (2026-10-15)

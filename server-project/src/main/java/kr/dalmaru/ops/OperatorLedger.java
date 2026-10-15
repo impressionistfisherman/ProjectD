@@ -49,6 +49,9 @@ public final class OperatorLedger {
                     insert.setString(5, body.kind); insert.setString(6, body.itemId); insert.setInt(7, body.delta); insert.setString(8, body.reason); insert.setInt(9, applied);
                     insert.executeUpdate();
                 }
+                if ("copper".equals(body.kind)) try (var currency = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id,character_id,source_run_id,reason,copper_delta) VALUES(?,?,NULL,?,?)")) {
+                    currency.setObject(1, receipt.eventId()); currency.setObject(2, envelope.activeCharacterId()); currency.setString(3, body.reason); currency.setInt(4, body.delta); currency.executeUpdate();
+                }
                 connection.commit();
                 return new Adjustment(receipt.requestId(), receipt.eventId(), body.kind, body.itemId, body.delta, body.reason, applied, applied, false);
             } catch (RuntimeException | SQLException error) { connection.rollback(); throw error; }

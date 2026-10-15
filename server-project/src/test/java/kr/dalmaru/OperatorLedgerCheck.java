@@ -29,7 +29,7 @@ public final class OperatorLedgerCheck {
 			characters.selectActive(ACCOUNT, generation, 1201, character);
 			var grant = envelope(generation, character, "copper", null, 40, "보상");
 			var applied = ledger.adjust(ACCOUNT, 1, grant);
-			require(!applied.replayed() && applied.appliedBalance() == 40 && applied.currentBalance() == 40 && "보상".equals(applied.reason()), "Copper grant was not recorded.");
+			require(!applied.replayed() && applied.appliedBalance() == 40 && applied.currentBalance() == 40 && "보상".equals(applied.reason()) && currency(character, applied.eventId(), 40, "보상"), "Copper grant was not recorded.");
 			var replay = ledger.adjust(ACCOUNT, 1, grant);
 			require(replay.replayed() && replay.appliedBalance() == 40 && replay.currentBalance() == 40 && copper(character) == 40 && rows(ACCOUNT) == 1, "Copper grant was applied twice.");
 			reject(() -> ledger.adjust(ACCOUNT, 2, envelope(generation, character, "copper", null, -100, "회수")));
@@ -49,7 +49,7 @@ public final class OperatorLedgerCheck {
 			var material = ledger.adjust(ACCOUNT, 9, envelope(generation, character, "material", "ironstone", 3, "재료"));
 			require(material.appliedBalance() == 3 && quantity(character, "ironstone") == 3 && "CHARACTER".equals(binding(character, "ironstone")), "Material grant was not recorded.");
 			reject(() -> ledger.adjust(ACCOUNT, 10, envelope(generation, character, "material", "ironstone", -4, "재료회수")));
-			require(quantity(character, "ironstone") == 3 && rows(ACCOUNT) == 4, "Material revoke went negative.");
+			require(quantity(character, "ironstone") == 3 && rows(ACCOUNT) == 4 && currencyRows(character) == 2, "Material revoke went negative.");
 			require(audit(ACCOUNT, applied.requestId(), character, "copper", null, 40, "보상", 40), "Copper audit row is incomplete.");
 			System.out.println("Operator ledger verified.");
 		} finally { cleanup(); }
@@ -75,6 +75,13 @@ public final class OperatorLedgerCheck {
 	}
 
 	private static int copper(UUID character) throws Exception { return scalar("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character, null); }
+	private static int currencyRows(UUID character) throws Exception { return scalar("SELECT COUNT(*) FROM dalmaru.character_currency_ledger WHERE character_id=?", character, null); }
+	private static boolean currency(UUID character, UUID event, int delta, String reason) throws Exception {
+		try (var connection = connection(); var statement = connection.prepareStatement("SELECT source_run_id,reason,copper_delta FROM dalmaru.character_currency_ledger WHERE event_id=? AND character_id=?")) {
+			statement.setObject(1, event); statement.setObject(2, character);
+			try (var row = statement.executeQuery()) { return row.next() && row.getObject(1) == null && reason.equals(row.getString(2)) && row.getInt(3) == delta; }
+		}
+	}
 	private static int quantity(UUID character, String item) throws Exception { return scalar("SELECT quantity FROM dalmaru.character_materials WHERE character_id=? AND material_id=?", character, item); }
 	private static String binding(UUID character, String item) throws Exception {
 		try (var connection = connection(); var statement = connection.prepareStatement("SELECT binding FROM dalmaru.character_materials WHERE character_id=? AND material_id=?")) {
@@ -102,7 +109,7 @@ public final class OperatorLedgerCheck {
 	private static void cleanup() throws Exception {
 		if (System.getenv("DALMARU_DB_PASSWORD") == null || System.getenv("DALMARU_DB_PASSWORD").isBlank()) return;
 		try (var connection = connection()) {
-			for (String sql : new String[] { "UPDATE dalmaru.accounts SET active_character_id=NULL WHERE account_id=?", "DELETE FROM dalmaru.operator_adjustments WHERE account_id=?", "DELETE FROM dalmaru.operation_requests WHERE account_id=?", "DELETE FROM dalmaru.character_wallet WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.character_materials WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.character_selection_requests WHERE account_id=?", "DELETE FROM dalmaru.character_profiles WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.characters WHERE account_id=?", "DELETE FROM dalmaru.accounts WHERE account_id=?" }) {
+			for (String sql : new String[] { "UPDATE dalmaru.accounts SET active_character_id=NULL WHERE account_id=?", "DELETE FROM dalmaru.operator_adjustments WHERE account_id=?", "DELETE FROM dalmaru.operation_requests WHERE account_id=?", "DELETE FROM dalmaru.character_currency_ledger WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.character_wallet WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.character_materials WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.character_selection_requests WHERE account_id=?", "DELETE FROM dalmaru.character_profiles WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)", "DELETE FROM dalmaru.characters WHERE account_id=?", "DELETE FROM dalmaru.accounts WHERE account_id=?" }) {
 				try (var statement = connection.prepareStatement(sql)) { statement.setObject(1, ACCOUNT); statement.executeUpdate(); }
 			}
 		} catch (java.sql.SQLException error) {
