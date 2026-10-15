@@ -1421,7 +1421,9 @@
   "supplies": [
     {"grant": "starter", "kind": "equipment", "item": "supply.training_gear", "quantity": 1},
     {"grant": "starter", "kind": "material", "item": "supply.recovery", "quantity": 4},
-    {"grant": "starter", "kind": "copper", "item": "copper", "quantity": 20}
+    {"grant": "starter", "kind": "copper", "item": "copper", "quantity": 20},
+    {"grant": "investigation", "kind": "copper", "item": "copper", "quantity": 40},
+    {"grant": "investigation", "kind": "material", "item": "supply.recovery", "quantity": 4}
   ],
   "id": "content.pilot",
   "display": {

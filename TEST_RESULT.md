@@ -416,6 +416,10 @@
 - fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
 
 - 2026-10-15 P2-S01: PASS --no-daemon verifyStarterSupply (18초). oscar_p1_fixture에 V028 적용. 생성 시 구리 20·회복 4·귀속 수련 장비 1·지급 행 1. 같은 요청 재생과 starter 재호출 후에도 수량 불변. 다른 캐릭터는 따로 1회. supply.training_gear·supply.recovery는 거래 불가, 전직 무기는 그대로. 검사 계정은 정리. 인게임 미실행.
+
+- 2026-10-15 P2-S01 검사 수정: PASS tools/p1_regression.ps1 exit 0 (64초), DALMARU_DB_NAME=oscar_p2_fixture. 검사 20개와 p1_integration_smoke PASS. verifyRequestJournal, verifyRefinementJournal, verifyRunRewards PASS (13초). verifyStarterSupply PASS (7초). 제품 지급 코드는 그대로. 인게임 미실행.
+
+- 2026-10-15 P2-S02: PASS --no-daemon verifyGrowthRewardGrant verifyStarterSupply (10초, compileTestJava 재실행). DALMARU_DB_NAME=oscar_p2_fixture, V028 적용. 전사 키트 6개 1회, 재호출 불변. 강화 3인 무기를 15레벨로 교체해도 강화 3 유지. 조사 후 구리 60·회복 8·수련 장비 유지. 무직 조사는 롤백. 궁수는 궁수 장비만. 10·15레벨 직업 장비는 거래 불가, 20레벨 무기와 장신구는 가능. 검사 계정 정리. oscar_p1_fixture의 V028은 그대로 두고 더 쓰지 않음. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |

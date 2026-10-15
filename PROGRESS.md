@@ -384,3 +384,7 @@
 - fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
 
 - 2026-10-15 P2-S01: 생성 트랜잭션에서 수련 장비 1·회복 4·20전을 `character_supply_grants` 한 행으로 한 번만 지급한다. 같은 생성 요청 재생과 같은 키 재호출은 수량을 올리지 않는다. 시작 물품은 판매·거래 불가다. grantExperience와 DalmaruNetworking은 그대로. 인게임 미실행, 전체 PARTIAL.
+
+- 2026-10-15 P2-S01 검사: 시작 지급은 그대로 둔다. 잔액 부족 거절은 지갑을 0으로, 성공 검사는 지갑을 1000으로 맞추고, 공략 보상은 지급 전 잔액 대비 +70전이다. 회귀는 oscar_p2_fixture에서 통과했다. 인게임 미실행, 전체 PARTIAL.
+
+- 2026-10-15 P2-S02: 직업이 있는 캐릭터에 10레벨 무기 2·방어구 4를 한 번 지급하고, 조사 보상은 그 장비를 15레벨로 바꾸며 강화 단계는 유지한다. 조사는 40전과 회복 4개를 더한다. 직업이 없으면 조사 지급은 저장되지 않는다. 호출은 오스카 S06이 같은 트랜잭션에서 한다. 인게임 미실행, 전체 PARTIAL.

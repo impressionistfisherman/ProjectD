@@ -15,7 +15,7 @@ public final class StarterSupplyCheck {
 	private StarterSupplyCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p1_fixture.");
+		if (!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p2_fixture.");
 		if (ContentCatalog.current().version() == null) throw new IllegalStateException("Pilot content did not load.");
 		applyMigration();
 		cleanup();
@@ -31,7 +31,7 @@ public final class StarterSupplyCheck {
 			require(replayed.replayed() && first.equals(replayed.character().characterId()) && supply(first), "Replayed creation granted the starter supply again.");
 			try (var connection = connection()) { StarterSupply.grant(connection, first); }
 			require(supply(first), "A second starter grant changed the supply.");
-			require(!PilotEquipment.tradable("supply.training_gear") && !PilotEquipment.tradable("supply.recovery") && PilotEquipment.tradable("pilot.weapon.two_handed_sword.10"), "Starter goods were tradable.");
+			require(!PilotEquipment.tradable("supply.training_gear") && !PilotEquipment.tradable("supply.recovery") && PilotEquipment.tradable("pilot.weapon.two_handed_sword.20"), "Starter goods were tradable.");
 			var second = characters.create(ACCOUNT, 2, "달마루_시작물품2");
 			require(supply(second.characterId()) && supply(first), "A second character did not receive a separate starter supply.");
 			System.out.println("Starter supply once, replay, and no trade PASS");
