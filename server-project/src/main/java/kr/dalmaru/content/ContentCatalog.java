@@ -13,6 +13,10 @@ public final class ContentCatalog {
     public record WeaponSlot(String hands,List<String> offhands,double share){
         public WeaponSlot {offhands=List.copyOf(offhands);if(!Set.of("ONE","TWO","DUAL").contains(hands)||!Double.isFinite(share)||share<=0||share>1||new HashSet<>(offhands).size()!=offhands.size()||!Set.of("shield","dagger","talisman","dual_axes").containsAll(offhands)||hands.equals("TWO")&&!offhands.isEmpty())throw new IllegalArgumentException("Invalid weapon slot rule");}
     }
+    public record RefinementGrade(String name,double bonus) {}
+    private final List<RefinementGrade> refinementGrades;
+    public List<RefinementGrade> refinementGrades(){return refinementGrades;}
+    public double refinementBonus(int grade){if(grade<0||grade>5)throw new IllegalArgumentException("Invalid refinement grade");return refinementGrades.isEmpty()?0:refinementGrades.get(grade).bonus();}
     private final Map<String,WeaponSlot> weaponSlots;
     public Map<String,WeaponSlot> weaponSlots(){return weaponSlots;}
     public WeaponSlot weaponSlot(String itemId){if(!itemId.startsWith("pilot.weapon."))return null;int end=itemId.lastIndexOf('.');return end<13?null:weaponSlots.get(itemId.substring(13,end));}
@@ -46,7 +50,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots){
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades){
+        this.refinementGrades=List.copyOf(refinementGrades);
         this.weaponSlots=Map.copyOf(weaponSlots);
         this.displays=Map.copyOf(displays);this.skillDefinitions=List.copyOf(skillDefinitions);this.encounter=encounter;this.bonuses=bonuses;this.enhancementPolicy=enhancementPolicy;
         this.version=version;this.snapshot=snapshot;this.items=Map.copyOf(items);this.quests=Map.copyOf(quests);this.runs=Map.copyOf(runs);this.chances=List.copyOf(chances);this.costs=List.copyOf(costs);
@@ -112,6 +117,12 @@ public final class ContentCatalog {
             }
             if(equippedProfessions.size()!=CharacterProfession.values().length)throw new IllegalArgumentException("Weapon profession coverage incomplete");
             if(!weaponNames.equals(Set.of("two_handed_sword","sword_shield","bow","crossbow","fan","ritual_sword","dual_axes","pirate_sword")))throw new IllegalArgumentException("Pilot weapon definitions incomplete/unsupported");
+            var refinementGrades=new ArrayList<RefinementGrade>();
+            if(equipment.has("refinementGrades")){
+                double previous=0;
+                for(var element:array(equipment,"refinementGrades")){var grade=element.getAsJsonObject();double bonus=number(grade,"bonus");if(integer(grade,"grade")!=refinementGrades.size()||bonus<previous||bonus>1||refinementGrades.isEmpty()&&bonus!=0)throw new IllegalArgumentException("Invalid refinement grade table");refinementGrades.add(new RefinementGrade(text(grade,"name"),bonus));previous=bonus;}
+                if(refinementGrades.size()!=6)throw new IllegalArgumentException("Refinement grade table incomplete");
+            }
             var weaponSlots=new LinkedHashMap<String,WeaponSlot>();
             if(equipment.has("weaponSlots")){
                 var rules=equipment.getAsJsonObject("weaponSlots");
@@ -169,7 +180,7 @@ public final class ContentCatalog {
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
             var displays=displays(root,schema,items,skillDefinitions,quests,runs,mobs);
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots);
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades);
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static Map<String,Display> displays(JsonObject root,int schema,Map<String,Item> items,List<Skill> skills,Map<String,Quest> quests,Map<String,Run> runs,Map<String,Mob> mobs){

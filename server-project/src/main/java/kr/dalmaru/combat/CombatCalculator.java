@@ -6,6 +6,16 @@ import kr.dalmaru.account.CharacterProfile;
 public final class CombatCalculator {
 	private CombatCalculator() { }
 
+    public static int primaryStat(CharacterProfile profile) {
+        return switch(profile.profession()) {
+            case "WARRIOR" -> profile.strength();
+            case "ARCHER" -> profile.dexterity();
+            case "MAGE" -> profile.arcana();
+            case "ROGUE" -> Math.max(profile.strength(),profile.dexterity());
+            default -> Math.max(profile.strength(),Math.max(profile.dexterity(),profile.arcana()));
+        };
+    }
+
 	public static CombatStats derive(CharacterProfile profile, int primaryStat) {
 		if (primaryStat < 0) throw new IllegalArgumentException("Primary stat must not be negative.");
 		int health = 200 + (profile.level() - 1) * 20 + profile.vitality() * 10;

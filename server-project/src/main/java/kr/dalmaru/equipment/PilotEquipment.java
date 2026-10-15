@@ -87,7 +87,10 @@ public final class PilotEquipment {
             var policy=content.enhancementPolicy();
             double scale = 1 + Math.min(record.enhancement(), 5) * policy.firstFive() + Math.max(0, record.enhancement() - 5) * policy.later();
             if(handRule!=null)scale*=handRule.share();
-            attack += item.attack() * scale; physical += item.physical() * scale; magic += item.magic() * scale;
+            double gradeBonus=content.refinementBonus(record.refinementGrade());
+            boolean weapon=item.slot()==0;
+            attack += item.attack() * scale * (weapon?1+gradeBonus:1); physical += item.physical() * scale; magic += item.magic() * scale;
+            if(!weapon)primary+=kr.dalmaru.combat.CombatCalculator.primaryStat(profile)*gradeBonus;
             int tier = item.level() == 10 ? 0 : item.level() == 15 ? 1 : 2;
             var bonuses=content.bonuses();
             primary += bonuses.primary().get(tier) * item.budget() * scale;

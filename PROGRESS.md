@@ -484,3 +484,21 @@
 - 실패 증거 research/MDF_P3_S07_flaky. 두 번째 상세 예외는 기존 도구의 finally 삭제로 확보 못함. 도구는 이후 실패 stdout/stderr를 마스킹 출력하도록 개선. 인프라/시간제한 변경 없음.
 - 사후 P3 DB accounts1/requests2/schema32 관측(공유 테스트 DB, 출처 미확정 행 임의 삭제 안함). P1/P2 DB 접속 없음.
 - 전체 통과 전 완료 선언 안함. god/Jim 시간초과 분류 뒤 조건 갖춰 재검증, 독립검토 요청은 god 경유. S10은 S03 shop API 뒤, 다음S08→S09→S12.
+
+# S08 Active Spec
+- 기존 생성자9/10인자와 ContentCatalog.Item API/protocol32 유지. EquipmentRecord.refinementGrade 추가(0..5), DB읽기11열 및 강화 결과에 보존.
+- ContentCatalog에 optional refinementGrades6행(없으면구스냅샷0효과), 0/2/3/5/8/10% 데이터와 이름/임시표시. 현재버전pilot-p3-2.
+- 무기: 강화후공격에만효과, 쌍도끼는각UUID등급/강화별합산. 보조/방어구: 기본직업주능력치*등급율을합산. 방어/체력/기력은불변.
+- 기존primary선택을CombatCalculator로옮겨공통사용.
+- verifyRefinementGrade: 모든등급/잘못된등급/무기와방어단일효과/독립쌍도끼/구생성자와구스냅샷/DB목록·장착·강화응답등급보존. 전용게이트+필요한회귀, 전체회귀.
+- S07동일커밋재회귀를먼저완료하고제품수정시작.
+
+## S07 격리 후 검증 통과 (2026-10-16)
+- Grok DB전환 확인 후 Oscar DB 다른연결0 및 잔여계정1/요청2를 단일트랜잭션으로 정리(사후0/0). S08 stash로 보관한 clean HEAD695a7d5에서 전체36개 한 번의 실행 모두PASS, exit0/229.44초. 임시서버RunRespawnMixin PASS.
+- JDBC timeout 변경없음. 사후oscar_p3_fixture accounts0/requests0/schema32. 이전실패로그 보존. 원인확정은god/Jim 판단, 이번검사는DB분리후재현없음을보임. Pam독립검토 god요청,최종승인대기.
+
+## P3-S08 구현/검증 완료 (2026-10-16)
+- refinementGrade DB읽기/강화응답 보존, 기존9/10인자 생성자와ItemAPI/protocol32 유지. 등급표0/2/3/5/8/10%와기존등급명·임시표시를스냅샷에보관. 구스냅샷은효과0으로기존계산보존.
+- 무기는강화후공격에만,비무기는캐릭터기본직업주능력치에만효과. 각쌍도끼UUID별등급/강화계산. 체력/기력/방어에는등급효과없음. 직업주능력치선택을CombatCalculator로공통화.
+- 컴파일3종PASS27초. 전용5검사PASS49초. 전체37개단일실행PASS exit0/234.78초,assemble/임시35565RunRespawnMixinPASS. 사후OscarP3DB accounts0/requests0/schema32.
+- 외형모델은미구현(결정범위밖),새패킷없음. 사람인게임검증미실행. 운영/플레이DB/실서버/push/배포미변경. Pam독립검토와최종god승인대기.

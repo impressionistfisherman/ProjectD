@@ -152,7 +152,7 @@ public final class CombatRuntime {
 		CharacterProfile effective = new CharacterProfile(profile.characterId(), profile.level(), profile.experience(), profile.unspentStatPoints(),
 			profile.strength(), profile.dexterity(), profile.arcana(), profile.vitality() + gear.vitality(), profile.spirit() + gear.spirit(),
 			profile.freeResetAvailable(), profile.unspentSkillPoints(), profile.profession());
-		CombatStats base = CombatCalculator.derive(effective, primaryStat(profile) + gear.primary());
+		CombatStats base = CombatCalculator.derive(effective, CombatCalculator.primaryStat(profile) + gear.primary());
         CombatStats stats=new CombatStats(base.maximumHealth()+(int)skill(player.getUUID(),"skill.warrior.body_training").parameter("maximumHealth",rank(player.getUUID(),"skill.warrior.body_training")),base.maximumStamina(),
             base.staminaRegenerationPerSecond()+skill(player.getUUID(),"skill.mage.breath_meditation").parameter("staminaRegeneration",rank(player.getUUID(),"skill.mage.breath_meditation")),base.strengthMultiplier());
 		var attackDamage = player.getAttribute(Attributes.ATTACK_DAMAGE);
@@ -434,15 +434,6 @@ public final class CombatRuntime {
 		return state == null ? null : new StaminaState(state.stamina, state.maximumStamina, state.lastCombatTick != Long.MIN_VALUE && tick - state.lastCombatTick < COMBAT_TIMEOUT_TICKS);
 	}
 
-	private static int primaryStat(CharacterProfile profile) {
-		return switch (profile.profession()) {
-			case "WARRIOR" -> profile.strength();
-			case "ARCHER" -> profile.dexterity();
-			case "MAGE" -> profile.arcana();
-			case "ROGUE" -> Math.max(profile.strength(), profile.dexterity());
-			default -> Math.max(profile.strength(), Math.max(profile.dexterity(), profile.arcana()));
-		};
-	}
 
 	private static final class RuntimeState {
 		private final int maximumStamina;
