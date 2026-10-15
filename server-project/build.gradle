@@ -163,6 +163,11 @@ tasks.register('verifyRunRewards', JavaExec) {
 	mainClass = 'kr.dalmaru.RunRewardCheck'
 }
 
+tasks.register('verifyRunWipe', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.RunWipeCheck'
+}
 tasks.register('verifyRunLifecycle', JavaExec) {
 	group = 'verification'
 	description = 'Verifies unattended pause, resume, and deadline expiration.'

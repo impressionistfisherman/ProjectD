@@ -67,6 +67,13 @@ public final class RunRepository {
             q.setObject(1,run);q.setObject(2,character);try(var row=q.executeQuery()){if(!row.next()||row.getString(1)==null)throw new IllegalArgumentException("Legacy run lacks frozen loadout.");return new kr.dalmaru.skill.SkillLoadout(character,row.getLong(2),kr.dalmaru.skill.LoadoutRepository.decode(row.getString(1)));}
         }
     }
+    public boolean failUnattendedWipe(UUID runId) throws SQLException {
+        if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try (var connection = DriverManager.getConnection(url, username, password); var update = connection.prepareStatement("UPDATE dalmaru.run_instances SET state='FAILED', finished_at=CURRENT_TIMESTAMP WHERE run_id=? AND state IN ('ACTIVE','PAUSED')")) {
+            update.setObject(1, runId);
+            return update.executeUpdate() == 1;
+        }
+    }
     public RunRecord finish(UUID accountId, long generation, long requestId, UUID runId, boolean success) throws SQLException {
         if (generation < 1 || requestId < 1 || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid run result.");
         try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try {

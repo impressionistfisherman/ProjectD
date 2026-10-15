@@ -293,7 +293,7 @@ public final class RunRuntime {
         long now=System.currentTimeMillis();
         boolean living=playerRuns.values().stream().anyMatch(member->member.runId.equals(state.runId)&&RunEncounterRules.countsAsSurvivor(member.connected,member.dead,member.disconnectedAt,now));
         boolean defeated=encounter!=null&&!living&&(encounter.partySize>1||state.revivesRemaining==0);
-        if(defeated)encounter.failed=true;
+        if(defeated){encounter.failed=true;UUID wiped=state.runId;java.util.concurrent.CompletableFuture.runAsync(()->{try{new RunRepository().failUnattendedWipe(wiped);}catch(Exception error){org.slf4j.LoggerFactory.getLogger("dalmaru").warn("Failed to mark wiped run.",error);}});}
         return new DeathResult(state.runId,!defeated&&state.revivesRemaining>0,defeated);
     }
     public long pausedTicks(UUID runId){Encounter encounter=encounters.get(runId);return encounter==null||encounter.pausedAt==0?0:tickCount-encounter.pausedTick;}

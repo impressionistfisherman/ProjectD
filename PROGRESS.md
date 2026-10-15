@@ -275,7 +275,7 @@
 
 ## MDF-P1 M08 통합 (2026-10-15)
 - god 지시에 따라 Creed+Jim PASS인 grok/mdf-p1-m08(ad1dc2c)을 Oscar 브랜치에 로컬 merge했습니다. PROGRESS/TEST_RESULT 말미 충돌은 양쪽 기록을 모두 보존했습니다. Networking 자동 합치기 diff는 RunRuntime에 COMBAT::hurtLinger를 연결하는 생성자 변경이며 O28 요청 경로는 유지합니다.
-- M11 추가 요구: 잔류 개체 사망으로 전멸할 때 DB 런이 PAUSED로 남지 않고 FAILED가 되도록 처리·검증해야 합니다. 현재 합치기에 완료로 포함하지 않습니다.
+- 해결(M11a 통합 갱신): 잔류 개체 사망 전멸의 DB PAUSED→FAILED 처리는 grok3d4e8a5와 지정 통합 gate PASS로 해결했습니다. 당시 미해결 기록을 갱신하며, M11 미반영 이벤트·재접속 ACK는 여전히 남습니다.
 
 ## MDF-P1 S09i1 (2026-10-15)
 - 재련 UUID 저널·long adapter 연결. 기존 replay-before-owner 순서를 account→journal→equipment로 바꿔 이전 세대/비활성 캐릭터 재생을 차단했습니다. 원래 grade/failures/success와 최신 grade/failures를 분리합니다. 비용·추첨·이력·신규 재화원장(eventId=저널eventId)·저널은 같은 트랜잭션입니다.
@@ -309,3 +309,9 @@
 ## MDF-P1 M13b 통합 (2026-10-15)
 - god 지시에 따라 grok/mdf-p1-m13b(69f3c1d, Creed+Jim PASS 통보)를 로컬 no-ff merge했습니다. 신규 docs/M13B_AUTH_HANDOFF.md 1개만 추가되며 충돌 없음. 인증/UUID·이름변경/접속세대·잠금의 현재 동작과 출시 인계 경계를 담은 문서 평가입니다.
 - 코드·DB·서버설정·online-mode 변경 없음. 문서만이므로 지시대로 Gradle 미실행. O28 run·quest→M11 나머지→M14(미완료 protocol31 상향) 계속. 전체 PARTIAL.
+## MDF-P1 M11a (2026-10-15)
+- 잔류 개체 사망으로 파티가 전멸하면 `failUnattendedWipe`가 ACTIVE 또는 PAUSED 런만 FAILED로 바꿉니다. 주간 클리어 횟수와 요청 저널은 바꾸지 않습니다. 실패 런은 `active`가 찾지 않아 재접속이 그 런을 재개하지 않습니다. 전체 PARTIAL.
+
+## MDF-P1 M11a 통합 (2026-10-15)
+- god 지시로 grok/mdf-p1-m11a(3d4e8a5, Creed+Jim PASS 통보)를 로컬 no-ff merge했습니다. 코드 충돌 없음, PROGRESS/TEST_RESULT 꼬리 충돌만 양쪽 보존했습니다. 잔류 개체 전멸 DB FAILED는 해결로 갱신했습니다.
+- 지정 gate5개 1회 PASS. 실패 처리로 주간 클리어/요청저널을 바꾸지 않고 종료 런을 다시 재개하지 않는 경계를 확인했습니다. 남은 M11은 durable 미반영 이벤트·실제 world ACK/재접속 복구입니다. O28 run·quest와 M14 protocol31도 남습니다. 전체 PARTIAL.

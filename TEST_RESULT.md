@@ -328,3 +328,10 @@
 ## MDF-P1 S09j2 (2026-10-15)
 - PASS: --no-daemon verifyInheritanceWireReceipt verifyInheritanceJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (19초). 실제 계승 receipt parser replay/reject/원이전액 캐시미적용·원본미복원·최신조회, 누락/분수/int넘침/음수/다른원본·대상 거부. 계승 DB 원자성/소모대상재생 및 공통 UUID/context/재시도 경계 회귀.
 - 실제 패킷 왕복·인게임은 미실행. P1 UI/일반호출자 노출 없으며 경제식 재구현은 P3입니다. 독립 QA 요청 대상입니다.
+## MDF-P1 M11a (2026-10-15)
+- PASS: --no-daemon verifyRunWipe compileJava (16초, compileClientJava 포함), verifyPremergeRuntime (7초). oscar_p1_fixture에서 PAUSED 런만 FAILED가 되고, 같은 호출은 한 번만 적용되며, COMPLETED와 주간 횟수 1은 유지되고 active는 null입니다.
+- 잔류 개체를 실제로 죽이는 인게임 전멸, 재접속, 라이브 서버는 실행하지 않았습니다.
+
+## MDF-P1 M11a 통합 (2026-10-15)
+- PASS: --no-daemon verifyRunWipe verifyPremergeRuntime verifyRunEncounterRules compileJava compileClientJava 1회 실행(14초). 잔류 전멸 실패 저장/기존 종료 상태 보호·기존 runtime/규칙 회귀 확인.
+- 운영/실제 접속종료·인게임 조작 미실행. M11 미반영 이벤트·재접속 ACK는 별도 미완료입니다.
