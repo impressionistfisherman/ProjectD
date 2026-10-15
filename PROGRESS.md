@@ -353,3 +353,5 @@
 ## MDF-P1 담당 조정 (2026-10-15)
 - god 지시 2026-10-15T03-48-55-466Z-4172db: run writer 저널은 그록 g214 / grok/mdf-p1-runwriter 담당입니다. Oscar S09k2(70448dc)·S09k3(2e8bfa0) 완료, 다음은 M14입니다.
 - M11b 1f7a9e9는 god 통보 기준 Creed PASS / Jim 재QA 중이며 Oscar는 아직 합치지 않았습니다. 재QA 뒤 god 머지 지시와 run writer 결과를 받아 통합 회귀·개발 protocol31 상향을 진행합니다. 운영환경 변경 없음, 전체 PARTIAL.
+
+- 2026-10-15 MDF-P1 M14b: 체크리스트 3번 자동 부활을 verifyRunAutoRespawnSafety로 검사. 목록에서 빠진 플레이어·disconnect 이후·패킷만 삼킨 연결·예외를 던지는 연결은 부활 횟수를 깎지 않고, 완료된 부활은 재생해도 1회. 다른 플레이어 상태는 그대로. 실제 닫히는 리스너와 시험용 플레이어 연결은 서버가 필요해 사람 확인. 제품 코드 변경 없음, 전체 PARTIAL.
