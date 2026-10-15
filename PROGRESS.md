@@ -246,3 +246,8 @@
 ## MDF-P1 S09f1 (2026-10-15)
 - 전직 선택 common UUID 저널·long 호환 연결. 직업 저장/초기 기술점 6점 지급/원결과·저널 확정이 같은 트랜잭션이며, 반복 UUID는 저장 직업과 최신 프로필을 반환합니다. 레벨10·의뢰 보상 선행조건 및 이미 선택한 직업 변경 금지를 유지합니다.
 - 전직 wire/나머지 O28 및 M08/M11/M12/M13/M14는 남습니다. 전체 PARTIAL.
+
+## MDF-P1 S09f2 (2026-10-15)
+- 전직 common UUID wire·기존 typed adapter 연결. 현재 세대/선택 캐릭터·본문 검증, 최신 프로필 먼저·저장 직업 receipt 나중 전송. 불확실 실패는 동일 UUID 재시도를 유지합니다. 클라이언트 typed 재시도는 common에 위임하고 원결과로 최신 상태를 덮어쓰지 않습니다.
+- 개발 전직 명령도 journaled 결과의 최신 프로필을 같은 세션에 반영합니다. S09e1~e4 Creed+Jim PASS/S09f1 Creed PASS 통보 확인; S09f1 Jim 및 S09f2 독립 QA는 별도 확인 필요.
+- 나머지 O28 writers/M08/M11/M12/M13/M14 남음. 전체 PARTIAL.

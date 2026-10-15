@@ -195,9 +195,14 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientProfileState.delegateResetRetry();ClientPlayNetworking.send(request);
     }
 
-	public static void requestProfession(String profession) {
-		if (ClientProfileState.beginProfession(profession)) ClientPlayNetworking.send(new DalmaruPayloads.CharacterProfessionRequest(ClientProfileState.currentProfessionRequestId(), profession));
-	}
+    public static void requestProfession(String profession) {
+        if(!ClientProfileState.beginProfession(profession))return;
+        long correlation=ClientProfileState.currentProfessionRequestId();
+        var body=new com.google.gson.JsonObject();body.addProperty("profession",profession.toUpperCase(java.util.Locale.ROOT));
+        var request=ClientRequestState.begin(correlation,"select_profession",body);
+        if(request==null){ClientProfileState.completeProfession(correlation,"캐릭터 정보 확인 중입니다.");return;}
+        ClientProfileState.delegateProfessionRetry();ClientPlayNetworking.send(request);
+    }
 
 	public static void requestSkill(String skillId) {
         if(!ClientProfileState.beginSkill(skillId))return;long correlation=ClientProfileState.currentSkillRequestId();
@@ -223,6 +228,17 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         var item=ClientEquipmentState.equipment().stream().filter(record->record.equipmentId().equals(equipmentId)).findFirst().orElse(null);
         if(item==null)return;
         net.minecraft.client.Minecraft.getInstance().player.connection.sendCommand("dalmaru-equipment " + (item.slotId()<0?"equip":"unequip") + " " + equipmentId + " " + ClientEquipmentState.nextRequestId());
+    }
+
+    private static void acceptProfessionOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        String status="전직 조건을 확인하세요.";
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+            var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
+            if(!original.has("profession")||!original.get("profession").isJsonPrimitive()||!original.getAsJsonPrimitive("profession").isString()||!original.get("profession").getAsString().equals(expected.get("profession").getAsString()))throw new IllegalStateException("Invalid profession receipt");
+            status=receipt.replayed()?"이미 처리된 전직입니다. 최신 정보를 표시합니다.":"전직을 완료했습니다.";
+        }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){status="전직 결과 확인에 실패했습니다.";}
+        ClientProfileState.completeProfession(receipt.correlationId(),status);requestSkillRanks();requestLoadout();
     }
 
     private static void acceptResetOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
@@ -264,6 +280,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}

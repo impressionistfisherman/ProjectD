@@ -326,3 +326,5 @@ tasks.register('verifyResetJournal', JavaExec) { group = 'verification'; classpa
 tasks.register('verifyResetWireReceipt', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ResetWireReceiptCheck' }
 
 tasks.register('verifyProfessionJournal', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProfessionJournalCheck' }
+
+tasks.register('verifyProfessionWireReceipt', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProfessionWireReceiptCheck' }

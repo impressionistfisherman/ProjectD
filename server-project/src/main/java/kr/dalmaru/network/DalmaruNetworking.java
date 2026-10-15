@@ -390,29 +390,9 @@ public final class DalmaruNetworking {
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterStatResetRequest.TYPE,(payload,context)->
             resetStatsRequest(context,payload.requestId(),payload.characterId(),null));
-		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterProfessionRequest.TYPE, (payload, context) -> {
-			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountFailure != null || state.accountSession.activeCharacterId() == null) {
-				sendCharacterProfession(context, payload.requestId(), false, "전직할 캐릭터를 먼저 선택하세요.", null);
-				return;
-			}
-			CharacterProfession profession;
-			try { profession = CharacterProfession.valueOf(payload.profession().toUpperCase(java.util.Locale.ROOT)); }
-			catch (IllegalArgumentException exception) { sendCharacterProfession(context, payload.requestId(), false, "선택할 수 없는 직업입니다.", null); return; }
-			AccountSession session = state.accountSession;
-			CompletableFuture.supplyAsync(() -> {
-				try {
-					CHARACTERS.selectProfession(session.accountId(), session.connectionGeneration(), payload.requestId(), session.activeCharacterId(), profession);
-					return CHARACTERS.profile(session.activeCharacterId());
-				} catch (Exception exception) { throw new IllegalStateException(exception); }
-			}).thenAccept(profile -> context.server().execute(() -> {
-				if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) sendCharacterProfession(context, payload.requestId(), true, profession.koreanName() + " 전직을 완료했습니다.", profile);
-			})).exceptionally(error -> {
-				LOGGER.warn("Rejected character profession for {}.", session.accountId(), error);
-				context.server().execute(() -> sendCharacterProfession(context, payload.requestId(), false, "전직 조건을 확인하세요.", null));
-				return null;
-			});
-		});
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterProfessionRequest.TYPE,(payload,context)->
+            professionRequest(context,payload.requestId(),payload.profession(),null));
+
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.QuestRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountFailure != null || state.accountSession.activeCharacterId() == null) {
@@ -449,7 +429,11 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "reset_stats"->{
+                    case "select_profession"->{
+                    if(body.size()!=1||!body.has("profession")||!body.get("profession").isJsonPrimitive()||!body.getAsJsonPrimitive("profession").isString())throw new IllegalArgumentException("Invalid profession body");
+                    professionRequest(context,payload.correlationId(),body.get("profession").getAsString(),envelope);
+                }
+                case "reset_stats"->{
                     if(body.size()!=0)throw new IllegalArgumentException("Invalid reset body");
                     resetStatsRequest(context,payload.correlationId(),envelope.activeCharacterId(),envelope);
                 }
@@ -544,6 +528,34 @@ public final class DalmaruNetworking {
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
     }
+    private static void professionRequest(ServerPlayNetworking.Context context,long correlation,String name,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){
+            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendCharacterProfession(context,correlation,false,"전직할 캐릭터를 먼저 선택하세요.",null);return;
+        }
+        CharacterProfession profession;
+        try{profession=CharacterProfession.valueOf(name.toUpperCase(java.util.Locale.ROOT));}
+        catch(IllegalArgumentException error){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendCharacterProfession(context,correlation,false,"선택할 수 없는 직업입니다.",null);return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{
+            try{return CHARACTERS.selectProfessionJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),profession,envelope);}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(result->context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendCharacterProfession(context,correlation,true,result.profession().koreanName()+" 전직을 완료했습니다.",result.profile());
+            else{
+                sendCharacterProfile(player,result.profile());var original=new com.google.gson.JsonObject();original.addProperty("profession",result.profession().name());var receipt=result.receipt();
+                ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.replayed()));
+            }
+        })).exceptionally(error->{context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(envelope==null)sendCharacterProfession(context,correlation,false,"전직 조건을 확인하세요.",null);
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            LOGGER.warn("Profession request failed for {}",session.accountId(),error);
+        });return null;});
+    }
+
     private static void resetStatsRequest(ServerPlayNetworking.Context context,long correlation,UUID character,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||!character.equals(state.accountSession.activeCharacterId())){
@@ -1142,8 +1154,8 @@ public final class DalmaruNetworking {
 		try { profession = CharacterProfession.valueOf(value.toUpperCase(java.util.Locale.ROOT)); }
 		catch (IllegalArgumentException exception) { player.sendSystemMessage(Component.literal("직업: WARRIOR, ARCHER, MAGE, ROGUE")); return; }
 		long requestId = System.nanoTime() & Long.MAX_VALUE;
-		CompletableFuture.supplyAsync(() -> { try { return CHARACTERS.selectProfession(session.accountId(), session.connectionGeneration(), requestId, session.activeCharacterId(), profession); } catch (Exception exception) { throw new IllegalStateException(exception); } })
-			.thenAccept(saved -> server.execute(() -> player.sendSystemMessage(Component.literal(saved.koreanName() + " 전직을 완료했습니다. 주력 능력치: " + saved.primaryStat()))))
+		CompletableFuture.supplyAsync(() -> { try { return CHARACTERS.selectProfessionJournaled(session.accountId(), session.connectionGeneration(), requestId, session.activeCharacterId(), profession,null); } catch (Exception exception) { throw new IllegalStateException(exception); } })
+			.thenAccept(saved -> server.execute(() -> {var current=CONNECTIONS.get(player.getUUID());if(current==null||current.accountSession!=session)return;sendCharacterProfile(player,saved.profile());player.sendSystemMessage(Component.literal(saved.profession().koreanName()+" 전직을 완료했습니다. 주력 능력치: "+saved.profession().primaryStat()));}))
 			.exceptionally(error -> { server.execute(() -> player.sendSystemMessage(Component.literal("전직 조건을 충족하지 못했습니다. 레벨 10과 전직 의뢰 완료가 필요합니다."))); return null; });
 	}
 

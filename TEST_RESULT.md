@@ -279,3 +279,8 @@
 ## MDF-P1 S09f1 (2026-10-15)
 - PASS: --no-daemon verifyProfessionJournal verifyCharacterProfession (15초). UUID/다른 correlation/동시 요청/legacy 반복 초기점수 한 번 지급, replay 최신 점수, 레벨·의뢰 선행조건/다른 직업·본문·세대 거부, 직업 INSERT 이후 점수 UPDATE 실패 시 직업·보상·저널 전체 롤백.
 - 운영·인게임 미실행. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09f2 (2026-10-15)
+- PASS: --no-daemon verifyProfessionWireReceipt verifyClientReplyRecovery verifyClientRequestEnvelope verifyProfessionJournal compileClientJava (12초). 실제 전직 receipt parser의 replay/reject/틀린 correlation/다른 직업·잘못된 본문, typed/common 단일 재시도 및 최신 기술/장착 조회, 공통 client 경계·fixture 전직 원자성 확인.
+- 앞선 검사 시 compileClientJava가 다수 기존 상태 클래스를 찾지 못해 FAIL. 소스 파일 존재/빌드 설정 범위/실행 중 Gradle 없음 확인 후, 소스 변경 없이 compileClientJava --rerun --info 전체 재컴파일 PASS(7초), 위 gate 재검사 PASS. 산출물·증분 상태 문제의 발생 원인은 미확인입니다.
+- 실제 패킷 왕복·인게임·개발 명령 인게임 검사는 미실행. M11 world ACK/reconnect는 미완료. 독립 QA 요청 대상입니다.
