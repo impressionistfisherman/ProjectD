@@ -230,6 +230,21 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         var request=ClientRequestState.begin(correlation,"move_equipment",body);if(request==null)return;
         ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
     }
+    public static void requestInheritance(java.util.UUID target,java.util.UUID source){
+        if(target==null||source==null||target.equals(source)||ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(target))||ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(source)))return;
+        long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("targetEquipmentId",target.toString());body.addProperty("sourceEquipmentId",source.toString());var request=ClientRequestState.begin(correlation,"inherit_equipment",body);if(request==null)return;
+        ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
+    }
+    private static void acceptInheritanceOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        String message="계승 대상·원본·소유권 조건을 확인하세요.";
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
+            for(String key:new String[]{"targetEquipmentId","sourceEquipmentId"})if(!original.has(key)||!original.get(key).isJsonPrimitive()||!original.getAsJsonPrimitive(key).isString()||!original.get(key).getAsString().equals(expected.get(key).getAsString()))throw new IllegalStateException("Invalid inheritance identity");
+            if(!original.has("credit")||!original.get("credit").isJsonPrimitive()||!original.getAsJsonPrimitive("credit").isNumber()||original.get("credit").getAsBigDecimal().intValueExact()<0)throw new IllegalStateException("Invalid inheritance credit");
+            message=receipt.replayed()?"이미 처리된 계승입니다. 최신 장비를 확인합니다.":"계승을 처리했습니다. 최신 장비를 확인합니다.";
+        }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){message="계승 결과 확인에 실패했습니다.";}
+        ClientEquipmentState.movementStatus(message);requestEquipment();
+    }
     public static void requestRefinement(java.util.UUID equipment){
         if(ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(equipment)))return;
         long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("equipmentId",equipment.toString());var request=ClientRequestState.begin(correlation,"refine_item",body);if(request==null)return;
@@ -304,6 +319,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("inherit_equipment".equals(request.operation())){acceptInheritanceOperation(request,receipt);return;}
         if("refine_item".equals(request.operation())){acceptRefinementOperation(request,receipt);return;}
         if("move_equipment".equals(request.operation())){acceptEquipmentMoveOperation(receipt);return;}
         if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}

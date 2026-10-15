@@ -324,3 +324,7 @@
 ## MDF-P1 S09j1 (2026-10-15)
 - PASS: --no-daemon verifyInheritanceJournal verifyRefinementJournal (16초). UUID/다른 correlation/동시 단일 원본 소모/legacy 채택, 원이전액·최신잔액/목록 분리, 계승 대상까지 소모된 뒤 저장 UUID 재생, 귀속 병합, 본문·비활성캐릭터 장비·계열·레벨·재접속 전 세대 거부, 원본 DELETE 뒤 이력 INSERT 실패 시 잔액/원본/저널 rollback 및 동일UUID 재시도.
 - 기존 계승 계산식의 설계 불일치는 유지된 한계이며 검사가 설계 전체 준수를 뜻하지 않습니다. 실행 caller/UI/인게임은 현재 없고 미검증입니다. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09j2 (2026-10-15)
+- PASS: --no-daemon verifyInheritanceWireReceipt verifyInheritanceJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (19초). 실제 계승 receipt parser replay/reject/원이전액 캐시미적용·원본미복원·최신조회, 누락/분수/int넘침/음수/다른원본·대상 거부. 계승 DB 원자성/소모대상재생 및 공통 UUID/context/재시도 경계 회귀.
+- 실제 패킷 왕복·인게임은 미실행. P1 UI/일반호출자 노출 없으며 경제식 재구현은 P3입니다. 독립 QA 요청 대상입니다.

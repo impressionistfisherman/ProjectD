@@ -299,3 +299,9 @@
 - 계승 UUID 저널/long adapter 연결. account→journal→equipment 순서로 이전 replay-before-owner 경로를 차단하고, 원본 소모/잔액 증가/귀속/이력/저널을 같은 트랜잭션에 확정합니다. 원래 이전액과 최신 잔액·장비 목록을 구분합니다. 대상이 나중에 소모되어도 저장 UUID 결과는 유지하고 최신 잔액 null/목록 부재로 표현합니다.
 - 기존 계승식 (이전잔액+강화단계*10)*70/100은 BALANCE_AND_ECONOMY 6절의 실제 종류별 지출70%/이전잔액 제외 규칙과 다릅니다. 이번 O28은 본문 일치·소유권·재생·원자성 변경이며 계산식은 바꾸지 않았습니다. 실행 caller/UI는 현재 없고 별도 경제 구현 범위 판단이 필요합니다.
 - god 분담 추가: M11a 잔류 개체 전멸 DB FAILED는 그록 grok/mdf-p1-m11a @42974c8(RunRuntime/RunRepository 전멸·종료 경로) 담당. Oscar는 O28 계승/run·quest→M11 나머지 이벤트/재접속ACK→M14. 같은 RunRepository 메서드 변경 필요 시 사전 통보합니다. 전체 PARTIAL.
+
+- god 범위 확정: **P3 이관: 계승식 재구현** — BALANCE_AND_ECONOMY 6절140~142와 기존식 차이는 ROADMAP_PHASES:107(P3 계승 계열/실지출 재료별70%잔액) 범위입니다. P1은 현재식 유지+저널/wire(API)까지만, UI·일반 호출자 노출 없음. S09j1 Creed g182 검증 배정 통보와 PASS 구분.
+
+## MDF-P1 S09j2 (2026-10-15)
+- inherit_equipment common UUID router/client API 연결. 서버 현재세대·활성캐릭터·본문 검증과 소모/귀속/원장저널 원자성은 저장계층이 판정합니다. 최신 목록/현재 잔액 안내와 원래 source/target/credit receipt를 분리합니다. 불확실 실패는 같은UUID 재시도를 유지합니다.
+- client는 원결과 식별자/정수범위를 검증하고 최신 목록을 조회하며 원이전액이나 원본을 캐시에 적용하지 않습니다. UI·일반 호출자 노출 없음. 계승식 P3 이관 유지, protocol31 상향 M14 미완료. O28 run·quest→M11나머지→M14 남음. 전체 PARTIAL.

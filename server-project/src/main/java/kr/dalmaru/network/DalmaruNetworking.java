@@ -438,7 +438,11 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "refine_item"->{
+                    case "inherit_equipment"->{
+                    if(body.size()!=2||!body.has("targetEquipmentId")||!body.get("targetEquipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("targetEquipmentId").isString()||!body.has("sourceEquipmentId")||!body.get("sourceEquipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("sourceEquipmentId").isString())throw new IllegalArgumentException("Invalid inheritance body");
+                    inheritRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("targetEquipmentId").getAsString()),UUID.fromString(body.get("sourceEquipmentId").getAsString()),envelope);
+                }
+                case "refine_item"->{
                     if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid refinement body");
                     refineRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                 }
@@ -669,6 +673,22 @@ public final class DalmaruNetworking {
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Skill learning outcome for {}",session.accountId(),error);
         });return null;});
+    }
+    private static void inheritRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID target,UUID source,kr.dalmaru.request.RequestEnvelope envelope){
+        var state=CONNECTIONS.get(player.getUUID());if(correlation<1||state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return EQUIPMENT.inheritJournaled(session.accountId(),session.connectionGeneration(),correlation,target,source,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->server.execute(()->{
+                if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                ServerPlayNetworking.send(player,new DalmaruPayloads.EquipmentListResponse(correlation,result.currentCredit()==null?"계승 대상은 현재 목록에 없습니다.":"현재 계승 잔액: "+result.currentCredit(),result.equipment().stream().map(item->new DalmaruPayloads.EquipmentData(item.equipmentId(),item.slotId(),item.itemId(),item.enhancement(),item.consecutiveFailures(),item.bound())).toList()));
+                var original=new com.google.gson.JsonObject();original.addProperty("targetEquipmentId",result.original().targetEquipmentId().toString());original.addProperty("sourceEquipmentId",result.sourceEquipmentId().toString());original.addProperty("credit",result.original().credit());var receipt=result.receipt();
+                ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),original.toString(),result.original().replayed()));
+            }))
+            .exceptionally(error->{server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                LOGGER.warn("Inheritance request outcome for {}",session.accountId(),error);
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            });return null;});
     }
     private static void refineRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID equipment,kr.dalmaru.request.RequestEnvelope envelope){
         var state=CONNECTIONS.get(player.getUUID());if(correlation<1||state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
