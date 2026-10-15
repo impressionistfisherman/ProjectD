@@ -100,6 +100,7 @@ tasks.register('verifyStarterSupply', JavaExec) { group = 'verification'; classp
 tasks.register('verifyGrowthRewardGrant', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.GrowthRewardGrantCheck' }
 tasks.register('verifyCharacterDeletion', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.CharacterDeletionCheck' }
 tasks.register('verifyPaidStatReset', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.PaidStatResetCheck' }
+tasks.register('verifyVillageRoutes', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.VillageRouteCheck' }
 tasks.register('verifyCharacterCreation', JavaExec) {
 	group = 'verification'
 	description = 'Verifies idempotent character creation and connection generation checks against PostgreSQL.'
