@@ -293,3 +293,7 @@
 - PASS: --no-daemon verifyLoadoutJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (16초). 월드잠금 새 쓰기 거부/기존 UUID 읽기재생, 장착 대기 만료 중 common 단일 재시도·틀린 correlation 무시·완료 후 최신 캐시 보존, 공통 UUID 경계 및 장착 DB 회귀.
 - 첫 컴파일은 router ArrayList 클래스 한정 누락으로 FAIL. 한정명 수정 후 위 검사 PASS. 마지막 파티 준비 해제 조건 이동 뒤 compileJava compileClientJava PASS(8초).
 - 실제 패킷 왕복·파티 준비 알림·인게임 조작은 미실행. M11 실제 world ACK/reconnect는 남습니다. 독립 QA 요청 대상입니다.
+
+## MDF-P1 S09h1 (2026-10-15)
+- PASS: --no-daemon verifyEquipmentMoveJournal (13초). UUID/다른 correlation/동시 한 번 이동/legacy 채택, 원슬롯·최신 목록 분리, 본문·세대·비활성 캐릭터 장비·월드 잠금·레벨 거부, 교체 장비 밀어내기·귀속 뒤 이력 INSERT 실패 시 전체 rollback, 재시도 성공 후 교체·귀속 확인.
+- 실제 패킷 왕복·인게임 이동은 미검증. 독립 QA 요청 대상입니다.

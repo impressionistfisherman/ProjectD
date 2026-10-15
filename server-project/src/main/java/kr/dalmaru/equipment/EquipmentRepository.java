@@ -85,8 +85,14 @@ public final class EquipmentRepository {
         return new EnhancementResult(result.equipment(),result.success(),result.replayed(),result.resultEnhancement(),result.resultFailures(),receipt);
     }
 
+    public record MovementResult(List<EquipmentRecord> equipment,UUID equipmentId,int slotId,boolean replayed,RequestJournal.Receipt receipt) {
+        public MovementResult{equipment=List.copyOf(equipment);}
+    }
     public List<EquipmentRecord> move(UUID accountId,long generation,long requestId,UUID equipmentId,boolean equip) throws SQLException {
-        if(generation<1||requestId<1)throw new IllegalArgumentException("Invalid equipment move.");
+        return moveJournaled(accountId,generation,requestId,equipmentId,equip,null,true).equipment();
+    }
+    public MovementResult moveJournaled(UUID accountId,long generation,long requestId,UUID equipmentId,boolean equip,RequestEnvelope envelope,boolean editable)throws SQLException {
+        if(generation<1||requestId<1||equipmentId==null)throw new IllegalArgumentException("Invalid equipment move.");
         try(var connection=DriverManager.getConnection(url,username,password)) {
             connection.setAutoCommit(false);
             try {
@@ -96,6 +102,14 @@ public final class EquipmentRepository {
                         if(!row.next()||row.getObject(1)==null)throw new IllegalArgumentException("Stale equipment session.");characterId=row.getObject(1,UUID.class);
                     }
                 }
+                var body=new JsonObject();body.addProperty("equipmentId",equipmentId.toString());body.addProperty("equip",equip);
+                if(envelope==null)envelope=RequestEnvelope.legacy(accountId,generation,characterId,"move_equipment",requestId,body);
+                if(envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(characterId)||!envelope.operation().equals("move_equipment")||!envelope.payload().equals(body))throw new IllegalArgumentException("Equipment move envelope does not match active session/body");
+                var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
+                if(stored.result()!=null){
+                    var item=read(connection,equipmentId);if(!characterId.equals(item.characterId()))throw new IllegalArgumentException("Foreign replay equipment.");
+                    var current=list(connection,characterId);var original=stored.result();connection.commit();return new MovementResult(current,equipmentId,original.get("slotId").getAsInt(),true,stored.receipt());
+                }
                 EquipmentRecord item=readForUpdate(connection,equipmentId);
                 if(!characterId.equals(item.characterId()))throw new IllegalArgumentException("Foreign equipment.");
                 int slot=equip?PilotEquipment.slot(item.itemId()):-1;
@@ -103,9 +117,10 @@ public final class EquipmentRepository {
                     replay.setObject(1,accountId);replay.setLong(2,generation);replay.setLong(3,requestId);
                     try(var row=replay.executeQuery()){if(row.next()){
                         if(!equipmentId.equals(row.getObject(1,UUID.class))||slot!=row.getInt(2))throw new IllegalArgumentException("Move request ID reused.");
-                        connection.commit();return list(characterId);
+                        int originalSlot=row.getInt(2);var receipt=RequestJournal.confirm(connection,stored,movementOutcome(equipmentId,originalSlot));var current=list(connection,characterId);connection.commit();return new MovementResult(current,equipmentId,originalSlot,true,receipt);
                     }}
                 }
+                if(!editable)throw new IllegalArgumentException("Equipment cannot be changed in the current world state.");
                 if(equip){
                     validateRequirements(connection,item);
                     var profile=kr.dalmaru.account.CharacterRepository.profileForUpdate(connection,characterId);
@@ -122,13 +137,17 @@ public final class EquipmentRepository {
                 try(var request=connection.prepareStatement("INSERT INTO dalmaru.character_equipment_move_requests VALUES(?,?,?,?,?)")){
                     request.setObject(1,accountId);request.setLong(2,generation);request.setLong(3,requestId);request.setObject(4,equipmentId);request.setInt(5,slot);request.executeUpdate();
                 }
-                connection.commit();return list(characterId);
+                var receipt=RequestJournal.confirm(connection,stored,movementOutcome(equipmentId,slot));var current=list(connection,characterId);connection.commit();return new MovementResult(current,equipmentId,slot,false,receipt);
             }catch(Exception error){connection.rollback();throw error;}
         }
     }
+    private static JsonObject movementOutcome(UUID equipment,int slot){var result=new JsonObject();result.addProperty("equipmentId",equipment.toString());result.addProperty("slotId",slot);return result;}
     public List<EquipmentRecord> list(UUID characterId) throws SQLException {
-        if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
-        try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE character_id=? ORDER BY slot_id")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { List<EquipmentRecord> equipment = new ArrayList<>(); while (result.next()) equipment.add(record(result)); return equipment; } }
+        if(password==null||password.isBlank())throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try(var connection=DriverManager.getConnection(url,username,password)){return list(connection,characterId);}
+    }
+    private static List<EquipmentRecord> list(Connection connection,UUID characterId)throws SQLException {
+        try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE character_id=? ORDER BY slot_id")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { List<EquipmentRecord> equipment = new ArrayList<>(); while (result.next()) equipment.add(record(result)); return equipment; } }
     }
     public List<EquipmentRecord> equipped(UUID characterId) throws SQLException {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");

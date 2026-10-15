@@ -260,3 +260,7 @@
 - 기술 장착 common UUID router/client·typed adapter 연결. revision은 정확한 long 정수, 슬롯은 문자열 5개로 검증합니다. 서버는 최신 목록 먼저/저장 원결과 receipt 나중 전송하며 불확실 실패는 같은 UUID로 재시도합니다.
 - 월드 편집 잠금은 새 쓰기만 거부하고 저장 결과 재생은 허용합니다. client 기존 대기 만료 조회를 common 중 위임해 단일 재시도하고, 원결과는 적용하지 않고 최신 목록을 조회합니다. 파티 준비 해제는 실제 새 변경 확정 때만 수행합니다.
 - M08 별도 작업과 같은 DalmaruNetworking 파일을 사용하나 장착 router/updateLoadout 영역만 수정했습니다. 나머지 O28/M11/M12/M13/M14와 M08 합치기 남음. 전체 PARTIAL.
+
+## MDF-P1 S09h1 (2026-10-15)
+- 장비 이동 UUID 저널/long adapter 연결. 저장된 원래 장비ID·목표 슬롯과 최신 장비 목록을 분리하며 목록도 같은 트랜잭션에서 읽습니다. 장비 소유권과 장착 조건, 슬롯 교체·귀속·이력·저널 원자성을 유지합니다. 월드 잠금은 새 쓰기만 막고 확정 재생은 허용합니다.
+- S09g1/g2 Creed+Jim PASS 통보 확인. 그록 분담 요청에 M13a 시험DB 백업·복원 훈련(scripts/m13-fixture-recovery.ps1/docs/M13_RECOVERY_EVIDENCE.md, 기준1c1523a)을 제안했습니다. M08은 추가 확인 뒤 별도 합치기 지시 대기. 장비 이동 wire/나머지 O28/M11/M12/M13b/M14 남음. 전체 PARTIAL.
