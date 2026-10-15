@@ -459,3 +459,5 @@
 - 실제 연결·확장화면 targeted PASS17초. 통합 전체35개 실제PASS exit0/112.46초. assemble PASS6초, 임시35565기동·RunRespawnMixin PASS. P2 localhost15432/oscar_p2_fixture 사후 accounts0/requests0/maxschema31, V028/29/30/31 모두존재. 운영·플레이DB/PID14160/배포/push미변경.
 - **미해결:** S07 confirm패킷에 실제 서버현장 증거가 없는 결함을 Oscar가 발견, god914964에서확정하고 그록에수정배정. 현재 테스트 성공은 그 결함의 해결을 뜻하지 않는다. 그록수정+Creed PASS뒤추가머지/관련검증을 완료해야 최종통합 대상이 된다. 사람플레이 미실행/마을좌표자리표시.
 - docs/P2_PLAYTEST_GUIDE를 실제통합 진입/시험200마을내처치/전직뒤이야기보고로장비수령/조사S06중복지급0에맞춰정리.
+
+- 2026-10-15 P2-S07 조사 판정: 클라 확정은 요청이다. 현장은 content/investigation.json 구역 안이고 장치 반경이거나 서버 전투 기록일 때만 확정되고, 그때 증거 조각을 그 캐릭터에게만 남긴다. 증거는 그 조각이 있을 때, 보고는 보고 반경 안에서만 된다. 조건 없는 세 번 확정은 단계와 보상을 바꾸지 않는다. reportConfirmed 시그니처는 그대로다. 가이드 4절을 같은 규칙으로 고쳤다. 인게임 미실행, 전체 PARTIAL.

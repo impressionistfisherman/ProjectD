@@ -653,6 +653,12 @@
 | `verifyCharacterExperience` | 예 | PASS |
 | `verifyCharacterProfession` | 예 | PASS |
 | `verifyCharacterSkill` | 예 | PASS |
+
+
+- 2026-10-15 P2-S07 조사 판정: PASS verifyQuestStages. 조건 없는 확정 3회와 구역만 선 확정은 단계·보상 없음. 전투가 있는 현장 확정 뒤 증거 조각이 생기고, 보고 반경의 최종 보고는 한 번만 지급. 재생은 저장된 결과를 돌려주고 다시 지급하지 않음. 파트너는 조각 없이 증거를 확정하지 못함. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture. 인게임 미실행.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyQuestStages` | 예 | PASS |
 | `verifyRunJournal` | 예 | PASS |
 | `verifyClientScreenBounds` | 예 | PASS |
 | `verifyRunAutoRespawnSafety` | 예 | PASS |
@@ -678,4 +684,5 @@
 | `verifyWaypointReturn` | 예 | PASS |
 | `verifyStoryQuestCurve` | 예 | PASS |
 | `verifyStoryInvestigationLink` | 예 | PASS |
+
 | `p1_integration_smoke.ps1` | 예 | PASS |

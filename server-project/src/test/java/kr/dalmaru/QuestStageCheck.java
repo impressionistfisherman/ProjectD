@@ -12,6 +12,10 @@ import kr.dalmaru.request.RequestEnvelope;
 
 public final class QuestStageCheck {
 	private static final UUID ACCOUNT = UUID.fromString("00000000-0000-4000-8000-00000000a507");
+	private static final QuestStageRepository.Place AWAY = new QuestStageRepository.Place("minecraft:overworld", 0, 64, 0, false);
+	private static final QuestStageRepository.Place EDGE = new QuestStageRepository.Place("minecraft:overworld", 820, 64, 800, false);
+	private static final QuestStageRepository.Place FIELD = new QuestStageRepository.Place("minecraft:overworld", 800, 64, 800, true);
+	private static final QuestStageRepository.Place REPORT = new QuestStageRepository.Place("minecraft:overworld", 820, 64, 800, false);
 	private QuestStageCheck() { }
 
 	public static void main(String[] args) throws Exception {
@@ -27,18 +31,21 @@ public final class QuestStageCheck {
 			UUID partner = characters.create(ACCOUNT, 2, "달마루_현장").characterId();
 			profession(lead);
 			profession(partner);
-			reject(() -> stages.confirm(partner, "evidence"));
+			for (String stage : java.util.List.of("field", "evidence", "report")) reject(() -> stages.confirm(lead, stage, AWAY));
+			reject(() -> stages.confirm(lead, "field", EDGE));
+			require(!stages.confirmed(lead, "field") && !stages.confirmed(lead, "evidence") && !stages.confirmed(lead, "report") && count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", lead) == 20 && count("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=? AND grant_key='investigation'", lead) == 0, "Confirm without a server condition paid or confirmed.");
+			reject(() -> stages.confirm(partner, "evidence", AWAY));
 			stages.open(lead, "field");
 			stages.fail(lead, "field");
 			require(!stages.confirmed(lead, "field"), "A failed field stayed confirmed.");
 			stages.open(lead, "field");
-			stages.confirm(lead, "field");
+			stages.confirm(lead, "field", FIELD);
 			stages.open(partner, "field");
 			require(stages.confirmed(lead, "field") && stages.confirmed(partner, "field"), "Field stage was not shared.");
 			reject(() -> stages.fail(partner, "field"));
-			stages.confirm(lead, "evidence");
+			stages.confirm(lead, "evidence", AWAY);
 			require(stages.confirmed(lead, "evidence") && !stages.confirmed(partner, "evidence"), "Evidence was shared.");
-			reject(() -> stages.confirm(partner, "report"));
+			reject(() -> stages.confirm(partner, "report", REPORT));
 			stages.open(lead, "report");
 			stages.fail(lead, "report");
 			require(stages.confirmed(lead, "field") && stages.confirmed(lead, "evidence") && !stages.confirmed(lead, "report"), "Failure cleared a confirmed stage.");
@@ -48,8 +55,8 @@ public final class QuestStageCheck {
 			body.addProperty("stage", "report");
 			body.addProperty("action", "confirm");
 			var envelope = RequestEnvelope.legacy(ACCOUNT, session.connectionGeneration(), lead, "quest_stage", 507, body);
-			var first = stages.actJournaled(ACCOUNT, session.connectionGeneration(), 507, lead, "report", "confirm", envelope);
-			var second = stages.actJournaled(ACCOUNT, session.connectionGeneration(), 507, lead, "report", "confirm", envelope);
+			var first = stages.actJournaled(ACCOUNT, session.connectionGeneration(), 507, lead, "report", "confirm", envelope, REPORT);
+			var second = stages.actJournaled(ACCOUNT, session.connectionGeneration(), 507, lead, "report", "confirm", envelope, AWAY);
 			require(!first.replayed() && first.result().get("rewarded").getAsBoolean() && second.replayed(), "Report confirm did not replay.");
 			require(count("SELECT level FROM dalmaru.character_profiles WHERE character_id=?", lead) == 4 && count("SELECT experience FROM dalmaru.character_profiles WHERE character_id=?", lead) == 195, "Report experience was not granted once.");
 			try (var connection = connection()) {
@@ -59,8 +66,8 @@ public final class QuestStageCheck {
 			}
 			require(count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", lead) == 60 && count("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=? AND grant_key='investigation'", lead) == 1, "Report reward was missing.");
 			require(count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", partner) == 20 && count("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=? AND grant_key='investigation'", partner) == 0, "Partner received the personal report.");
-			stages.confirm(partner, "evidence");
-			require(stages.confirmed(partner, "evidence") && count("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=? AND grant_key='investigation'", partner) == 0, "Personal evidence paid the report.");
+			reject(() -> stages.confirm(partner, "evidence", AWAY));
+			require(!stages.confirmed(partner, "evidence") && count("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=? AND grant_key='investigation'", partner) == 0, "Personal evidence was confirmed without a recorded fragment.");
 			System.out.println("Quest stages keep confirmed work, share the field, and pay the personal report once PASS");
 		} finally {
 			cleanup();
