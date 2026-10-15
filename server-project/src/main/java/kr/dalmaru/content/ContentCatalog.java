@@ -14,6 +14,10 @@ public final class ContentCatalog {
         public WeaponSlot {offhands=List.copyOf(offhands);if(!Set.of("ONE","TWO","DUAL").contains(hands)||!Double.isFinite(share)||share<=0||share>1||new HashSet<>(offhands).size()!=offhands.size()||!Set.of("shield","dagger","talisman","dual_axes").containsAll(offhands)||hands.equals("TWO")&&!offhands.isEmpty())throw new IllegalArgumentException("Invalid weapon slot rule");}
     }
     public record RefinementGrade(String name,double bonus) {}
+    public record RefinementPolicy(Set<String> families,List<Integer> attemptCopper,List<Integer> keepPercent) { public RefinementPolicy {families=Set.copyOf(families);attemptCopper=List.copyOf(attemptCopper);keepPercent=List.copyOf(keepPercent);} }
+    private final RefinementPolicy refinementPolicy;
+    public RefinementPolicy refinementPolicy(){return refinementPolicy;}
+    public void requireRefinementPath(String id,int grade){int dot=id.lastIndexOf('.');if(refinementPolicy==null||grade<0||grade>=5||dot<0||!items.containsKey(id)||!items.get(id).enabled()||!refinementPolicy.families().contains(id.substring(0,dot)))throw new IllegalArgumentException("Equipment has no next refinement path.");}
     private final List<RefinementGrade> refinementGrades;
     public List<RefinementGrade> refinementGrades(){return refinementGrades;}
     public double refinementBonus(int grade){if(grade<0||grade>5)throw new IllegalArgumentException("Invalid refinement grade");return refinementGrades.isEmpty()?0:refinementGrades.get(grade).bonus();}
@@ -50,7 +54,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades){
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy){
+        this.refinementPolicy=refinementPolicy;
         this.refinementGrades=List.copyOf(refinementGrades);
         this.weaponSlots=Map.copyOf(weaponSlots);
         this.displays=Map.copyOf(displays);this.skillDefinitions=List.copyOf(skillDefinitions);this.encounter=encounter;this.bonuses=bonuses;this.enhancementPolicy=enhancementPolicy;
@@ -174,13 +179,20 @@ public final class ContentCatalog {
             int gatekeeper=integer(encounterSource,"gatekeeperHealth"),finalBoss=integer(encounterSource,"finalBossHealth");
             if(groups.size()!=4||totalMobs>64||commanders!=1||gatekeeper<1||finalBoss<1||!mobs.get("SOLDIER").enabled())throw new IllegalArgumentException("Invalid encounter roster/bosses");
             var encounter=new EncounterDefinition(mobs,groups,scales(encounterSource,"healthScales"),scales(encounterSource,"damageScales"),gatekeeper,finalBoss);
+            RefinementPolicy refinementPolicy=null;
+            if(equipment.has("refinement")){
+                var refinementSource=equipment.getAsJsonObject("refinement");var families=strings(refinementSource,"families");var attempts=integers(refinementSource,"attemptCopper");var keep=integers(refinementSource,"keepPercent");
+                var known=new HashSet<String>();for(String item:items.keySet()){int dot=item.lastIndexOf('.');if(dot>0)known.add(item.substring(0,dot));}
+                if(!flag(refinementSource,"temporary")||families.isEmpty()||new HashSet<>(families).size()!=families.size()||!known.containsAll(families)||attempts.size()!=5||keep.size()!=5||attempts.stream().anyMatch(value->value<1)||keep.stream().anyMatch(value->value>100))throw new IllegalArgumentException("Invalid refinement policy");
+                refinementPolicy=new RefinementPolicy(new HashSet<>(families),attempts,keep);
+            }
             var enhancement=root.getAsJsonObject("enhancement");var chances=integers(enhancement,"chances");if(chances.size()!=15||chances.stream().anyMatch(value->value>100))throw new IllegalArgumentException("Invalid enhancement probabilities");
             var costs=new ArrayList<EnhancementRules.Cost>();for(var element:array(enhancement,"costs")){var cost=element.getAsJsonObject();if(integer(cost,"target")!=costs.size()+1)throw new IllegalArgumentException("Enhancement cost tiers out of order");costs.add(new EnhancementRules.Cost(integer(cost,"copper"),integer(cost,"ironstone")));}
             if(costs.isEmpty()||costs.size()>15)throw new IllegalArgumentException("Pilot cost tiers incomplete");
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
             var displays=displays(root,schema,items,skillDefinitions,quests,runs,mobs);
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades);
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy);
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static Map<String,Display> displays(JsonObject root,int schema,Map<String,Item> items,List<Skill> skills,Map<String,Quest> quests,Map<String,Run> runs,Map<String,Mob> mobs){

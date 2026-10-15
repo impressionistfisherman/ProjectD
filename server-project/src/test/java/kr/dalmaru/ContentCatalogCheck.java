@@ -11,9 +11,9 @@ import kr.dalmaru.equipment.PilotEquipment;
 public final class ContentCatalogCheck {
     public static void main(String[] args)throws Exception{
         String source=Files.readString(Path.of("src/main/resources/content/pilot.json"));
-        var catalog=ContentCatalog.current();check(catalog.items().size()==78&&catalog.version().equals("pilot-p3-2"),"Pilot IDs/version changed");
+        var catalog=ContentCatalog.current();check(catalog.items().size()==78&&catalog.version().equals("pilot-p3-3"),"Pilot IDs/version changed");
         check(catalog.quest("pilot1.zombie_hunt").version().equals("pilot-1")&&catalog.quest("pilot1.zombie_hunt").goal()==3&&catalog.quest("pilot1.zombie_hunt").experience()==100,"Legacy quest changed");
-        check(catalog.run("run.bongsudae").version().equals("pilot-p3-2")&&catalog.run("run.bongsudae").minPlayers()==1&&catalog.run("run.bongsudae").maxPlayers()==4,"Run manifest differs");
+        check(catalog.run("run.bongsudae").version().equals("pilot-p3-3")&&catalog.run("run.bongsudae").minPlayers()==1&&catalog.run("run.bongsudae").maxPlayers()==4,"Run manifest differs");
         int[][] attacks={{41,51,63},{30,37,46},{35,44,55},{57,71,88},{36,46,57},{31,39,48},{38,48,59},{34,43,53}};
         String[] weapons={"two_handed_sword","sword_shield","bow","crossbow","fan","ritual_sword","dual_axes","pirate_sword"};int[] ticks={20,16,18,30,20,18,10,16},levels={10,15,20};
         for(int w=0;w<weapons.length;w++)for(int tier=0;tier<3;tier++){

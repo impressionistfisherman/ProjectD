@@ -19,6 +19,7 @@ public final class RefinementJournalCheck {
             UUID inactive=characters.create(account,generation,99,2,"refother_"+account.toString().substring(0,8)).character().characterId();
             sql("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000) ON CONFLICT(character_id) DO UPDATE SET copper=1000",character);
             var repository=new EquipmentRepository();UUID item=repository.listOrCreate(character).getFirst().equipmentId(),foreign=repository.listOrCreate(inactive).getFirst().equipmentId();
+            sql("UPDATE dalmaru.character_equipment SET item_id='pilot.weapon.two_handed_sword.20',required_level=20 WHERE equipment_id=?",item);
             var first=envelope(UUID.randomUUID(),generation,character,item);var pool=Executors.newFixedThreadPool(2);EquipmentRepository.RefinementOutcome saved;
             try {
                 var a=pool.submit(()->repository.refineJournaled(account,generation,3,item,first));

@@ -15,7 +15,9 @@ public final class EquipmentRepository {
     private final String url = "jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/" + System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
     private final String username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
     private final String password = System.getenv("DALMARU_DB_PASSWORD");
-    private final SecureRandom random = new SecureRandom();
+    private final SecureRandom random;
+    public EquipmentRepository() { this(new SecureRandom()); }
+    EquipmentRepository(SecureRandom random) { this.random=java.util.Objects.requireNonNull(random); }
 
     public EnhancementResult enhance(UUID accountId, long generation, long requestId, UUID equipmentId) throws SQLException {
         return enhance(accountId,generation,requestId,equipmentId,null);
@@ -177,19 +179,44 @@ public final class EquipmentRepository {
             var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
             if(stored.result()!=null){var original=stored.result();var result=latestRefinement(connection,characterId,new RefinementResult(equipmentId,original.get("grade").getAsInt(),original.get("failures").getAsInt(),original.get("success").getAsBoolean(),true),stored.receipt());connection.commit();return result;}
             try (var replay = connection.prepareStatement("SELECT equipment_id, grade, failures, success FROM dalmaru.character_refinement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!equipmentId.equals(rows.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); var original=new RefinementResult(equipmentId,rows.getInt(2),rows.getInt(3),rows.getBoolean(4),true);var result=confirmRefinement(connection,stored,characterId,original);connection.commit();return result; } } }
-            int grade; int failures; try (var equipment = connection.prepareStatement("SELECT refinement_grade, refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? FOR UPDATE")) { equipment.setObject(1, equipmentId); equipment.setObject(2, characterId); try (var rows = equipment.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Equipment not owned by active character."); grade = rows.getInt(1); failures = rows.getInt(2); } }
-            if (grade >= 5) throw new IllegalArgumentException("Equipment has maximum refinement.");
-            int copper = (grade + 1) * 10; try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) { wallet.setInt(1, copper); wallet.setObject(2, characterId); wallet.setInt(3, copper); if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper."); }
-            boolean success = random.nextInt(100) < RefinementRules.chance(grade, failures); int nextGrade = success ? grade + 1 : grade; int nextFailures = success ? 0 : failures + 1;
-            try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET refinement_grade=?, refinement_failures=? WHERE equipment_id=?")) { update.setInt(1, nextGrade); update.setInt(2, nextFailures); update.setObject(3, equipmentId); update.executeUpdate(); }
+            EquipmentRecord item=readForUpdate(connection,equipmentId);
+            if(!characterId.equals(item.characterId()))throw new IllegalArgumentException("Equipment not owned by active character.");
+            int grade=item.refinementGrade();var content=kr.dalmaru.content.ContentCatalog.current();content.requireRefinementPath(item.itemId(),grade);
+            int failures;try(var query=connection.prepareStatement("SELECT refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=?")){query.setObject(1,equipmentId);try(var row=query.executeQuery()){row.next();failures=row.getInt(1);}}
+            var policy=content.refinementPolicy();int copper=policy.attemptCopper().get(grade),percent=policy.keepPercent().get(grade);
+            var spend=enhancementSpend(connection,item);long keepCopper=Math.ceilDiv(Math.multiplyExact(spend.copper(),percent),100);int keepIronstone=Math.toIntExact(Math.ceilDiv(Math.multiplyExact(spend.ironstone(),percent),100));
+            long reserved=Math.addExact(copper,keepCopper);
+            try(var wallet=connection.prepareStatement("SELECT copper FROM dalmaru.character_wallet WHERE character_id=? FOR UPDATE")){wallet.setObject(1,characterId);try(var row=wallet.executeQuery()){if(!row.next()||row.getLong(1)<reserved)throw new IllegalArgumentException("Insufficient copper for refinement and upkeep reservation.");}}
+            EquipmentBinding binding=item.binding();
+            if(keepIronstone>0)try(var material=connection.prepareStatement("SELECT quantity,binding FROM dalmaru.character_materials WHERE character_id=? AND material_id='material.ironstone' FOR UPDATE")){material.setObject(1,characterId);try(var row=material.executeQuery()){if(!row.next()||row.getInt(1)<keepIronstone)throw new IllegalArgumentException("Insufficient ironstone for upkeep reservation.");binding=binding.merge(EquipmentBinding.valueOf(row.getString(2)));}}
+            boolean success=random.nextInt(100)<RefinementRules.chance(grade,failures);int nextGrade=success?grade+1:grade,nextFailures=success?0:failures+1;
+            long charged=Math.addExact(copper,success?keepCopper:0);
+            try(var wallet=connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=?")){wallet.setLong(1,charged);wallet.setObject(2,characterId);wallet.executeUpdate();}
+            if(success&&keepIronstone>0)try(var material=connection.prepareStatement("UPDATE dalmaru.character_materials SET quantity=quantity-? WHERE character_id=? AND material_id='material.ironstone'")){material.setInt(1,keepIronstone);material.setObject(2,characterId);material.executeUpdate();}
+            if(!success)binding=item.binding();
+            try(var update=connection.prepareStatement("UPDATE dalmaru.character_equipment SET refinement_grade=?,refinement_failures=?,binding=?,bound=? WHERE equipment_id=?")){update.setInt(1,nextGrade);update.setInt(2,nextFailures);update.setString(3,binding.name());update.setBoolean(4,binding!=EquipmentBinding.FREE);update.setObject(5,equipmentId);update.executeUpdate();}
             try (var request = connection.prepareStatement("INSERT INTO dalmaru.character_refinement_requests VALUES (?, ?, ?, ?, ?, ?, ?)")) { request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId); request.setObject(4, equipmentId); request.setInt(5, nextGrade); request.setInt(6, nextFailures); request.setBoolean(7, success); request.executeUpdate(); }
-            try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, NULL, 'refinement', ?)")) { ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setInt(3, -copper); ledger.executeUpdate(); }
-            var result=confirmRefinement(connection,stored,characterId,new RefinementResult(equipmentId,nextGrade,nextFailures,success,false));connection.commit();return result;
+            try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, NULL, 'refinement', ?)")) { ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setLong(3, -charged); ledger.executeUpdate(); }
+            var cost=new JsonObject();cost.addProperty("source",spend.source());cost.addProperty("attemptCopperSpent",copper);cost.addProperty("keepCopperReserved",keepCopper);cost.addProperty("keepIronstoneReserved",keepIronstone);cost.addProperty("keepCopperSpent",success?keepCopper:0);cost.addProperty("keepIronstoneSpent",success?keepIronstone:0);
+            var result=confirmRefinement(connection,stored,characterId,new RefinementResult(equipmentId,nextGrade,nextFailures,success,false),cost);connection.commit();return result;
         } catch (Exception exception) { connection.rollback(); throw exception; } }
     }
     private static RefinementOutcome confirmRefinement(Connection connection,RequestJournal.Stored stored,UUID character,RefinementResult original)throws SQLException {
+        return confirmRefinement(connection,stored,character,original,null);
+    }
+    private static RefinementOutcome confirmRefinement(Connection connection,RequestJournal.Stored stored,UUID character,RefinementResult original,JsonObject costs)throws SQLException {
         var outcome=new JsonObject();outcome.addProperty("equipmentId",original.equipmentId().toString());outcome.addProperty("grade",original.grade());outcome.addProperty("failures",original.failures());outcome.addProperty("success",original.success());
+        if(costs!=null)for(var entry:costs.entrySet())outcome.add(entry.getKey(),entry.getValue());
         return latestRefinement(connection,character,original,RequestJournal.confirm(connection,stored,outcome));
+    }
+    private record EnhancementSpend(long copper,long ironstone,String source) {}
+    private static EnhancementSpend enhancementSpend(Connection connection,EquipmentRecord item)throws SQLException {
+        String complete="o.result->>'equipmentId'=e.equipment_id::text AND jsonb_typeof(o.result->'copperSpent')='number' AND jsonb_typeof(o.result->'ironstoneSpent')='number'";
+        String sql="SELECT count(*),count(CASE WHEN "+complete+" THEN 1 END),COALESCE(sum(CASE WHEN "+complete+" THEN (o.result->>'copperSpent')::bigint ELSE 0 END),0),COALESCE(sum(CASE WHEN "+complete+" THEN (o.result->>'ironstoneSpent')::bigint ELSE 0 END),0) FROM dalmaru.character_enhancement_requests e LEFT JOIN dalmaru.operation_requests o ON o.account_id=e.account_id AND o.connection_generation=e.connection_generation AND o.legacy_request_id=e.request_id AND o.operation='enhance_item' WHERE e.equipment_id=?";
+        try(var query=connection.prepareStatement(sql)){query.setObject(1,item.equipmentId());try(var row=query.executeQuery()){row.next();if(row.getLong(1)>0&&row.getLong(1)==row.getLong(2))return new EnhancementSpend(row.getLong(3),row.getLong(4),"journal");}}
+        if(item.enhancement()<0||item.enhancement()>5)throw new IllegalArgumentException("Legacy enhancement cost is outside the fixed table.");
+        long copper=0,ironstone=0;for(int level=1;level<=item.enhancement();level++){var cost=EnhancementRules.cost(level);copper=Math.addExact(copper,cost.copper());ironstone=Math.addExact(ironstone,cost.ironstone());}
+        return new EnhancementSpend(copper,ironstone,"table");
     }
     public record RefinementState(UUID equipmentId,int grade,int failures) {}
     public RefinementState refinementState(UUID account,long generation,UUID equipment)throws SQLException {

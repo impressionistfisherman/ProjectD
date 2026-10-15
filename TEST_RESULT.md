@@ -873,3 +873,52 @@
 | `verifyWeaponSlots` | PASS |
 | `verifyRefinementGrade` | PASS |
 | `p1_integration_smoke.ps1` | PASS |
+
+## P3-S09 실제 검사 (2026-10-16)
+- content허용계열의같은품목다음등급1단계만재련. UUID/강화단계보존. 기존시도비10/20/30/40/50전은임시데이터로이동,유지율10/15/20/25/30%.
+- 실제강화지출원가에유지율적용후종류별올림. 지갑/재료행잠금+충분량검사로판정전예약,실패면시도비만차감/유지비해제,성공하면유지전·재료차감/강한귀속merge. 유지비별도원장필드.
+- 완전한강화원장있으면source=journal,없거나옛금액없는+1~5는고정표1..n합(source=table);표밖은거절(god6a707b). 기존재련UUID재생은경로/비용재검사없이원결과보존.
+- focused5검사PASS44초. 첫전체36PASS/2FAIL: Waypoint연결timeout1+새정책메타가남은구스냅샷fixture1. 구스냅샷1줄수정(godff6d3f승인),관련2검사PASS27초.
+- 공유파일잠금확보뒤전체38단일실행PASS exit0/204.01초,assemble/임시35565RunRespawnMixinPASS,잠금해제확인. 사후OscarP3DB0계정/0요청/schema32. JDBCtimeout변경없음.
+- 신규패킷/마이그레이션/공개플레이호출추가없음,인게임미실행. 운영/플레이DB/실서버/push/배포미변경. 크리드독립검토및god최종승인대기.
+
+| 검사 | 잠금 후 결과 |
+|---|---|
+| `verifyStarterSupply` | PASS |
+| `verifyGrowthRewardGrant` | PASS |
+| `verifyCharacterDeletion` | PASS |
+| `verifyPaidStatReset` | PASS |
+| `verifyVillageRoutes` | PASS |
+| `verifyQuestStages` | PASS |
+| `verifyCharacterExperience` | PASS |
+| `verifyCharacterProfession` | PASS |
+| `verifyCharacterSkill` | PASS |
+| `verifyRunJournal` | PASS |
+| `verifyClientScreenBounds` | PASS |
+| `verifyRunAutoRespawnSafety` | PASS |
+| `verifyClientReplyRecovery` | PASS |
+| `verifyEnhancementReplay` | PASS |
+| `verifyRequestJournal` | PASS |
+| `verifyClientRequestEnvelope` | PASS |
+| `verifyRequestJournalResult` | PASS |
+| `verifySkillJournal` | PASS |
+| `verifyStatJournal` | PASS |
+| `verifyResetJournal` | PASS |
+| `verifyProfessionJournal` | PASS |
+| `verifyLoadoutJournal` | PASS |
+| `verifyEquipmentMoveJournal` | PASS |
+| `verifyRefinementJournal` | PASS |
+| `verifyInheritanceJournal` | PASS |
+| `verifyQuestAcceptanceJournal` | PASS |
+| `verifyQuestAcceptanceWire` | PASS |
+| `verifyQuestKillJournal` | PASS |
+| `verifyProtocolVersion` | PASS |
+| `verifyTrialGrowth` | PASS |
+| `verifyProfessionGate` | PASS |
+| `verifyWaypointReturn` | PASS |
+| `verifyStoryQuestCurve` | PASS |
+| `verifyStoryInvestigationLink` | PASS |
+| `verifyWeaponSlots` | PASS |
+| `verifyRefinementGrade` | PASS |
+| `verifyRefinementKeep` | PASS |
+| `p1_integration_smoke.ps1` | PASS |

@@ -502,3 +502,23 @@
 - 무기는강화후공격에만,비무기는캐릭터기본직업주능력치에만효과. 각쌍도끼UUID별등급/강화계산. 체력/기력/방어에는등급효과없음. 직업주능력치선택을CombatCalculator로공통화.
 - 컴파일3종PASS27초. 전용5검사PASS49초. 전체37개단일실행PASS exit0/234.78초,assemble/임시35565RunRespawnMixinPASS. 사후OscarP3DB accounts0/requests0/schema32.
 - 외형모델은미구현(결정범위밖),새패킷없음. 사람인게임검증미실행. 운영/플레이DB/실서버/push/배포미변경. Pam독립검토와최종god승인대기.
+
+# S09 Active Spec draft
+- 기존 refine_item 봉투/API/UUID저널/계정→요청→장비→지갑→재료잠금순서를보존. 장비ID계열 whitelist는content지정,현재grade→grade+1만. item_id/강화/UUID는보존하고grade필드로상위등급표현. 미정의starter는새시도거절,옛UUID재생은path검사보다먼저복구.
+- 기존실제시도비용10/20/30/40/50전은content임시데이터로이동. 유지비율10/15/20/25/30%. 실제 enhance_item 저널의copperSpent/ironstoneSpent누적에각각적용해올림. 증거없는legacy비용은만들지않음.
+- 지갑+재료행FOR UPDATE와충분량검사를성공판정전에수행해transaction내예약. 시도비만항상차감,성공하면유지전/재료차감,실패하면유지비0/재료불변. 사용재료귀속은성공시merge. 유지비는강화원가아닌refine_item 별도필드로저장.
+- existingrefine저널행/ledger계약보존,confirm예외면예약/시도비/등급/재료/귀속/원장모두롤백. 동시UUID한번만/다른UUID잔액경합/재접속재생/잘못된경로/잔액부족선거절검사.
+- 테스트결정적성공실패를위해package-private SecureRandom생성자인자,public기본생성자보존. test에서constructor reflection으로고정roll사용(실서버생성자는보안난수유지).
+- S08커밋/37회귀후착수,새DBmigration/신규패킷없음.
+
+- 원가금액이 없는 옛 강화 시도는 추정 청구 없이 새 재련을 거절하며, 기존 재련 UUID 재생은 보존합니다.
+
+- god6a707b 변경: 원가 없는 옛 +1~5는 고정표1..n합을 사용하고 source=table 기록. 표밖단계만 거절. 기존 거절 계획보다 이 지시가 우선합니다.
+
+## P3-S09 구현/검증 완료 (2026-10-16)
+- content허용계열의같은품목다음등급1단계만재련. UUID/강화단계보존. 기존시도비10/20/30/40/50전은임시데이터로이동,유지율10/15/20/25/30%.
+- 실제강화지출원가에유지율적용후종류별올림. 지갑/재료행잠금+충분량검사로판정전예약,실패면시도비만차감/유지비해제,성공하면유지전·재료차감/강한귀속merge. 유지비별도원장필드.
+- 완전한강화원장있으면source=journal,없거나옛금액없는+1~5는고정표1..n합(source=table);표밖은거절(god6a707b). 기존재련UUID재생은경로/비용재검사없이원결과보존.
+- focused5검사PASS44초. 첫전체36PASS/2FAIL: Waypoint연결timeout1+새정책메타가남은구스냅샷fixture1. 구스냅샷1줄수정(godff6d3f승인),관련2검사PASS27초.
+- 공유파일잠금확보뒤전체38단일실행PASS exit0/204.01초,assemble/임시35565RunRespawnMixinPASS,잠금해제확인. 사후OscarP3DB0계정/0요청/schema32. JDBCtimeout변경없음.
+- 신규패킷/마이그레이션/공개플레이호출추가없음,인게임미실행. 운영/플레이DB/실서버/push/배포미변경. 크리드독립검토및god최종승인대기.

@@ -75,7 +75,7 @@ public final class WeaponSlotsCheck {
         reject(()->PilotEquipment.equipped(profile,List.of(record(character,1,"pilot.weapon.bow.20",0))));
         var sword=record(character,0,"pilot.weapon.sword_shield.20",0);
         check(!PilotEquipment.hasShield(List.of(sword),current)&&PilotEquipment.hasShield(List.of(sword,shield),current),"Shield requires real offhand");
-        var legacy=JsonParser.parseString(current.snapshot()).getAsJsonObject();legacy.getAsJsonObject("equipment").remove("weaponSlots");legacy.getAsJsonObject("equipment").remove("offhands");
+        var legacy=JsonParser.parseString(current.snapshot()).getAsJsonObject();legacy.getAsJsonObject("equipment").remove("weaponSlots");legacy.getAsJsonObject("equipment").remove("offhands");legacy.getAsJsonObject("equipment").remove("refinementGrades");legacy.getAsJsonObject("equipment").remove("refinement");
         var frozen=ContentCatalog.parse(legacy.toString());
         check(frozen.weaponSlots().isEmpty()&&frozen.items().size()==69&&PilotEquipment.hasShield(List.of(sword),frozen)&&PilotEquipment.equipped(profile,List.of(a),frozen).attack()==59,"Legacy pinned snapshot retains behavior");
         for(String family:List.of("shield","dagger","talisman"))check(current.items().get("pilot.offhand."+family+".20").slot()==1,"Offhand definition");
