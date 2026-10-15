@@ -41,15 +41,24 @@ public final class CharacterRepository {
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
 		UUID characterId = UUID.randomUUID();
 		String sql = "INSERT INTO dalmaru.characters (character_id, account_id, slot, display_name, normalized_name) VALUES (?, ?, ?, ?, ?)";
-		try (var connection = DriverManager.getConnection(url, username, password); var statement = connection.prepareStatement(sql)) {
-			statement.setObject(1, characterId);
-			statement.setObject(2, accountId);
-			statement.setInt(3, slot);
-			statement.setString(4, displayName);
-			statement.setString(5, normalizedName);
-			statement.executeUpdate();
-			insertStartingProfile(connection, characterId);
-			return new CharacterRecord(characterId, accountId, slot, displayName, normalizedName);
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try {
+				try (var statement = connection.prepareStatement(sql)) {
+					statement.setObject(1, characterId);
+					statement.setObject(2, accountId);
+					statement.setInt(3, slot);
+					statement.setString(4, displayName);
+					statement.setString(5, normalizedName);
+					statement.executeUpdate();
+				}
+				insertStartingProfile(connection, characterId);
+				connection.commit();
+				return new CharacterRecord(characterId, accountId, slot, displayName, normalizedName);
+			} catch (Exception exception) {
+				connection.rollback();
+				throw exception;
+			}
 		}
 	}
 
@@ -473,6 +482,7 @@ public final class CharacterRepository {
 			statement.setObject(1, characterId);
 			statement.executeUpdate();
 		}
+		StarterSupply.grant(connection, characterId);
 	}
 
 	public static CharacterProfile profileForUpdate(java.sql.Connection connection, UUID characterId) throws SQLException {

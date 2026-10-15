@@ -414,6 +414,8 @@
 - 실제 메서드 본문 하네스로 실패 연결 뒤 다음 플레이어 처리/부활 횟수 유지/경고 UUID·클래스/Error 동일 객체 전파/성공 부활1회·재생중복방지 검증. 기존 현상 확인용 예외 누출 단언을 교체했습니다.
 - p1_regression.ps1에 verifyRunAutoRespawnSafety 포함, 실제1회 exit0/68.67초, 검사20개+임시서버smoke1개 PASS. 내부 assemble PASS6초, protocol31 JAR 재생성 sha256 56b9847ffa4cb7c3e4a3dda6282b36932f5223dbb68750923ce9ec3fc294d68b.
 - fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
+
+- 2026-10-15 P2-S01: PASS --no-daemon verifyStarterSupply (18초). oscar_p1_fixture에 V028 적용. 생성 시 구리 20·회복 4·귀속 수련 장비 1·지급 행 1. 같은 요청 재생과 starter 재호출 후에도 수량 불변. 다른 캐릭터는 따로 1회. supply.training_gear·supply.recovery는 거래 불가, 전직 무기는 그대로. 검사 계정은 정리. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |

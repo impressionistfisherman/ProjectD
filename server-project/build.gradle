@@ -96,6 +96,7 @@ tasks.register('verifyCharacterSelection', JavaExec) {
 	mainClass = 'kr.dalmaru.CharacterSelectionCheck'
 }
 
+tasks.register('verifyStarterSupply', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.StarterSupplyCheck' }
 tasks.register('verifyCharacterCreation', JavaExec) {
 	group = 'verification'
 	description = 'Verifies idempotent character creation and connection generation checks against PostgreSQL.'

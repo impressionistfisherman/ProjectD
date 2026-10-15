@@ -382,3 +382,5 @@
 - 실제 메서드 본문 하네스로 실패 연결 뒤 다음 플레이어 처리/부활 횟수 유지/경고 UUID·클래스/Error 동일 객체 전파/성공 부활1회·재생중복방지 검증. 기존 현상 확인용 예외 누출 단언을 교체했습니다.
 - p1_regression.ps1에 verifyRunAutoRespawnSafety 포함, 실제1회 exit0/68.67초, 검사20개+임시서버smoke1개 PASS. 내부 assemble PASS6초, protocol31 JAR 재생성 sha256 56b9847ffa4cb7c3e4a3dda6282b36932f5223dbb68750923ce9ec3fc294d68b.
 - fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
+
+- 2026-10-15 P2-S01: 생성 트랜잭션에서 수련 장비 1·회복 4·20전을 `character_supply_grants` 한 행으로 한 번만 지급한다. 같은 생성 요청 재생과 같은 키 재호출은 수량을 올리지 않는다. 시작 물품은 판매·거래 불가다. grantExperience와 DalmaruNetworking은 그대로. 인게임 미실행, 전체 PARTIAL.
