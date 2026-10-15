@@ -14,7 +14,7 @@ public final class RunWipeCheck {
 	private RunWipeCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p1_fixture.");
+		if (!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p2_fixture.");
 		String runtime = Files.readString(Path.of("src/main/java/kr/dalmaru/run/RunRuntime.java"));
 		String absent = runtime.substring(runtime.indexOf("private DeathResult recordAbsentDeath"), runtime.indexOf("public long pausedTicks"));
 		String online = runtime.substring(runtime.indexOf("public DeathResult recordDeath"), runtime.indexOf("public boolean canRespawn"));
@@ -67,6 +67,6 @@ public final class RunWipeCheck {
 
 	private static java.sql.Connection connection() throws Exception {
 		Class.forName("org.postgresql.Driver");
-		return java.sql.DriverManager.getConnection("jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/oscar_p1_fixture", System.getenv().getOrDefault("DALMARU_DB_USER", "postgres"), System.getenv("DALMARU_DB_PASSWORD"));
+		return java.sql.DriverManager.getConnection("jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/oscar_p2_fixture", System.getenv().getOrDefault("DALMARU_DB_USER", "postgres"), System.getenv("DALMARU_DB_PASSWORD"));
 	}
 }

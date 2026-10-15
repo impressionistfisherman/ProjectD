@@ -39,7 +39,7 @@ try {
     Set-Content -Encoding ascii -Path (Join-Path $temp 'server.properties') -Value "server-port=$port"
     $out = Join-Path $temp 'stdout.log'
     $err = Join-Path $temp 'stderr.log'
-    $env:DALMARU_DB_NAME = 'oscar_p1_fixture'
+    $env:DALMARU_DB_NAME = 'oscar_p2_fixture'
     $proc = Start-Process -FilePath 'java' -ArgumentList @('-Xmx1G','-Dmixin.debug.verbose=true','-jar','server.jar','nogui') -WorkingDirectory $temp -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -WindowStyle Hidden
     $serverPid = $proc.Id
     if ($serverPid -eq 14160) { Fail 'refusing to track the live server process' }

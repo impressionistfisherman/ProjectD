@@ -25,7 +25,7 @@ try {
     $init = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.init.gradle')
     $quoted = ($tasks | ForEach-Object { "'" + ($_ -replace "'","") + "'" }) -join ','
     Set-Content -Encoding ASCII -Path $init -Value ("gradle.taskGraph.whenReady { graph -> def names = [" + $quoted + "] as Set; graph.allTasks.each { task -> if (names.contains(task.name)) task.outputs.upToDateWhen { false } } }")
-    $env:DALMARU_DB_NAME = 'oscar_p1_fixture'
+    $env:DALMARU_DB_NAME = 'oscar_p2_fixture'
     $gradleArgs = @('--no-daemon','--continue','--init-script', $init) + $tasks
     $proc = Start-Process -FilePath (Join-Path $project 'gradlew.bat') -ArgumentList $gradleArgs -WorkingDirectory $project -Wait -PassThru -NoNewWindow -RedirectStandardOutput $log -RedirectStandardError $err
     $text = ''

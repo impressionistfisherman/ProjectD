@@ -16,7 +16,7 @@ public final class OperatorLedgerCheck {
 	private OperatorLedgerCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p1_fixture.");
+		if (!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p2_fixture.");
 		String network = Files.readString(Path.of("src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
 		int hook = network.indexOf("OperatorAdjustCommand.command");
 		int next = network.indexOf("dalmaru-town", hook);
@@ -128,7 +128,7 @@ public final class OperatorLedgerCheck {
 
 	private static java.sql.Connection connection() throws Exception {
 		Class.forName("org.postgresql.Driver");
-		return java.sql.DriverManager.getConnection("jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/oscar_p1_fixture", System.getenv().getOrDefault("DALMARU_DB_USER", "postgres"), System.getenv("DALMARU_DB_PASSWORD"));
+		return java.sql.DriverManager.getConnection("jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/oscar_p2_fixture", System.getenv().getOrDefault("DALMARU_DB_USER", "postgres"), System.getenv("DALMARU_DB_PASSWORD"));
 	}
 
 	@FunctionalInterface private interface SqlCall { void run() throws Exception; }

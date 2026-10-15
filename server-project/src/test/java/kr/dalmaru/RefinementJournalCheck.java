@@ -11,13 +11,13 @@ import kr.dalmaru.request.*;
 public final class RefinementJournalCheck {
     private interface Action{void run()throws Exception;}
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        if(!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
         UUID account=UUID.randomUUID();String trap="oscar_refine_fail_"+account.toString().replace("-","");
         try {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();long generation=session.connectionGeneration();
             UUID character=characters.create(account,generation,1,1,"refine_"+account.toString().substring(0,8)).character().characterId();characters.selectActive(account,generation,2,character);
             UUID inactive=characters.create(account,generation,99,2,"refother_"+account.toString().substring(0,8)).character().characterId();
-            sql("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000)",character);
+            sql("INSERT INTO dalmaru.character_wallet(character_id,copper) VALUES(?,1000) ON CONFLICT(character_id) DO UPDATE SET copper=1000",character);
             var repository=new EquipmentRepository();UUID item=repository.listOrCreate(character).getFirst().equipmentId(),foreign=repository.listOrCreate(inactive).getFirst().equipmentId();
             var first=envelope(UUID.randomUUID(),generation,character,item);var pool=Executors.newFixedThreadPool(2);EquipmentRepository.RefinementOutcome saved;
             try {

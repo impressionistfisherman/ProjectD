@@ -12,7 +12,7 @@ import kr.dalmaru.request.*;
 public final class EquipmentMoveJournalCheck {
     private interface Action{void run()throws Exception;}
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        if(!"oscar_p2_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
         UUID account=UUID.randomUUID(),item=UUID.randomUUID(),replacement=UUID.randomUUID(),foreign=UUID.randomUUID();String trap="oscar_move_fail_"+account.toString().replace("-","");
         try {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();long generation=session.connectionGeneration();
