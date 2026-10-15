@@ -25,18 +25,18 @@ public final class InheritanceJournalCheck {
                 var a=pool.submit(()->repository.inheritJournaled(account,generation,3,target,source,first));var b=pool.submit(()->repository.inheritJournaled(account,generation,4,target,source,first));
                 check(a.get().original().replayed()!=b.get().original().replayed(),"Concurrent single source consumption");
             }finally{pool.shutdownNow();}
-            check(value("SELECT inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=?",target)==26&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE equipment_id=?",source)==0,"Single credit and source consumption");
+            check(value("SELECT inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=?",target)==53&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE equipment_id=?",source)==0,"Single credit and source consumption");
             check(repository.list(character).stream().filter(e->e.equipmentId().equals(target)).findFirst().orElseThrow().binding()==EquipmentBinding.CHARACTER,"Binding merge");
             repository.inherit(account,generation,5,target,secondSource);
             var replay=repository.inheritJournaled(account,generation,50,target,source,first);
-            check(replay.original().replayed()&&replay.original().credit()==21&&replay.currentCredit()==54&&replay.equipment().stream().noneMatch(e->e.equipmentId().equals(source)||e.equipmentId().equals(secondSource)),"Original credit and latest inventory");
+            check(replay.original().replayed()&&replay.original().credit()==48&&replay.currentCredit()==141&&replay.equipment().stream().noneMatch(e->e.equipmentId().equals(source)||e.equipmentId().equals(secondSource)),"Original credit and latest inventory");
             reject(()->repository.inheritJournaled(account,generation,51,target,thirdSource,envelope(first.requestId(),generation,character,target,thirdSource)));
             reject(()->repository.inheritJournaled(account,generation,51,target,foreign,envelope(UUID.randomUUID(),generation,character,target,foreign)));
             reject(()->repository.inherit(account,generation,51,target,target));
             sql("UPDATE dalmaru.character_equipment SET item_id='foreign.family' WHERE equipment_id=?",thirdSource);reject(()->repository.inherit(account,generation,51,target,thirdSource));sql("UPDATE dalmaru.character_equipment SET item_id=? WHERE equipment_id=?",item,thirdSource);
             sql("UPDATE dalmaru.character_equipment SET required_level=required_level+1 WHERE equipment_id=?",thirdSource);reject(()->repository.inherit(account,generation,51,target,thirdSource));sql("UPDATE dalmaru.character_equipment SET required_level=? WHERE equipment_id=?",level,thirdSource);
             long legacyId=value("SELECT legacy_request_id FROM dalmaru.operation_requests WHERE request_id=?",first.requestId());sql("DELETE FROM dalmaru.operation_requests WHERE request_id=?",first.requestId());
-            var adopted=repository.inheritJournaled(account,generation,legacyId,target,source,null);check(adopted.original().replayed()&&adopted.original().credit()==21&&adopted.currentCredit()==54,"Legacy source-already-gone adoption");
+            var adopted=repository.inheritJournaled(account,generation,legacyId,target,source,null);check(adopted.original().replayed()&&adopted.original().credit()==48&&adopted.currentCredit()==141,"Legacy source-already-gone adoption");
             characters.selectActive(account,generation,60,inactive);reject(()->repository.inherit(account,generation,legacyId,target,source));characters.selectActive(account,generation,61,character);
             var failed=envelope(UUID.randomUUID(),generation,character,target,thirdSource);
             try(var c=EnhancementReplayCheck.connection();var q=c.createStatement()){
@@ -44,12 +44,12 @@ public final class InheritanceJournalCheck {
                 q.execute("CREATE TRIGGER "+trap+" BEFORE INSERT ON dalmaru.character_inheritance_requests FOR EACH ROW EXECUTE FUNCTION dalmaru."+trap+"()");
             }
             try{repository.inheritJournaled(account,generation,6,target,thirdSource,failed);throw new AssertionError("Rollback not injected");}catch(SQLException expected){check("P0001".equals(expected.getSQLState()),"Unexpected SQL error");}
-            check(value("SELECT inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=?",target)==54&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE equipment_id=?",thirdSource)==1&&value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",failed.requestId())==0,"Credit/source deletion/journal rollback");
+            check(value("SELECT inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=?",target)==141&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE equipment_id=?",thirdSource)==1&&value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",failed.requestId())==0,"Credit/source deletion/journal rollback");
             drop(trap);repository.inheritJournaled(account,generation,6,target,thirdSource,failed);
             // Later consuming the original target must not erase its immutable UUID result.
             sql("UPDATE dalmaru.character_equipment SET location='INVENTORY',slot_id=NULL WHERE equipment_id=?",target);insert(nextTarget,character,item,level,true,0,0,"FREE");repository.inherit(account,generation,7,nextTarget,target);
             var afterConsumption=repository.inheritJournaled(account,generation,legacyId,target,source,null);
-            check(afterConsumption.original().replayed()&&afterConsumption.original().credit()==21&&afterConsumption.currentCredit()==null&&afterConsumption.equipment().stream().noneMatch(e->e.equipmentId().equals(target)),"Deleted target original/current distinction");
+            check(afterConsumption.original().replayed()&&afterConsumption.original().credit()==48&&afterConsumption.currentCredit()==null&&afterConsumption.equipment().stream().noneMatch(e->e.equipmentId().equals(target)),"Deleted target original/current distinction");
             new AccountRepository().openSession(account);reject(()->repository.inherit(account,generation,legacyId,target,source));
             System.out.println("PASS inheritance UUID/concurrent/legacy, consumed source and target replay, original/latest, binding/owner/body/family/level/stale session, atomic rollback");
         }finally{drop(trap);sql("DELETE FROM dalmaru.character_inheritance_requests WHERE account_id=?",account);EnhancementReplayCheck.cleanup(account);}

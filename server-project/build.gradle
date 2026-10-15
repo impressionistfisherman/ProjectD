@@ -399,3 +399,5 @@ tasks.register('verifyWeaponSlots', JavaExec) { group = 'verification'; classpat
 tasks.register('verifyRefinementGrade', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementGradeCheck' }
 
 tasks.register('verifyRefinementKeep', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementKeepCheck' }
+
+tasks.register('verifyInheritanceShare', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.InheritanceShareCheck' }

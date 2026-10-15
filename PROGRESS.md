@@ -542,3 +542,23 @@
 ## P3 S01/S02/S03 통합 준비 (2026-10-16)
 - god af7fe1/7cc626 승인: 00bf7b7 --no-ff 머지. Grok 제품 4클래스/가격데이터/V032 원본 보존. Grok 신규2검사는 DBguard1줄만공용화. 기존검사DB고정제거,FixtureDatabase Oscar/Grok P3만허용,회귀/스모크도env와같은허용목록사용.
 - 기존8개충돌은DBguard차이뿐임을문자열정규화로확인. 양쪽PROGRESS/TEST_RESULT기록보존. 통합전체회귀는아직미실행,다음잠금후41항목검증.
+
+## P3 S01/S02/S03 통합 검증 통과 (2026-10-16)
+- clean merge4e454a9에서공유잠금아래41항목모두실행PASS,exit0/222.08초. Grok잠금대기후확보/종료해제확인. assemble·임시35565RunRespawnMixinPASS/protocol32.
+- V032 account_holdings 이미설치확인후재적용안함. 사후OscarP3DB계정0/요청0/schema32. 양쪽P3공용guard,그록제품원본유지/새검사guard만승인범위수정.
+- 상세전체표/로그는hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json. 사람플레이/운영/플레이DB/push/배포미실행. 최종통합승인god소유.
+
+# S10 Active Spec draft
+- 선행S07/S09완료,S03API통합4e454a9(전체41PASS). helper ShopCatalog.buyPrice(material.ironstone)=16. 그록제품코드변경없음.
+- target/source실제정의부위와레벨metadata일치,아이템접미레벨제거한동일계열,대상level>=원본level검증. 15→20허용/역행·다른계열·다른부위거절.
+- 원본실지출EnhancementSpend(sourcejournal/table)활용. god1e8413: floor(copperSpent*7/10)+floor(ironSpent*buyPrice*7/10). 예시+3 38전+철2*16에서26+22=48전. BigInteger정수연산,최종int잔액상한선거절. 소스기존credit잔액은원가에서제외/소모시소멸. target기존잔액은보존가산.
+- 기존binding.merge/같은transaction/UUID저널/owner/account→request→target→source행잠금유지. source소모는성공때만,confirm실패시원상복구. 옛inheritance원장/JSON재생결과지급금액변경안함.
+- enhance의전비용에서inheritance_credit우선차감,남은cash만wallet/ledger차감. 물리철은별도소모. journal copperSpent=actualcash,ironstoneSpent=actualqty,inheritanceSpent=creditused. 기존+1~5확률/비용/결과/UUID재생유지.
+- verifyInheritanceShare: 같은계열15→20/48전/기존credit재환급0/경로·소유권·상한거절/독립귀속합성/실제지출/재사용credit부문재환급금지/0cashledger/동시uuid/confirmrollback+legacy원장불변. 기존InheritanceJournalCheck금액fixture는새공식결과(48/53/141)로갱신,WireReceipt의독립임의값fixture는유지.
+- 시작전통합41PASS. 제품수정후focused와잠금전체42PASS→단위커밋→god실제표+Creed검토. 마이그레이션/새패킷없음.
+
+## P3 S10 계승 지분 완료 (2026-10-16)
+- 같은 계열·부위의 15→20 계승 허용. 실제 전/연철석 원가를 종류별 70% 내림 후 합산(+3 표 기준48전), 원본 미사용 credit 제외. 장비 전용 credit은 강화 전 비용에 우선 사용하며 실제 현금 지출만 후속 원가에 포함. 물리 재료는 별도 소모.
+- UUID 재생·귀속·동시성·confirm rollback 및 옛 원장 금액 보존. 공개 시그니처/protocol32 유지, Grok 제품 미수정.
+- focused4 PASS41초, compile3종 PASS18초. 공유잠금 전체42 PASS/exit0/289.76초, assemble/임시35565 RunRespawnMixin PASS. 사후 OscarP3DB accounts0/requests0/schema32. 상세 research/MDF_P3_S10_OSCAR.md/.log/_timing.json.
+- 인게임·운영/플레이DB·배포·push 미실행. Creed 독립검토/god 통합승인 대기.
