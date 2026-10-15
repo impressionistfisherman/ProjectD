@@ -10,7 +10,7 @@ import kr.dalmaru.request.RequestEnvelope;
 
 public final class StoryInvestigationLinkCheck {
     public static void main(String[] args)throws Exception {
-        check("oscar_p3_fixture".equals(FixtureDatabase.databaseName()),"Explicit P3 fixture required");
+        check("grok_p3_fixture".equals(FixtureDatabase.databaseName()),"Explicit P3 fixture required");
         UUID account=UUID.randomUUID();var characters=new CharacterRepository();var stages=new QuestStageRepository();var story=new StoryQuestRepository(QuestStageRepository::reportConfirmed);
         try {
             long generation=new AccountRepository().openSession(account).connectionGeneration();UUID character=characters.create(account,generation,1,1,"link_"+account.toString().substring(0,8)).character().characterId();characters.selectActive(account,generation,2,character);

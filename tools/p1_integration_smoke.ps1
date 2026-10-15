@@ -15,7 +15,7 @@ function Read-Shared([string]$path) {
 }
 try {
     if ([string]::IsNullOrWhiteSpace($env:DALMARU_DB_PASSWORD)) { Fail 'database password is not configured' }
-    if ($env:DALMARU_DB_NAME -notin @('oscar_p3_fixture')) { Fail 'explicit P3 fixture required' }
+    if ($env:DALMARU_DB_NAME -notin @('grok_p3_fixture')) { Fail 'explicit P3 fixture required' }
     $root = Split-Path -Parent $PSScriptRoot
     $project = Join-Path $root 'server-project'
     $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
