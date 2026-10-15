@@ -353,3 +353,7 @@
 ## MDF-P1 M12 통합 (2026-10-15)
 - PASS: --no-daemon verifyOperatorLedger verifyRunWipe verifyPremergeRuntime verifyEquipmentMoveJournal verifyRefinementJournal verifyInheritanceJournal compileJava compileClientJava 지정8개1회 실행(24초). 운영자 원장·전멸·기존 런/장비 request 회귀 확인.
 - 운영 명령 실서버 실행/실제 지급·회수는 미실행. 운영 DB/인증/online-mode/push 변경 없음. M11b 별도 진행 중.
+
+## MDF-P1 S09k1 (2026-10-15)
+- PASS: --no-daemon verifyQuestAcceptanceJournal (10초). UUID/다른 correlation/동시 단일 수락/long재생, 원수락결과·2/3진행·REWARDED 최신상태 분리, 재보상·진행초기화 없음, 버전/비활성캐릭터/선택전캐릭터/이전세대 거부, 의뢰 INSERT 뒤 저널확정 UPDATE 실패 시 의뢰·저널 rollback 및 동일UUID 재시도.
+- 새 live wire 미연결·자동 처치 이벤트 journal 미구현·인게임 미실행. 독립 QA 요청 대상입니다.

@@ -1,6 +1,10 @@
 package kr.dalmaru.quest;
 
+import java.sql.Connection;
 import java.sql.DriverManager;
+import com.google.gson.JsonObject;
+import kr.dalmaru.request.RequestEnvelope;
+import kr.dalmaru.request.RequestJournal;
 import java.sql.SQLException;
 import java.util.UUID;
 import kr.dalmaru.account.CharacterProfile;
@@ -15,6 +19,26 @@ public final class QuestRepository {
 	private final String username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
 	private final String password = System.getenv("DALMARU_DB_PASSWORD");
 
+    public static String contentVersion(){return VERSION;}
+    public record AcceptanceResult(boolean created,boolean replayed,String currentStatus,RequestJournal.Receipt receipt) {}
+    public AcceptanceResult acceptJournaled(UUID account,long generation,long request,UUID character,RequestEnvelope envelope)throws SQLException {
+        if(generation<1||request<1||character==null)throw new IllegalArgumentException("Invalid quest acceptance request.");
+        if(!DEFINITION.enabled())throw new IllegalArgumentException("Quest is disabled.");
+        var body=new JsonObject();body.addProperty("questId",QUEST_ID);body.addProperty("contentVersion",VERSION);
+        if(envelope==null)envelope=RequestEnvelope.legacy(account,generation,character,"accept_quest",request,body);
+        if(envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(character)||!envelope.operation().equals("accept_quest")||!envelope.payload().equals(body))throw new IllegalArgumentException("Quest envelope does not match session/body");
+        try(var connection=connection()){connection.setAutoCommit(false);try{
+            var stored=RequestJournal.begin(connection,account,request,envelope);
+            if(stored.result()!=null){var result=new AcceptanceResult(stored.result().get("created").getAsBoolean(),true,status(connection,character),stored.receipt());connection.commit();return result;}
+            requirePrerequisites(connection,character);
+            boolean created;try(var insert=connection.prepareStatement("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state) VALUES(?,?,?,'ACTIVE') ON CONFLICT(character_id,quest_id,content_version) DO NOTHING")){
+                insert.setObject(1,character);insert.setString(2,QUEST_ID);insert.setString(3,VERSION);created=insert.executeUpdate()==1;
+            }
+            var outcome=new JsonObject();outcome.addProperty("questId",QUEST_ID);outcome.addProperty("contentVersion",VERSION);outcome.addProperty("created",created);
+            var receipt=RequestJournal.confirm(connection,stored,outcome);var result=new AcceptanceResult(created,false,status(connection,character),receipt);connection.commit();return result;
+        }catch(Exception error){connection.rollback();throw error;}}
+    }
+    // Compatibility for trusted setup fixtures; session requests use acceptJournaled.
 	public String accept(UUID characterId) throws SQLException {
         if(!DEFINITION.enabled())return "\uc758\ub8b0\uac00 \ube44\ud65c\uc131\ud654\ub418\uc5c8\uc2b5\ub2c8\ub2e4.";
         requirePrerequisites(characterId);
@@ -43,22 +67,19 @@ public final class QuestRepository {
 		}
 	}
 
-	public String status(UUID characterId) throws SQLException {
-		try (var connection = connection(); var statement = connection.prepareStatement("SELECT state, progress_count FROM dalmaru.character_quest_progress WHERE character_id = ? AND quest_id = ? AND content_version = ?")) {
-			statement.setObject(1, characterId); statement.setString(2, QUEST_ID); statement.setString(3, VERSION);
-            try (var result = statement.executeQuery()) { return result.next() ? "좀비 토벌: " + result.getInt(2) + "/" + DEFINITION.goal() + " (" + result.getString(1) + ")" : "수락 가능한 의뢰: 좀비 토벌"; }
-		}
-	}
-
+    public String status(UUID characterId)throws SQLException {try(var connection=connection()){return status(connection,characterId);}}
+    private static String status(Connection connection,UUID character)throws SQLException {
+        try(var query=connection.prepareStatement("SELECT state,progress_count FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=?")){
+            query.setObject(1,character);query.setString(2,QUEST_ID);query.setString(3,VERSION);try(var row=query.executeQuery()){return row.next()?"좀비 토벌: "+row.getInt(2)+"/"+DEFINITION.goal()+" ("+row.getString(1)+")":"수락 가능한 의뢰: 좀비 토벌";}
+        }
+    }
 	private void update(java.sql.Connection connection, UUID id, int count, String state) throws SQLException { try (var statement = connection.prepareStatement("UPDATE dalmaru.character_quest_progress SET progress_count = ?, state = ?, claimed_at = CASE WHEN ? = 'REWARDED' THEN CURRENT_TIMESTAMP ELSE claimed_at END, updated_at = CURRENT_TIMESTAMP WHERE character_id = ? AND quest_id = ? AND content_version = ?")) { statement.setInt(1, count); statement.setString(2, state); statement.setString(3, state); statement.setObject(4, id); statement.setString(5, QUEST_ID); statement.setString(6, VERSION); statement.executeUpdate(); } }
-	private void requirePrerequisites(UUID character)throws SQLException{
-        if(DEFINITION.requires().isEmpty())return;
-        try(var c=connection()){
-            for(String prerequisite:DEFINITION.requires()){
-                var definition=kr.dalmaru.content.ContentCatalog.current().quest(prerequisite);
-                try(var query=c.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? AND state='REWARDED'")){
-                    query.setObject(1,character);query.setString(2,prerequisite);query.setString(3,definition.version());try(var row=query.executeQuery()){if(!row.next())throw new IllegalArgumentException("Quest prerequisite incomplete");}
-                }
+    private void requirePrerequisites(UUID character)throws SQLException{try(var connection=connection()){requirePrerequisites(connection,character);}}
+    private static void requirePrerequisites(Connection connection,UUID character)throws SQLException{
+        for(String prerequisite:DEFINITION.requires()){
+            var definition=kr.dalmaru.content.ContentCatalog.current().quest(prerequisite);
+            try(var query=connection.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? AND state='REWARDED'")){
+                query.setObject(1,character);query.setString(2,prerequisite);query.setString(3,definition.version());try(var row=query.executeQuery()){if(!row.next())throw new IllegalArgumentException("Quest prerequisite incomplete");}
             }
         }
     }

@@ -336,3 +336,7 @@
 - god 지시로 grok/mdf-p1-m12(8189d1f 및 선행4개, Creed+Jim PASS 통보)를 로컬 no-ff merge했습니다. 운영자 지급·회수 원장/이유·작업ID 및 /dalmaru adjust 명령과 온라인 대상 최신 프로필 반영을 포함합니다. 코드 충돌 없음, 기록 말미2개 충돌은 양쪽 보존했습니다.
 - V027__operator_adjustments.sql 추가. 시험DB에는 이미 적용된 상태에서 지정8개 gate1회 PASS. Oscar 새 migration은 V028부터 유지. 운영 명령 실서버 실행/운영설정·DB 변경 없음.
 - M11b 미반영 이벤트·재접속/응답유실 복구는 그록 grok/mdf-p1-m11b @b8779d1 담당으로 갱신합니다. Oscar O28 run·quest→M14(protocol31 상향 미완료) 순서. ClientRequestState/재접속 경로 변경 필요 시 god 사전 통보. 전체 PARTIAL.
+
+## MDF-P1 S09k1 (2026-10-15)
+- 의뢰 수락 acceptJournaled API/long 봉투 adapter 추가. account→request 잠금·현재 세대/활성 캐릭터·questID/contentVersion 본문 검증, 선행조건 확인/수락/저널 확정이 같은 트랜잭션입니다. 최초 created 결과와 이후 진행/보상 상태를 분리합니다.
+- 기존 accept(character) setup 호환 함수는 유지하며 live typed/common/명령 연결은 S09k2 다음 조각입니다. 자동 처치 진행/보상 writer와 run O28도 남습니다. ClientRequestState/재접속 코드는 변경하지 않았습니다. 전체 PARTIAL.
