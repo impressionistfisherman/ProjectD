@@ -379,3 +379,29 @@
 - PASS: --no-daemon verifyRunJournal verifyCharacterRun (10초). 같은 입장 요청은 런 하나와 저널 한 행만 만들고, 난이도를 바꾼 재사용은 거부했습니다. 인게임 입장과 운영 DB는 실행하지 않았습니다.
 
 - 2026-10-15 MDF-P1 M14a: PASS --no-daemon compileJava compileClientJava testClasses verifyProtocolVersion verifyOperationWire (15s). 상수 31, Hello/Welcome 코덱 왕복, 서버 불일치 시 disconnect→return이 compatible/Welcome보다 앞섬, 클라이언트 동일 버전 Welcome만 수락(소스 순서 검사). 실제 불일치 접속은 미실행.
+
+## MDF-P1 g231 + M14a 통합 회귀 (2026-10-15)
+- --no-daemon p1_regression.ps1 1회, exit0, 전체69.85초. 검사 작업은 up-to-date로 건너뛰지 않고 실제 실행되었으며 임시서버 RunRespawnMixin 적용/ready/주입오류없음 PASS. smoke 내부 assemble PASS(6초), protocol31 client 포함 JAR 생성.
+- M11b `73441a0`, run writer `b50e166`, M14prep `5f9bdf5`, protocol31 `351079c`. 운영서버·운영DB·운영JAR 변경 없음. fixture 사후 accounts1/requests0/schema27, 잔여계정 characters0/주체미확인이라 미삭제. 인게임·독립 통합QA 미실행. 상세 원문은 hive/research/MDF_P1_G231_OSCAR_regression.log.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |

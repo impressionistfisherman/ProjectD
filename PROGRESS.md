@@ -367,3 +367,9 @@
 - 클라이언트 입장 요청은 RunRepository.enter 안에서 기존 operation_requests에 한 번 기록되고, 같은 요청은 같은 런을 돌려줍니다. 본문이 바뀌면 거부합니다. 입장 실패 시 cancelNewEntry는 그대로 두고, 저장·복귀 확인은 서버가 이어서 처리하므로 별도 저널을 만들지 않았습니다. 전체 PARTIAL.
 
 - 2026-10-15 MDF-P1 M14a: 개발 protocol 30→31 (DalmaruNetworking.PROTOCOL_VERSION, 서버·클라이언트 공유; S09i2 RefinementState 패킷 포함). verifyProtocolVersion 추가(상수·Hello/Welcome 코덱·불일치 거부 순서). PASS compileJava compileClientJava testClasses verifyProtocolVersion verifyOperationWire (15s). 실제 서버·클라이언트 접속·운영 변경 없음, 전체 PARTIAL.
+
+## MDF-P1 g231 + M14a 통합 (2026-10-15)
+- 지시 f0b18c/36c42f에 따라 로컬 --no-ff 순차 머지: M11b `73441a0`, run writer `b50e166`, M14prep `5f9bdf5`, protocol31 `351079c`. Java 충돌 없음, PROGRESS/TEST_RESULT 충돌은 양쪽 기록 보존.
+- 회귀 목록에 verifyQuest*·verifyProtocolVersion 추가. tools/p1_regression.ps1 1회 PASS(exit0, 69.85초): 실제 검사19개 + 임시서버 smoke1개 모두 PASS. schema27, 운영 PID14160/운영DB/운영JAR 변경·push 없음.
+- protocol31 사람 플레이용 JAR: server-project/build/libs/dalmaru-0.1.0.jar (1677074 bytes), DalmaruClient.class/fabric.mod.json 포함 확인. SHA256 1287212e5e769aff2953871a678435a502621ca2114c7dc5a814b5dadcead777.
+- fixture 사후 관측 accounts1/operation_requests0/schema27, 남은 계정 c9345596-3e13-4576-bccc-eab3cd8ae87b는 characters0. 소유·생성 주체 미확인으로 삭제하지 않음. 인게임·실제패킷·독립 통합QA 미실행, 최종 승인 대기. 운영 protocol과 호환되는 서버/클라이언트 동시 적용은 별도 승인 사항. 전체 PARTIAL.
