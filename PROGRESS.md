@@ -461,3 +461,9 @@
 - docs/P2_PLAYTEST_GUIDE를 실제통합 진입/시험200마을내처치/전직뒤이야기보고로장비수령/조사S06중복지급0에맞춰정리.
 
 - 2026-10-15 P2-S07 조사 판정: 클라 확정은 요청이다. 현장은 content/investigation.json 구역 안이고 장치 반경이거나 서버 전투 기록일 때만 확정되고, 그때 증거 조각을 그 캐릭터에게만 남긴다. 증거는 그 조각이 있을 때, 보고는 보고 반경 안에서만 된다. 조건 없는 세 번 확정은 단계와 보상을 바꾸지 않는다. reportConfirmed 시그니처는 그대로다. 가이드 4절을 같은 규칙으로 고쳤다. 인게임 미실행, 전체 PARTIAL.
+
+## P2 통합 2차: 조사 서버 판정 (2026-10-15)
+- god daef37 지시로 그록f71ccb0 --no-ff 머지 e0e30a6. S07 소유코드 직접수정 없음. 제품 Java 충돌 없이 병합, 문서 충돌은 양쪽 증거와 최신 현장 조건/조사중복지급0 안내 보존. StoryQuestRepository의 실제 reportConfirmed 주입과 protocol32 유지 확인.
+- StoryInvestigationLinkCheck 확장: 서버 조건 없는 field/evidence/report confirm 3회 각각 거부. 매번 실제 reportConfirmed=false, S06 ready=false/개인보고거부, XP·전·조사지급원장·확정단계·실패요청저널 불변 확인. 보고 NPC 반경 밖 요청도 거부. 이후 설정에서 읽은 정상현장/개인조각/보고위치로 완료하고 S06 연결·600XP/물품1회·위치변경뒤UUID재생 확인.
+- verifyStoryInvestigationLink + verifyQuestStages + compileClientJava targeted PASS16초. 전체35개 실제PASS exit0/102.72초. 임시35565기동·RunRespawnMixin PASS. 검사는 localhost15432/oscar_p2_fixture만 사용. 운영·플레이DB/PID14160/배포/push 미변경.
+- 이전 S07 무증거confirm 결함은 f71ccb0 변경과 이번 위조차단 검사에서 재현되지 않음. 최종 통합 승인은 Creed 재검토 및 Pam 통합 검토 후 god가 선언하며 Oscar는 승인하지 않음. 실제 사람플레이는 미실행, 마을/조사 좌표는 설정 자리표시.

@@ -213,4 +213,4 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 - story_combat UUID는 캐릭터+처치entity UUID로 결정한다. 처치XP는 CharacterRepository.grantExperience와 같은 트랜잭션으로 진행에 반영한다. 클라이언트는 처치 XP·좌표를 보낼 수 없다. 시험은 양쪽 모두 같은 직업마을 안일 때만 해당 직업 .trial에 쌓인다.
 - 조사 보상/600XP는 S07 하나가 소유한다. S06은 InvestigationEvidence.completed(Connection,UUID)로 완료만 확인하며 보고 시 지급0이다. 실제 어댑터는 S07 reportConfirmed를 호출한다. 최초 공략500XP도 기존 공략 지급만 사용한다.
 
-S06/S07 실연결: Networking이 `QuestStageRepository::reportConfirmed`를 주입한다. 같은 Connection/자동커밋금지/FOR SHARE 계약을 유지한다. S07 report 보상600XP·조사물품만 한 번 지급하고 S06은 이야기REWARDED 전환만 수행한다. S07 신뢰경계 후속 수정은 별도 검증 전까지 미해결이다.
+S06/S07 실연결: Networking이 `QuestStageRepository::reportConfirmed`를 주입한다. 같은 Connection/자동커밋금지/FOR SHARE 계약을 유지한다. S07 report 보상600XP·조사물품만 한 번 지급하고 S06은 이야기REWARDED 전환만 수행한다. S07 신뢰경계는 f71ccb0 통합 뒤 현장·증거·보고 위조 요청 3회가 실제 완료 reader와 S06 보고를 해금하지 못하는 검사로 확인했다. 정상 완료·재전송의 1회 지급도 유지하며 최종 독립 검토/승인은 별도다.
