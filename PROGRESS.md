@@ -479,3 +479,5 @@
 - 2026-10-15 P3-S02 커밋 9ca6104. 그 위에 오스카 21e5efc를 cherry-pick 해 3e045a3. FixtureDatabase는 oscar_p3_fixture 한 줄. 공식 회귀 2회 모두 exit 1. 1차 FAIL은 CharacterProfession, ProfessionGate, StoryQuestCurve. 2차 FAIL은 CharacterDeletion, CharacterProfession. 같은 태스크를 init 없이 한 번 돌린 gradlew는 exit 0. 실패가 실행마다 바뀐다. 그 검사 파일은 고치지 않음. 인게임 미실행.
 
 - 2026-10-15 전용 DB: grok_p3_fixture를 만들고 V001~V032를 적용했다. 이 브랜치 허용 목록과 회귀 guard는 grok_p3_fixture만 받는다. oscar_p3_fixture에는 접속하지 않는다. 공식 회귀 exit 0. 인게임 미실행.
+
+- 2026-10-15 P3-S03: NPC 상점. 가격은 content/shop.json 임시값. ShopCatalog.buyPrice는 없는 물품이면 예외. 판매가는 구매가의 25%를 소수점 이하 버림. 마을 구역 안에서만, 잔액·귀속은 서버가 판정. 클라 좌표는 읽지 않음. 지급 회복품과 캐릭터 귀속은 판매 거절. 통신 패킷 없음. verifyNpcShop PASS. 공식 회귀는 exit 1이고 FAIL은 verifyStoryQuestCurve 하나. 그 검사는 직후 단독 PASS. 인게임 미실행.

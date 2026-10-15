@@ -1,0 +1,7 @@
+{
+  "temporary": true,
+  "items": [
+    {"id": "supply.recovery", "buyCopper": 8},
+    {"id": "material.ironstone", "buyCopper": 16}
+  ]
+}
