@@ -731,10 +731,56 @@
 | `verifyStoryInvestigationLink` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
 
-## P3 guard isolated check (2026-10-15)
-| ?? | ?? |
+## P3 DB 가드 단독 검증 (2026-10-15)
+
+| 검사 | 결과 |
 |---|---|
-| Java P3 ?? ? ??/P1/P2/postgres ?? 5? | PASS |
-| PowerShell ? ?? ??/P1/P2/postgres ?? 8? | PASS |
-| P3 ?? ?? | ??? |
-- ?? ?? ? DB ?? ??. S07 ?? ??? compileJava/compileClientJava PASS(12?)? guard ?? ??? ??.
+| Java P3 허용 및 빈값/P1/P2/postgres 거부 5건 | PASS |
+| PowerShell 두 도구 빈값/P1/P2/postgres 거부 8건 | PASS |
+| 당시 P3 전체 회귀 | 미실행 |
+- DB 접속 없음. S07 작업본 컴파일 PASS12초는 guard 단독 검증과 구분.
+
+## P3-S07 실제 검사 (2026-10-16)
+- 전용4검사(WeaponSlots,ContentCatalog,RunContentSnapshot,EquipmentMoveJournal) PASS22초. 컴파일 서버/클라이언트 PASS12초. TrialGrowth 단독 재검사 PASS19초.
+- 전체회귀: 1차34PASS/2FAIL(DB 연결 timeout), 2차35PASS/1FAIL(TrialGrowth 상세 미보존), 3차31PASS/5FAIL(모두 PostgreSQL 연결 timeout). 1차 exit1/137.60초 / 2차 exit1/146.90초 / 3차 exit1/243.06초. 전체36PASS 조건 미충족. 임시35565 서버 스모크는3회PASS, protocol32 유지.
+- 실패 증거 research/MDF_P3_S07_flaky. 두 번째 상세 예외는 기존 도구의 finally 삭제로 확보 못함. 도구는 이후 실패 stdout/stderr를 마스킹 출력하도록 개선. 인프라/시간제한 변경 없음.
+- 사후 P3 DB accounts1/requests2/schema32 관측(공유 테스트 DB, 출처 미확정 행 임의 삭제 안함). P1/P2 DB 접속 없음.
+
+| 검사 | 1차 | 2차 | 3차 |
+|---|---|---|---|
+| `verifyStarterSupply` | PASS | PASS | PASS |
+| `verifyGrowthRewardGrant` | PASS | PASS | PASS |
+| `verifyCharacterDeletion` | PASS | PASS | PASS |
+| `verifyPaidStatReset` | PASS | PASS | PASS |
+| `verifyVillageRoutes` | PASS | PASS | PASS |
+| `verifyQuestStages` | PASS | PASS | PASS |
+| `verifyCharacterExperience` | PASS | PASS | PASS |
+| `verifyCharacterProfession` | PASS | PASS | PASS |
+| `verifyCharacterSkill` | PASS | PASS | PASS |
+| `verifyRunJournal` | PASS | PASS | PASS |
+| `verifyClientScreenBounds` | PASS | PASS | PASS |
+| `verifyRunAutoRespawnSafety` | PASS | PASS | PASS |
+| `verifyClientReplyRecovery` | PASS | PASS | PASS |
+| `verifyEnhancementReplay` | PASS | PASS | PASS |
+| `verifyRequestJournal` | PASS | PASS | PASS |
+| `verifyClientRequestEnvelope` | PASS | PASS | PASS |
+| `verifyRequestJournalResult` | PASS | PASS | PASS |
+| `verifySkillJournal` | PASS | PASS | PASS |
+| `verifyStatJournal` | PASS | PASS | PASS |
+| `verifyResetJournal` | PASS | PASS | PASS |
+| `verifyProfessionJournal` | PASS | PASS | PASS |
+| `verifyLoadoutJournal` | PASS | PASS | FAIL |
+| `verifyEquipmentMoveJournal` | PASS | PASS | PASS |
+| `verifyRefinementJournal` | PASS | PASS | PASS |
+| `verifyInheritanceJournal` | PASS | PASS | FAIL |
+| `verifyQuestAcceptanceJournal` | PASS | PASS | FAIL |
+| `verifyQuestAcceptanceWire` | PASS | PASS | PASS |
+| `verifyQuestKillJournal` | PASS | PASS | PASS |
+| `verifyProtocolVersion` | PASS | PASS | PASS |
+| `verifyTrialGrowth` | PASS | FAIL | FAIL |
+| `verifyProfessionGate` | FAIL | PASS | FAIL |
+| `verifyWaypointReturn` | PASS | PASS | PASS |
+| `verifyStoryQuestCurve` | FAIL | PASS | PASS |
+| `verifyStoryInvestigationLink` | PASS | PASS | PASS |
+| `verifyWeaponSlots` | PASS | PASS | PASS |
+| `p1_integration_smoke.ps1` | PASS | PASS | PASS |

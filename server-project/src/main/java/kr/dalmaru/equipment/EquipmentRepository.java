@@ -116,19 +116,20 @@ public final class EquipmentRepository {
                 try(var replay=connection.prepareStatement("SELECT equipment_id,slot_id FROM dalmaru.character_equipment_move_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) {
                     replay.setObject(1,accountId);replay.setLong(2,generation);replay.setLong(3,requestId);
                     try(var row=replay.executeQuery()){if(row.next()){
-                        if(!equipmentId.equals(row.getObject(1,UUID.class))||slot!=row.getInt(2))throw new IllegalArgumentException("Move request ID reused.");
+                        if(!equipmentId.equals(row.getObject(1,UUID.class))||equip!=(row.getInt(2)>=0))throw new IllegalArgumentException("Move request ID reused.");
                         int originalSlot=row.getInt(2);var receipt=RequestJournal.confirm(connection,stored,movementOutcome(equipmentId,originalSlot));var current=list(connection,characterId);connection.commit();return new MovementResult(current,equipmentId,originalSlot,true,receipt);
                     }}
                 }
                 if(!editable)throw new IllegalArgumentException("Equipment cannot be changed in the current world state.");
+                var worn=new ArrayList<EquipmentRecord>();
+                try(var locked=connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE character_id=? AND location='EQUIPPED' ORDER BY equipment_id FOR UPDATE")){locked.setObject(1,characterId);try(var rows=locked.executeQuery()){while(rows.next())worn.add(record(rows));}}
                 if(equip){
                     validateRequirements(connection,item);
                     var profile=kr.dalmaru.account.CharacterRepository.profileForUpdate(connection,characterId);
                     PilotEquipment.requireEquippable(profile,item);
-                    try(var displaced=connection.prepareStatement("UPDATE dalmaru.character_equipment SET location='INVENTORY',slot_id=NULL WHERE character_id=? AND slot_id=? AND location='EQUIPPED'")) {
-                        displaced.setObject(1,characterId);displaced.setInt(2,slot);displaced.executeUpdate();
-                    }
+                    slot=PilotEquipment.destination(item,worn);
                 }
+                for(var other:worn)if(PilotEquipment.displaced(other,item,slot,equip))try(var displaced=connection.prepareStatement("UPDATE dalmaru.character_equipment SET location='INVENTORY',slot_id=NULL WHERE equipment_id=?")){displaced.setObject(1,other.equipmentId());displaced.executeUpdate();}
                 try(var update=connection.prepareStatement("UPDATE dalmaru.character_equipment SET location=?,slot_id=?,binding=?,bound=? WHERE equipment_id=?")) {
                     EquipmentBinding binding=equip?EquipmentBinding.CHARACTER:item.binding();
                     update.setString(1,equip?"EQUIPPED":"INVENTORY");if(equip)update.setInt(2,slot);else update.setNull(2,java.sql.Types.SMALLINT);

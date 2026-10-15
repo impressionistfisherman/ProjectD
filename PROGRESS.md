@@ -468,6 +468,19 @@
 - verifyStoryInvestigationLink + verifyQuestStages + compileClientJava targeted PASS16초. 전체35개 실제PASS exit0/102.72초. 임시35565기동·RunRespawnMixin PASS. 검사는 localhost15432/oscar_p2_fixture만 사용. 운영·플레이DB/PID14160/배포/push 미변경.
 - 이전 S07 무증거confirm 결함은 f71ccb0 변경과 이번 위조차단 검사에서 재현되지 않음. 최종 통합 승인은 Creed 재검토 및 Pam 통합 검토 후 god가 선언하며 Oscar는 승인하지 않음. 실제 사람플레이는 미실행, 마을/조사 좌표는 설정 자리표시.
 
-## P3 regression DB guard (2026-10-15)
-- P3 ??? ??? DB? oscar_p3_fixture? ??. Java 8? ? PowerShell ??/??? ?? ??, TrialGrowth JDBC ?? ??. ?? S07 ??? ?? ??.
-- DB ?? ?? Java ??/?? 5?, PowerShell ?? 8? PASS. ?? ??? ?? ???.
+## P3 회귀 DB 가드 (2026-10-15)
+- Java 테스트8개 및 회귀/스모크 도구는 oscar_p3_fixture만 허용. TrialGrowth JDBC 포함. 단독 커밋21e5efc, 무접속 Java5/PowerShell8건 PASS. 당시 전체회귀 미실행.
+
+## Active Spec P3-S07 (2026-10-15)
+- oscar/mdf-p3/base099aa30, P2 branch 보존. oscar_p3_fixture15432/V001~31/계정0·요청0. P3 branch 검사 도구는 P3 DB만 허용하며 P1/P2는 사람플레이로 접근금지.
+- 기존 equipment move UUID·계정/행 잠금/소유권 경로를 재사용. 주칸0/보조칸1, 방패·단검·부적 보조, 양손은 두 칸 점유(한 장비행+서버 충돌규칙). 쌍도끼는 두 장비UUID/강화별 공격력 합산. 클라 슬롯 확정 불신, 새패킷/마이그레이션 없음/protocol32.
+- 콘텐츠 스냅샷 내 장착 metadata를 읽고 이전 metadata 없는 스냅샷은 기존 판정 유지. 기존 합산 쌍도끼 공격값을 각 칸 50%씩 계산해 양쪽 +0 합계 보존. 보조품 기본 공격/방어/능력치 수치 추가 없음, 방패 실착 방어 판정과 S08 고유효과는 별도. 품목 이름/무기별 규칙은 content 데이터.
+- 완료조건 verifyWeaponSlots(서버교체/재생/동시/잘못된배치/실패롤백/공격합산/스냅샷) + 전체 P3회귀/로컬커밋/실제표 god보고. 상대 소유 신규 파일/실서버/운영DB/던전/push 미변경.
+
+## P3-S07 구현 보존 / PARTIAL (2026-10-16)
+- 주칸/보조칸/양손 교체, 쌍도끼 각UUID 강화합산, 장착UUID 재생/확정롤백/구스냅샷 보존 구현. 신규보조9개, 쌍도끼 각50%, 기본공격합계 보존. 실제방패 실착 판정, 클라칸표시.
+- 전용4검사(WeaponSlots,ContentCatalog,RunContentSnapshot,EquipmentMoveJournal) PASS22초. 컴파일 서버/클라이언트 PASS12초. TrialGrowth 단독 재검사 PASS19초.
+- 전체회귀: 1차34PASS/2FAIL(DB 연결 timeout), 2차35PASS/1FAIL(TrialGrowth 상세 미보존), 3차31PASS/5FAIL(모두 PostgreSQL 연결 timeout). 1차 exit1/137.60초 / 2차 exit1/146.90초 / 3차 exit1/243.06초. 전체36PASS 조건 미충족. 임시35565 서버 스모크는3회PASS, protocol32 유지.
+- 실패 증거 research/MDF_P3_S07_flaky. 두 번째 상세 예외는 기존 도구의 finally 삭제로 확보 못함. 도구는 이후 실패 stdout/stderr를 마스킹 출력하도록 개선. 인프라/시간제한 변경 없음.
+- 사후 P3 DB accounts1/requests2/schema32 관측(공유 테스트 DB, 출처 미확정 행 임의 삭제 안함). P1/P2 DB 접속 없음.
+- 전체 통과 전 완료 선언 안함. god/Jim 시간초과 분류 뒤 조건 갖춰 재검증, 독립검토 요청은 god 경유. S10은 S03 shop API 뒤, 다음S08→S09→S12.

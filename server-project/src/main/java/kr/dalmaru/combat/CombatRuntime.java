@@ -34,8 +34,8 @@ public final class CombatRuntime {
     public kr.dalmaru.content.ContentCatalog content(UUID player){return contentSource.apply(player);}
     public kr.dalmaru.content.ContentCatalog.Skill skill(UUID player,String id){return content(player).skill(id);}
     public DefenseState defenseState(UUID player){return defenseStates.computeIfAbsent(player,id->new DefenseState());}
-    public boolean hasShield(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&snapshot.records.stream().anyMatch(item->item.itemId().contains(".sword_shield."));}
-    public boolean canGuard(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&snapshot.records.stream().anyMatch(item->item.itemId().contains(".sword_shield.")||item.itemId().contains(".two_handed_sword."));}
+    public boolean hasShield(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&PilotEquipment.hasShield(snapshot.records,content(player));}
+    public boolean canGuard(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&PilotEquipment.canGuard(snapshot.records,content(player));}
     public void guard(ServerPlayer player,boolean enabled,long tick){defenseState(player.getUUID()).guard(enabled&&canGuard(player.getUUID()),tick);movementEffects(player,tick);}
     public boolean dodge(ServerPlayer player,long tick){return managed(player)&&defenseState(player.getUUID()).dodge(tick,player.onGround()&&player.isAlive()&&!player.isSpectator());}
     public void attackStarted(ServerPlayer player){defenseState(player.getUUID()).attack();}

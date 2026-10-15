@@ -10,6 +10,12 @@ import kr.dalmaru.skill.SkillDefinition;
 
 public final class ContentCatalog {
     public record Item(int level,int slot,String requirement,int attack,double physical,double magic,double budget,boolean magical,double basicMultiplier,int basicTicks,boolean enabled){}
+    public record WeaponSlot(String hands,List<String> offhands,double share){
+        public WeaponSlot {offhands=List.copyOf(offhands);if(!Set.of("ONE","TWO","DUAL").contains(hands)||!Double.isFinite(share)||share<=0||share>1||new HashSet<>(offhands).size()!=offhands.size()||!Set.of("shield","dagger","talisman","dual_axes").containsAll(offhands)||hands.equals("TWO")&&!offhands.isEmpty())throw new IllegalArgumentException("Invalid weapon slot rule");}
+    }
+    private final Map<String,WeaponSlot> weaponSlots;
+    public Map<String,WeaponSlot> weaponSlots(){return weaponSlots;}
+    public WeaponSlot weaponSlot(String itemId){if(!itemId.startsWith("pilot.weapon."))return null;int end=itemId.lastIndexOf('.');return end<13?null:weaponSlots.get(itemId.substring(13,end));}
     public record Quest(String id,String version,String target,int goal,int experience,boolean enabled,List<String> requires){}
     public record Run(String id,String version,int minPlayers,int maxPlayers,boolean enabled,List<String> requires){}
     public record Mob(String id,String kind,String label,int health,int physicalDefense,int magicDefense,int damage,int interval,boolean magic,int range,boolean enabled){}
@@ -40,7 +46,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays){
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots){
+        this.weaponSlots=Map.copyOf(weaponSlots);
         this.displays=Map.copyOf(displays);this.skillDefinitions=List.copyOf(skillDefinitions);this.encounter=encounter;this.bonuses=bonuses;this.enhancementPolicy=enhancementPolicy;
         this.version=version;this.snapshot=snapshot;this.items=Map.copyOf(items);this.quests=Map.copyOf(quests);this.runs=Map.copyOf(runs);this.chances=List.copyOf(chances);this.costs=List.copyOf(costs);
     }
@@ -105,6 +112,15 @@ public final class ContentCatalog {
             }
             if(equippedProfessions.size()!=CharacterProfession.values().length)throw new IllegalArgumentException("Weapon profession coverage incomplete");
             if(!weaponNames.equals(Set.of("two_handed_sword","sword_shield","bow","crossbow","fan","ritual_sword","dual_axes","pirate_sword")))throw new IllegalArgumentException("Pilot weapon definitions incomplete/unsupported");
+            var weaponSlots=new LinkedHashMap<String,WeaponSlot>();
+            if(equipment.has("weaponSlots")){
+                var rules=equipment.getAsJsonObject("weaponSlots");
+                for(var entry:rules.entrySet()){var rule=entry.getValue().getAsJsonObject();var slotRule=new WeaponSlot(text(rule,"hands"),strings(rule,"offhands"),number(rule,"share"));if(slotRule.hands().equals("DUAL")&&!slotRule.offhands().equals(List.of(entry.getKey())))throw new IllegalArgumentException("Dual weapons must use the same family");weaponSlots.put(entry.getKey(),slotRule);}
+                if(!weaponSlots.keySet().equals(weaponNames))throw new IllegalArgumentException("Weapon slot rules incomplete");
+                var offhandNames=new HashSet<String>();
+                for(var element:array(equipment,"offhands")){var offhand=element.getAsJsonObject();String name=id(offhand,"id");if(!offhandNames.add(name)||text(offhand,"name").length()>128)throw new IllegalArgumentException("Invalid offhand definition");for(int level:levels)put(items,all,"pilot.offhand."+name+"."+level,new Item(level,1,"",0,0,0,0,false,1,0,true));}
+                if(!offhandNames.equals(Set.of("shield","dagger","talisman")))throw new IllegalArgumentException("Offhand types incomplete");
+            }
             for(var element:array(equipment,"armor")){
                 var armor=element.getAsJsonObject();String name=id(armor,"id");if(!Set.of("heavy","light","cloth").contains(name))throw new IllegalArgumentException("Unknown armor compatibility");
                 armorNames.add(name);
@@ -153,7 +169,7 @@ public final class ContentCatalog {
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
             var displays=displays(root,schema,items,skillDefinitions,quests,runs,mobs);
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays);
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots);
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static Map<String,Display> displays(JsonObject root,int schema,Map<String,Item> items,List<Skill> skills,Map<String,Quest> quests,Map<String,Run> runs,Map<String,Mob> mobs){
@@ -168,6 +184,7 @@ public final class ContentCatalog {
         }
         putDisplay(result,id(root,"id"),display(root,4));
         var equipment=root.getAsJsonObject("equipment");var enhancement=root.getAsJsonObject("enhancement");
+        if(equipment.has("weaponSlots"))for(var value:array(equipment,"offhands")){var offhand=value.getAsJsonObject();for(int level:integers(equipment,"levels"))putDisplay(result,"pilot.offhand."+id(offhand,"id")+"."+level,new Display(text(offhand,"name")+" "+level,"보조칸"));}
         if(!flag(equipment,"enabled")||!flag(enhancement,"enabled"))throw new IllegalArgumentException("Required content table disabled");
         putDisplay(result,id(equipment,"id"),display(equipment,1));putDisplay(result,id(enhancement,"id"),display(enhancement,1));
         for(String key:List.of("weapons","armor","parts","accessories"))for(var value:array(equipment,key)){
