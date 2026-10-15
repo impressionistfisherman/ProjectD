@@ -426,6 +426,8 @@
 - 2026-10-15 P2-S09: PASS verifyPaidStatReset (8초). DALMARU_DB_NAME=oscar_p2_fixture. 무료 1회는 전 0에서도 능력치만 되돌림. 잔액 9전은 거절하고 능력치 불변. 30전에서 10전을 한 번 걷고 재생은 추가 차감 없음. 5레벨은 50전. 원장 행은 유료만. verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, 20개 검사와 smoke PASS. 인게임 미실행.
 
 - 2026-10-15 P2-S10: PASS verifyVillageRoutes (9초). 태평현에서 직업 4마을로 가고, 각 마을은 태평현으로 돌아온다. 주민 외형은 minecraft:villager, 대사는 초안. 구역은 겹치지 않는다. DB 없음. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture, 20개 검사와 smoke PASS. 인게임 미실행.
+
+- 2026-10-15 P2 통신: PASS verifyProtocolVersion (프로토콜 32, 삭제·복구·마을 목록·마을 열기). verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyResetJournal PASS. tools/p1_regression.ps1 exit 0, DALMARU_DB_NAME=oscar_p2_fixture, 아래 20개 검사와 smoke PASS. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
 | `verifyRunJournal` | 예 | PASS |

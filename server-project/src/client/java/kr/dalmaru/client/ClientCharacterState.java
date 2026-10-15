@@ -66,7 +66,7 @@ final class ClientCharacterState {
 		creationWaiting = false;
 		status = response.status();
 		if (response.accepted()) {
-			characters = java.util.stream.Stream.concat(characters.stream(), java.util.stream.Stream.of(new DalmaruPayloads.CharacterSummary(response.characterId(), response.slot(), response.displayName(), false))).sorted(java.util.Comparator.comparingInt(DalmaruPayloads.CharacterSummary::slot)).toList();
+			characters = java.util.stream.Stream.concat(characters.stream(), java.util.stream.Stream.of(new DalmaruPayloads.CharacterSummary(response.characterId(), response.slot(), response.displayName(), false, false))).sorted(java.util.Comparator.comparingInt(DalmaruPayloads.CharacterSummary::slot)).toList();
 		}
 	}
 
@@ -86,7 +86,7 @@ final class ClientCharacterState {
 		if (response.accepted()) {
 			selectionConfirmed = true;
 			characters = characters.stream()
-				.map(character -> new DalmaruPayloads.CharacterSummary(character.characterId(), character.slot(), character.displayName(), character.characterId().equals(response.characterId())))
+				.map(character -> new DalmaruPayloads.CharacterSummary(character.characterId(), character.slot(), character.displayName(), character.characterId().equals(response.characterId()), character.pendingDeletion()))
 				.toList();
 		}
 		return response.accepted();
@@ -142,4 +142,6 @@ final class ClientCharacterState {
 	static boolean canCreate() { return ClientConnectionState.isCompatible() && !creationWaiting; }
 	static boolean requiresSelection() { return selectionReady && !selectionConfirmed; }
 	static boolean isSelectionConfirmed() { return selectionConfirmed; }
+	private static long lifeRequestId = 1;
+	static long nextLifeRequestId() { return lifeRequestId++; }
 }

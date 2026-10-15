@@ -21,7 +21,7 @@ public final class CharacterRepository {
 	}
 
 	private static final Pattern ALLOWED_NAME = Pattern.compile("[가-힣A-Za-z0-9_]+");
-	public static final int PAID_RESET_COPPER_PER_LEVEL = 10;
+	public static final int PAID_RESET_COPPER_PER_LEVEL = StatResetPrice.COPPER_PER_LEVEL;
 	private final String url;
 	private final String username;
 	private final String password;
@@ -183,8 +183,8 @@ public final class CharacterRepository {
 					}
 				}
 				CharacterProfile before = profileForUpdate(connection, characterId);
-				if (!before.freeResetAvailable()) {
-					int cost = Math.multiplyExact(before.level(), PAID_RESET_COPPER_PER_LEVEL);
+				int cost = before.freeResetAvailable() ? 0 : StatResetPrice.copper(before.level());
+				if (cost > 0) {
 					try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) {
 						wallet.setInt(1, cost); wallet.setObject(2, characterId); wallet.setInt(3, cost);
 						if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper.");
@@ -204,7 +204,7 @@ public final class CharacterRepository {
 					statement.setObject(1, accountId); statement.setLong(2, connectionGeneration); statement.setLong(3, requestId); statement.setObject(4, characterId); statement.setInt(5, after.level()); statement.setLong(6, after.experience()); statement.setInt(7, after.unspentStatPoints()); statement.setInt(8, after.strength()); statement.setInt(9, after.dexterity()); statement.setInt(10, after.arcana()); statement.setInt(11, after.vitality()); statement.setInt(12, after.spirit()); statement.setBoolean(13, after.freeResetAvailable());
 					statement.executeUpdate();
 				}
-                var outcome=profileOutcome(after);var receipt=RequestJournal.confirm(connection,stored,outcome);
+                var outcome=profileOutcome(after);outcome.addProperty("copperCost",cost);var receipt=RequestJournal.confirm(connection,stored,outcome);
                 connection.commit();return new ResetResult(after,false,outcome,receipt);
 			} catch (Exception exception) {
 				connection.rollback();
@@ -265,52 +265,34 @@ public final class CharacterRepository {
 		}
 	}
 
-	public void delete(UUID accountId, UUID characterId) throws SQLException {
+	public record Journaled(JsonObject result, RequestJournal.Receipt receipt, boolean replayed) { }
+
+	public java.util.Set<UUID> pendingDeletions(UUID accountId) throws SQLException {
 		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
-		try (var connection = DriverManager.getConnection(url, username, password)) {
-			connection.setAutoCommit(false);
-			try {
-				own(connection, accountId, characterId);
-				try (var mark = connection.prepareStatement("INSERT INTO dalmaru.character_deletions(character_id, deleted_at) VALUES(?, clock_timestamp()) ON CONFLICT DO NOTHING")) {
-					mark.setObject(1, characterId);
-					mark.executeUpdate();
-				}
-				try (var clear = connection.prepareStatement("UPDATE dalmaru.accounts SET active_character_id=NULL WHERE account_id=? AND active_character_id=?")) {
-					clear.setObject(1, accountId);
-					clear.setObject(2, characterId);
-					clear.executeUpdate();
-				}
-				connection.commit();
-			} catch (Exception exception) {
-				connection.rollback();
-				throw exception;
+		try (var connection = DriverManager.getConnection(url, username, password); var query = connection.prepareStatement("SELECT c.character_id FROM dalmaru.characters c JOIN dalmaru.character_deletions d ON d.character_id=c.character_id WHERE c.account_id=? AND d.deleted_at > clock_timestamp() - interval '7 days'")) {
+			query.setObject(1, accountId);
+			try (var rows = query.executeQuery()) {
+				var ids = new java.util.HashSet<UUID>();
+				while (rows.next()) ids.add(rows.getObject(1, UUID.class));
+				return ids;
 			}
 		}
 	}
 
-	public void restore(UUID accountId, UUID characterId) throws SQLException {
-		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
-		try (var connection = DriverManager.getConnection(url, username, password)) {
-			connection.setAutoCommit(false);
-			try {
-				own(connection, accountId, characterId);
-				try (var restore = connection.prepareStatement("DELETE FROM dalmaru.character_deletions WHERE character_id=? AND deleted_at > clock_timestamp() - interval '7 days'")) {
-					restore.setObject(1, characterId);
-					if (restore.executeUpdate() != 1) {
-						try (var expired = connection.prepareStatement("SELECT 1 FROM dalmaru.character_deletions WHERE character_id=?")) {
-							expired.setObject(1, characterId);
-							try (var row = expired.executeQuery()) {
-								throw new IllegalArgumentException(row.next() ? "Recovery window has closed." : "Character is not deleted.");
-							}
-						}
-					}
-				}
-				connection.commit();
-			} catch (Exception exception) {
-				connection.rollback();
-				throw exception;
-			}
-		}
+	public void delete(UUID accountId, UUID characterId) throws SQLException { inTransaction(connection -> { applyDelete(connection, accountId, characterId); return null; }); }
+
+	public void restore(UUID accountId, UUID characterId) throws SQLException { inTransaction(connection -> { applyRestore(connection, accountId, characterId); return null; }); }
+
+	public Journaled deleteJournaled(UUID accountId, long generation, long requestId, UUID characterId, RequestEnvelope envelope) throws SQLException {
+		return journal(accountId, generation, requestId, envelope, connection -> { applyDelete(connection, accountId, characterId); return lifeOutcome(characterId, true); });
+	}
+
+	public Journaled restoreJournaled(UUID accountId, long generation, long requestId, UUID characterId, RequestEnvelope envelope) throws SQLException {
+		return journal(accountId, generation, requestId, envelope, connection -> { applyRestore(connection, accountId, characterId); return lifeOutcome(characterId, false); });
+	}
+
+	public Journaled note(UUID accountId, long generation, long requestId, RequestEnvelope envelope, JsonObject fresh) throws SQLException {
+		return journal(accountId, generation, requestId, envelope, connection -> fresh);
 	}
 
 	public void selectActive(UUID accountId, UUID characterId) throws SQLException {
@@ -559,6 +541,68 @@ public final class CharacterRepository {
 			statement.executeUpdate();
 		}
 		StarterSupply.grant(connection, characterId);
+	}
+
+	private interface Work { JsonObject apply(java.sql.Connection connection) throws SQLException; }
+
+	private void inTransaction(Work work) throws SQLException {
+		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try { work.apply(connection); connection.commit(); }
+			catch (Exception exception) { connection.rollback(); throw exception; }
+		}
+	}
+
+	private Journaled journal(UUID accountId, long generation, long requestId, RequestEnvelope envelope, Work work) throws SQLException {
+		if (generation < 1 || requestId < 1 || envelope == null) throw new IllegalArgumentException("Invalid character request.");
+		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password)) {
+			connection.setAutoCommit(false);
+			try {
+				var stored = RequestJournal.begin(connection, accountId, requestId, envelope);
+				if (stored.result() != null) { connection.commit(); return new Journaled(stored.result(), stored.receipt(), true); }
+				var outcome = work.apply(connection);
+				var receipt = RequestJournal.confirm(connection, stored, outcome);
+				connection.commit();
+				return new Journaled(outcome, receipt, false);
+			} catch (Exception exception) { connection.rollback(); throw exception; }
+		}
+	}
+
+	private static JsonObject lifeOutcome(UUID characterId, boolean pending) {
+		var outcome = new JsonObject();
+		outcome.addProperty("characterId", characterId.toString());
+		outcome.addProperty("pending", pending);
+		return outcome;
+	}
+
+	private void applyDelete(java.sql.Connection connection, UUID accountId, UUID characterId) throws SQLException {
+		own(connection, accountId, characterId);
+		try (var mark = connection.prepareStatement("INSERT INTO dalmaru.character_deletions(character_id, deleted_at) VALUES(?, clock_timestamp()) ON CONFLICT DO NOTHING")) {
+			mark.setObject(1, characterId);
+			mark.executeUpdate();
+		}
+		try (var clear = connection.prepareStatement("UPDATE dalmaru.accounts SET active_character_id=NULL WHERE account_id=? AND active_character_id=?")) {
+			clear.setObject(1, accountId);
+			clear.setObject(2, characterId);
+			clear.executeUpdate();
+		}
+	}
+
+	private void applyRestore(java.sql.Connection connection, UUID accountId, UUID characterId) throws SQLException {
+		own(connection, accountId, characterId);
+		try (var restore = connection.prepareStatement("DELETE FROM dalmaru.character_deletions WHERE character_id=? AND deleted_at > clock_timestamp() - interval '7 days'")) {
+			restore.setObject(1, characterId);
+			if (restore.executeUpdate() != 1) {
+				try (var expired = connection.prepareStatement("SELECT 1 FROM dalmaru.character_deletions WHERE character_id=?")) {
+					expired.setObject(1, characterId);
+					try (var row = expired.executeQuery()) {
+						throw new IllegalArgumentException(row.next() ? "Recovery window has closed." : "Character is not deleted.");
+					}
+				}
+			}
+		}
 	}
 
 	private void own(java.sql.Connection connection, UUID accountId, UUID characterId) throws SQLException {

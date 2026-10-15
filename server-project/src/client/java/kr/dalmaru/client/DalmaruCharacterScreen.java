@@ -10,8 +10,12 @@ import net.minecraft.network.chat.Component;
 
 final class DalmaruCharacterScreen extends Screen {
 	private Button refreshButton;
+	private Button deleteButton;
+	private Button restoreButton;
 	private Button statusButton;
 	private Button createButton;
+	private java.util.UUID chosen;
+	private boolean chosenPending;
 	private final Map<Integer, Button> slotButtons = new HashMap<>();
 	private EditBox nameField;
 
@@ -34,7 +38,11 @@ final class DalmaruCharacterScreen extends Screen {
 			slotButtons.put(slot, button);
 		}
 		refreshButton = addRenderableWidget(Button.builder(Component.literal("목록 새로 고침"), button -> DalmaruClient.requestCharacterList())
-			.bounds(width / 2 - 75, height / 2 + 100, 150, 20).build());
+			.bounds(width / 2 - 150, height / 2 + 100, 140, 20).build());
+		deleteButton = addRenderableWidget(Button.builder(Component.literal("삭제"), button -> { if (chosen != null && !chosenPending) DalmaruClient.requestCharacterLife(chosen, false); })
+			.bounds(width / 2 - 5, height / 2 + 100, 70, 20).build());
+		restoreButton = addRenderableWidget(Button.builder(Component.literal("복구"), button -> { if (chosen != null && chosenPending) DalmaruClient.requestCharacterLife(chosen, true); })
+			.bounds(width / 2 + 70, height / 2 + 100, 80, 20).build());
 	}
 
 	@Override
@@ -45,10 +53,12 @@ final class DalmaruCharacterScreen extends Screen {
 		for (DalmaruPayloads.CharacterSummary character : ClientCharacterState.characters()) bySlot.put(character.slot(), character);
 		for (int slot = 1; slot <= 4; slot++) {
 			DalmaruPayloads.CharacterSummary character = bySlot.get(slot);
-			slotButtons.get(slot).setMessage(Component.literal(character == null ? "슬롯 " + slot + ": 비어 있음" : "슬롯 " + slot + ": " + character.displayName() + (character.active() ? " (선택됨)" : "")));
-			slotButtons.get(slot).active = character != null && ClientCharacterState.canSelect() && (ClientCharacterState.requiresSelection() || !character.active());
+			slotButtons.get(slot).setMessage(Component.literal(character == null ? "슬롯 " + slot + ": 비어 있음" : "슬롯 " + slot + ": " + character.displayName() + (character.pendingDeletion() ? " (삭제 대기)" : character.active() ? " (선택됨)" : "")));
+			slotButtons.get(slot).active = character != null && (character.pendingDeletion() || (ClientCharacterState.canSelect() && (ClientCharacterState.requiresSelection() || !character.active())));
 		}
 		createButton.active = firstEmptySlot() != 0 && ClientCharacterState.canCreate() && !nameField.getValue().isBlank();
+		deleteButton.active = chosen != null && !chosenPending;
+		restoreButton.active = chosen != null && chosenPending;
 	}
 
 	private void createFirstEmptySlot() {
@@ -68,7 +78,9 @@ final class DalmaruCharacterScreen extends Screen {
 	private void selectSlot(int slot) {
 		for (DalmaruPayloads.CharacterSummary character : ClientCharacterState.characters()) {
 			if (character.slot() == slot) {
-				DalmaruClient.requestCharacterSelection(character.characterId());
+				chosen = character.characterId();
+				chosenPending = character.pendingDeletion();
+				if (!chosenPending) DalmaruClient.requestCharacterSelection(character.characterId());
 				return;
 			}
 		}

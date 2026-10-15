@@ -7,7 +7,8 @@ public final class ClientScreenBoundsCheck {
         Path base=Path.of("src/client/java/kr/dalmaru/client");String skill=Files.readString(base.resolve("DalmaruSkillScreen.java")),run=Files.readString(base.resolve("DalmaruRunScreen.java"));
         String quest=Files.readString(base.resolve("DalmaruQuestScreen.java"));String equipment=Files.readString(base.resolve("DalmaruEquipmentScreen.java")),profile=Files.readString(base.resolve("DalmaruProfileScreen.java"));
         Path dir=Files.createTempDirectory("client-screen-bounds-");Path file=dir.resolve("ScreenHarness.java");
-        Files.writeString(file,HARNESS.replace("/* SKILL */",method(skill,"protected void init()" )).replace("/* RUN */",method(run,"protected void init()")).replace("/* QUEST */",method(quest,"protected void init()")).replace("/* EQUIPMENT */",method(equipment,"protected void init()")+method(equipment,"private void rebuild()")+method(equipment,"private static Component message(")).replace("/* PROFILE */",method(profile,"protected void init()")+method(profile,"private Button statButton(")));
+        String village=Files.readString(base.resolve("DalmaruVillageScreen.java"));
+        Files.writeString(file,HARNESS.replace("/* SKILL */",method(skill,"protected void init()" )).replace("/* RUN */",method(run,"protected void init()")).replace("/* QUEST */",method(quest,"protected void init()")).replace("/* EQUIPMENT */",method(equipment,"protected void init()")+method(equipment,"private void rebuild()")+method(equipment,"private static Component message(")).replace("/* PROFILE */",method(profile,"protected void init()")+method(profile,"private Button statButton(")).replace("/* VILLAGE */",method(village,"protected void init()")));
         if(ToolProvider.getSystemJavaCompiler().run(null,null,null,"-classpath",System.getProperty("java.class.path"),"-d",dir.toString(),file.toString())!=0)throw new AssertionError("Screen fixture compile failed");
         try(var loader=new URLClassLoader(new java.net.URL[]{dir.toUri().toURL()},ClientScreenBoundsCheck.class.getClassLoader())){loader.loadClass("ScreenHarness").getMethod("run").invoke(null);}
         System.out.println("Actual skill/run/quest/profile/equipment bounds and paging PASS (320x180 to960x540)");
@@ -23,21 +24,23 @@ public final class ClientScreenBoundsCheck {
         class ClientProfileState{static Response current(){return new Response();}}
         enum CharacterProfession{WARRIOR}
         class SkillDefinition{String id(){return "skill";}String koreanName(){return "skill";}static List<SkillDefinition>forProfession(CharacterProfession p){return java.util.stream.IntStream.range(0,8).mapToObj(i->new SkillDefinition()).toList();}}
-        class DalmaruClient{static void requestQuest(boolean accept){}static void requestSkill(String s){}static void requestSkillRanks(){}static void requestLoadout(){}static void requestRun(String s){}static void readyRun(){}static void requestEquipment(){}static List<UUID>moved=new ArrayList<>(),enhanced=new ArrayList<>();static void requestEquipmentMove(UUID id){moved.add(id);}static void requestEnhancement(UUID id){enhanced.add(id);}static void requestCharacterStatReset(){}static void requestCharacterStatInvestment(int id){}}
+        class DalmaruClient{static void requestQuest(boolean accept){}static void requestSkill(String s){}static void requestSkillRanks(){}static void requestLoadout(){}static void requestRun(String s){}static void readyRun(){}static void requestEquipment(){}static List<UUID>moved=new ArrayList<>(),enhanced=new ArrayList<>();static void requestEquipmentMove(UUID id){moved.add(id);}static void requestEnhancement(UUID id){enhanced.add(id);}static void requestCharacterStatReset(){}static void requestCharacterStatInvestment(int id){}static void requestVillages(){}static void requestVillage(String id){}}
         class ClientRunState{static String status(){return "READY";}}
         class SkillScreen extends Screen{SkillScreen(){}SkillScreen(Screen p){}Screen previous;List<Button>slotButtons=new ArrayList<>(),learnButtons=new ArrayList<>();List<SkillDefinition>skills=List.of();void cycle(int i){}/* SKILL */}
         class QuestScreen extends Screen{Screen previous;Button status;/* QUEST */}
         class RunScreen extends Screen{Button status,firstStep,training,ready;/* RUN */}
         class DalmaruProfessionScreen extends Screen{DalmaruProfessionScreen(Screen previous){}}
         class DalmaruSkillScreen extends Screen{DalmaruSkillScreen(Screen previous){}}
+        class DalmaruVillageScreen extends Screen{DalmaruVillageScreen(Screen previous){}}
         class DalmaruPayloads{record EquipmentData(UUID equipmentId,int slotId,String itemId,int enhancement,int consecutiveFailures){}}
         class ClientEquipmentState{static List<DalmaruPayloads.EquipmentData>items=List.of();static List<DalmaruPayloads.EquipmentData>equipment(){return items;}}
         class EquipmentScreen extends Screen{List<Button>buttons=new ArrayList<>();List<UUID>displayedIds=List.of();int page,displayedPage=-1;/* EQUIPMENT */}
-        class ProfileScreen extends Screen{Button statusButton,strengthButton,dexterityButton,arcanaButton,vitalityButton,spiritButton,resetButton,professionButton,skillButton;/* PROFILE */}
+        class ProfileScreen extends Screen{Button statusButton,strengthButton,dexterityButton,arcanaButton,vitalityButton,spiritButton,resetButton,professionButton,skillButton,villageButton;boolean confirmReset;/* PROFILE */}
+        class VillageScreen extends Screen{Button statusButton;/* VILLAGE */}
         public class ScreenHarness{
         static void require(boolean condition,String reason){if(!condition)throw new AssertionError(reason);}
-        public static void run(){for(int[]size:new int[][]{{320,180},{320,240},{427,240},{640,360},{960,540}})for(Screen screen:List.of(new SkillScreen(),new RunScreen(),new ProfileScreen(),new EquipmentScreen(),new QuestScreen())){
-        screen.width=size[0];screen.height=size[1];screen.init();require(screen.buttons.size()==(screen instanceof SkillScreen?14:screen instanceof RunScreen?5:screen instanceof ProfileScreen?9:3),"Missing actions");
+        public static void run(){for(int[]size:new int[][]{{320,180},{320,240},{427,240},{640,360},{960,540}})for(Screen screen:List.of(new SkillScreen(),new RunScreen(),new ProfileScreen(),new EquipmentScreen(),new QuestScreen(),new VillageScreen())){
+        screen.width=size[0];screen.height=size[1];screen.init();require(screen.buttons.size()==(screen instanceof SkillScreen?14:screen instanceof RunScreen?5:screen instanceof ProfileScreen?10:screen instanceof VillageScreen?7:3),"Missing actions");
         for(var b:screen.buttons)require(b.x>=0&&b.y>=0&&b.w>0&&b.h>0&&b.x+b.w<=screen.width&&b.y+b.h<=screen.height,"Clipped action at "+size[0]+"x"+size[1]);
         for(int i=0;i<screen.buttons.size();i++)for(int j=i+1;j<screen.buttons.size();j++){var a=screen.buttons.get(i);var b=screen.buttons.get(j);require(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y,"Overlapping actions at "+size[0]+"x"+size[1]);}
         }
