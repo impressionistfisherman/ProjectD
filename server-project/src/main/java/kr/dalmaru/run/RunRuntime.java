@@ -20,12 +20,17 @@ import net.minecraft.world.level.block.Blocks;
 public final class RunRuntime {
     private final BossDamage bossDamage;
     private final java.util.function.Consumer<UUID> releaseDisconnected;
+    private final LingerDamage lingerDamage;
+    private final Map<UUID, UUID> lingerBodies = new HashMap<>();
     public RunRuntime(BossDamage bossDamage) { this(bossDamage,id->{ }); }
-    public RunRuntime(BossDamage bossDamage,java.util.function.Consumer<UUID> releaseDisconnected) {
+    public RunRuntime(BossDamage bossDamage,java.util.function.Consumer<UUID> releaseDisconnected) { this(bossDamage,releaseDisconnected,(player,body,source,amount,magic)->{}); }
+    public RunRuntime(BossDamage bossDamage,java.util.function.Consumer<UUID> releaseDisconnected,LingerDamage lingerDamage) {
         this.bossDamage=java.util.Objects.requireNonNull(bossDamage);
         this.releaseDisconnected=java.util.Objects.requireNonNull(releaseDisconnected);
+        this.lingerDamage=java.util.Objects.requireNonNull(lingerDamage);
     }
     @FunctionalInterface public interface BossDamage { void hit(ServerPlayer player, net.minecraft.world.entity.LivingEntity boss, float amount, boolean magic); }
+    @FunctionalInterface public interface LingerDamage { void hit(UUID playerId, net.minecraft.world.entity.LivingEntity body, net.minecraft.world.entity.LivingEntity source, float amount, boolean magic); }
     private final Map<UUID, State> playerRuns = new HashMap<>();
     private final Map<UUID, Encounter> encounters = new HashMap<>();
     private final java.util.concurrent.ConcurrentMap<UUID,RunLifecycle> lifecycles=new java.util.concurrent.ConcurrentHashMap<>();
@@ -59,7 +64,7 @@ public final class RunRuntime {
             Encounter existing=encounters.get(runId);
             long now=System.currentTimeMillis();
             if(existing==null||existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000)||!lifecycle.joinable())throw new IllegalStateException("Run is no longer available.");
-            previous.connected=true; previous.disconnectedAt=0;
+            previous.connected=true; previous.disconnectedAt=0;dropLinger(player.getUUID());
             if(existing.pausedAt!=0)existing.pausedAt=0;
             if(!inside(player,existing))teleport(player,existing);
             return;
@@ -93,7 +98,7 @@ public final class RunRuntime {
     }
     private void enterExisting(ServerPlayer player,UUID runId,Encounter existing){
         State previous=playerRuns.get(player.getUUID());long now=System.currentTimeMillis();
-        if(previous!=null){if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");if(existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000))throw new IllegalStateException("Run is no longer available.");previous.connected=true;previous.disconnectedAt=0;if(existing.pausedAt!=0)existing.pausedAt=0;if(!inside(player,existing))teleport(player,existing);return;}
+        if(previous!=null){if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");if(existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000))throw new IllegalStateException("Run is no longer available.");previous.connected=true;previous.disconnectedAt=0;dropLinger(player.getUUID());if(existing.pausedAt!=0)existing.pausedAt=0;if(!inside(player,existing))teleport(player,existing);return;}
         if(existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000))throw new IllegalStateException("Run is no longer available.");
         State state=new State(runId,existing.difficulty==RunDifficulty.FIRST_STEP?5:3);state.returnLevel=(ServerLevel)player.level();state.returnPosition=player.position();state.returnMode=player.gameMode.getGameModeForPlayer();state.lastSafe=existing.floor.getCenter().add(0,1,0);playerRuns.put(player.getUUID(),state);teleport(player,existing);
     }
@@ -104,7 +109,7 @@ public final class RunRuntime {
         state.dead=true;state.deathTick=tickCount;state.deathPosition=player.position();
         Encounter encounter=encounters.get(state.runId);
         double relative=player.getZ()-encounter.floor.getZ();state.deathZone=relative<27?0:relative<45?1:2;
-        boolean living=playerRuns.values().stream().anyMatch(member->member.runId.equals(state.runId)&&member.connected&&!member.dead);
+        boolean living=playerRuns.values().stream().anyMatch(member->member.runId.equals(state.runId)&&kr.dalmaru.run.RunEncounterRules.countsAsSurvivor(member.connected,member.dead,member.disconnectedAt,System.currentTimeMillis()));
         boolean defeated=!living&&(encounter.partySize>1||state.revivesRemaining==0);
         if(defeated)encounter.failed=true;
         return new DeathResult(state.runId,!defeated&&state.revivesRemaining>0,defeated);
@@ -187,7 +192,9 @@ public final class RunRuntime {
         tickCount++;
         for(ServerPlayer player:server.getPlayerList().getPlayers())if(runId(player)==null&&region(player)!=null)player.connection.disconnect(Component.literal("다른 공략 구역에는 입장할 수 없습니다."));
         long now=System.currentTimeMillis();
+        expireLinger(server,now);
         for(Encounter encounter:new ArrayList<>(encounters.values())) {
+            pauseIfQuiet(encounter,now);
             if(now>=encounter.deadline||(encounter.pausedAt!=0&&now-encounter.pausedAt>=300000)){close(server,encounter.runId);continue;}
             if(encounter.bossId!=null&&encounter.level.getEntity(encounter.bossId) instanceof Mob boss)boss.setNoAi(encounter.pausedAt!=0||encounter.failed);
         }
@@ -218,8 +225,76 @@ public final class RunRuntime {
     public void disconnect(ServerPlayer player) {
         State state=playerRuns.get(player.getUUID());if(state==null)return;
         state.connected=false;state.disconnectedAt=System.currentTimeMillis();
+        spawnLinger(player);
+        pauseIfQuiet(encounters.get(state.runId),state.disconnectedAt);
+    }
+    private void pauseIfQuiet(Encounter encounter,long now){
+        if(encounter==null||encounter.pausedAt!=0||encounter.failed)return;
+        boolean present=playerRuns.values().stream().anyMatch(member->member.runId.equals(encounter.runId)&&kr.dalmaru.run.RunEncounterRules.countsAsSurvivor(member.connected,member.dead,member.disconnectedAt,now));
+        if(!present){encounter.pausedAt=now;encounter.pausedTick=tickCount;}
+    }
+    private void spawnLinger(ServerPlayer player){
+        State state=playerRuns.get(player.getUUID());
+        if(state==null||state.dead||state.connected||lingerBodies.containsKey(player.getUUID()))return;
+        Encounter encounter=encounters.get(state.runId);if(encounter==null)return;
+        Mob body=EntityType.HUSK.create(encounter.level,EntitySpawnReason.EVENT);if(body==null)return;
+        float max=Math.max(1F,player.getMaxHealth());
+        var health=body.getAttribute(Attributes.MAX_HEALTH);if(health!=null)health.setBaseValue(max);
+        body.setHealth(Math.min(max,Math.max(1F,player.getHealth())));
+        var attack=body.getAttribute(Attributes.ATTACK_DAMAGE);if(attack!=null)attack.setBaseValue(0);
+        body.setNoAi(true);body.setPersistenceRequired();
+        body.setCustomName(Component.literal(player.getName().getString()));body.setCustomNameVisible(true);
+        body.addTag("dalmaru.linger."+player.getUUID());body.addTag("dalmaru.mob.linger");body.addTag("dalmaru.run."+encounter.runId);
+        body.setPos(player.getX(),player.getY(),player.getZ());body.setYRot(player.getYRot());
+        if(!encounter.level.addFreshEntity(body))return;
+        lingerBodies.put(player.getUUID(),body.getUUID());
+    }
+    private void dropLinger(UUID playerId){
+        UUID entityId=lingerBodies.remove(playerId);if(entityId==null)return;
+        State state=playerRuns.get(playerId);if(state==null)return;
+        Encounter encounter=encounters.get(state.runId);if(encounter==null)return;
+        var entity=encounter.level.getEntity(entityId);if(entity!=null)entity.discard();
+    }
+    private void expireLinger(MinecraftServer server,long now){
+        for(UUID playerId:new ArrayList<>(lingerBodies.keySet())){
+            State state=playerRuns.get(playerId);
+            if(state!=null&&!state.connected&&!state.dead&&RunEncounterRules.lingering(state.disconnectedAt,now))continue;
+            dropLinger(playerId);
+        }
+    }
+    private List<Mob> lingerMobs(Encounter encounter){
+        List<Mob> result=new ArrayList<>();
+        for(var entry:lingerBodies.entrySet()){
+            State state=playerRuns.get(entry.getKey());
+            if(state==null||!state.runId.equals(encounter.runId))continue;
+            if(encounter.level.getEntity(entry.getValue()) instanceof Mob body&&body.isAlive())result.add(body);
+        }
+        return result;
+    }
+    private void hurtLinger(Encounter encounter,Mob attacker,float amount,double range,boolean magic){
+        double rangeSq=range*range;long now=System.currentTimeMillis();
+        for(var entry:new ArrayList<>(lingerBodies.entrySet())){
+            State state=playerRuns.get(entry.getKey());
+            if(state==null||!state.runId.equals(encounter.runId)||state.dead||state.connected||!RunEncounterRules.lingering(state.disconnectedAt,now))continue;
+            if(!(encounter.level.getEntity(entry.getValue()) instanceof Mob body)||!body.isAlive()||body.distanceToSqr(attacker)>rangeSq)continue;
+            lingerDamage.hit(entry.getKey(),body,attacker,amount,magic);
+        }
+    }
+    private static UUID lingerOwner(net.minecraft.world.entity.LivingEntity mob){
+        for(String tag:mob.entityTags())if(tag.startsWith("dalmaru.linger."))try{return UUID.fromString(tag.substring("dalmaru.linger.".length()));}catch(IllegalArgumentException error){return null;}
+        return null;
+    }
+    private DeathResult recordAbsentDeath(UUID playerId,net.minecraft.world.phys.Vec3 position){
+        State state=playerRuns.get(playerId);
+        if(state==null||state.dead)return new DeathResult(state==null?null:state.runId,false,false);
+        state.dead=true;state.deathTick=tickCount;state.deathPosition=position;
         Encounter encounter=encounters.get(state.runId);
-        if(encounter!=null&&playerRuns.values().stream().noneMatch(member->member.runId.equals(state.runId)&&member.connected)){encounter.pausedAt=System.currentTimeMillis();encounter.pausedTick=tickCount;}
+        if(encounter!=null){double relative=position.z-encounter.floor.getZ();state.deathZone=relative<27?0:relative<45?1:2;}
+        long now=System.currentTimeMillis();
+        boolean living=playerRuns.values().stream().anyMatch(member->member.runId.equals(state.runId)&&RunEncounterRules.countsAsSurvivor(member.connected,member.dead,member.disconnectedAt,now));
+        boolean defeated=encounter!=null&&!living&&(encounter.partySize>1||state.revivesRemaining==0);
+        if(defeated)encounter.failed=true;
+        return new DeathResult(state.runId,!defeated&&state.revivesRemaining>0,defeated);
     }
     public long pausedTicks(UUID runId){Encounter encounter=encounters.get(runId);return encounter==null||encounter.pausedAt==0?0:tickCount-encounter.pausedTick;}
     public java.util.List<UUID> participantIds(UUID runId){return playerRuns.entrySet().stream().filter(entry->entry.getValue().runId.equals(runId)).map(java.util.Map.Entry::getKey).toList();}
@@ -259,6 +334,8 @@ public final class RunRuntime {
     public ServerPlayer participant(MinecraftServer server,UUID runId){for(var entry:playerRuns.entrySet())if(entry.getValue().runId.equals(runId)){var player=server.getPlayerList().getPlayer(entry.getKey());if(player!=null)return player;}return null;}
     public void mobDied(net.minecraft.world.entity.LivingEntity mob){
         if(!mob.isDeadOrDying())return;
+        UUID owner=lingerOwner(mob);
+        if(owner!=null){lingerBodies.remove(owner);recordAbsentDeath(owner,mob.position());return;}
         for(Encounter encounter:encounters.values())if(mob.level()==encounter.level&&mob.entityTags().contains("dalmaru.run."+encounter.runId)&&encounter.mobs.remove(mob.getUUID())!=null)return;
     }
     public void loadedEntity(net.minecraft.world.entity.Entity entity) {
@@ -377,7 +454,8 @@ public final class RunRuntime {
             if(!bounds(encounter).deflate(1).contains(mob.position()))mob.teleportTo(encounter.floor.getX()+.5,encounter.floor.getY()+1,encounter.floor.getZ()+(encounter.group<2?10:encounter.group==2?35:52)+.5);
             var kind=entry.getValue();var definition=encounter.content.encounter().mob(kind.name());
             if(kind==BeaconTowerMobs.Kind.COMMANDER&&!encounter.summoned&&mob.getHealth()<=mob.getMaxHealth()*.5F){encounter.summoned=true;spawnMob(encounter,BeaconTowerMobs.Kind.SOLDIER,5);spawnMob(encounter,BeaconTowerMobs.Kind.SOLDIER,6);}
-            if(participants.isEmpty()||(definition.magic()&&mob.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)))continue;
+            if(participants.isEmpty()&&lingerMobs(encounter).isEmpty()||(definition.magic()&&mob.hasEffect(net.minecraft.world.effect.MobEffects.BLINDNESS)))continue;
+            if(!participants.isEmpty()){
             var target=participants.stream().min(java.util.Comparator.comparingDouble(p->p.distanceToSqr(mob))).orElseThrow();
             mob.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES,target.getEyePosition());
             double distance=target.distanceToSqr(mob);
@@ -390,6 +468,8 @@ public final class RunRuntime {
                 bossDamage.hit(target,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.damageScale(encounter.content,encounter.partySize)),definition.magic());
                 if(definition.magic())encounter.level.sendParticles(kind==BeaconTowerMobs.Kind.EMBER?ParticleTypes.FLAME:ParticleTypes.SOUL,target.getX(),target.getY()+1,target.getZ(),8,.2,.2,.2,.01);
             }
+            }
+            if(encounter.mobTicks%definition.interval()==0)hurtLinger(encounter,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.damageScale(encounter.content,encounter.partySize)),definition.range(),definition.magic());
         }
         if(!encounter.mobs.isEmpty())return;
         if(encounter.stage==Stage.GATEKEEPER&&encounter.bossId==null){
@@ -401,26 +481,31 @@ public final class RunRuntime {
     private void tickBoss(MinecraftServer server, Encounter encounter) {
         if (encounter.bossId == null || !(encounter.level.getEntity(encounter.bossId) instanceof Mob boss) || !boss.isAlive()) return;
         List<ServerPlayer> players = players(server, encounter.runId, encounter.level);
-        if (players.isEmpty()) return;
+        if (players.isEmpty() && lingerMobs(encounter).isEmpty()) return;
         encounter.bossTicks++;
-        ServerPlayer target = players.stream().min(java.util.Comparator.comparingDouble(player -> player.distanceToSqr(boss))).orElseThrow();
+        ServerPlayer target = players.isEmpty()?null:players.stream().min(java.util.Comparator.comparingDouble(player -> player.distanceToSqr(boss))).orElseThrow();
         if (encounter.stage == Stage.GATEKEEPER) {
             int slamEvery = boss.getHealth() <= boss.getMaxHealth() * .5F ? 50 : 100;
             if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, attack(encounter, 150), false, ParticleTypes.CRIT);
-            else if (encounter.bossTicks % 60 == 0 && target.distanceToSqr(boss) <= 16) {
-                bossDamage.hit(target, boss, attack(encounter, 130), false);
-                target.knockback(.4, boss.getX() - target.getX(), boss.getZ() - target.getZ());
+            else if (encounter.bossTicks % 60 == 0) {
+                if (target!=null && target.distanceToSqr(boss) <= 16) {
+                    bossDamage.hit(target, boss, attack(encounter, 130), false);
+                    target.knockback(.4, boss.getX() - target.getX(), boss.getZ() - target.getZ());
+                }
+                hurtLinger(encounter, boss, attack(encounter, 130), 4, false);
             }
-            else if (encounter.bossTicks % 40 == 0 && target.distanceToSqr(boss) <= 16) {
-                bossDamage.hit(target, boss, attack(encounter, 110), false);
+            else if (encounter.bossTicks % 40 == 0) {
+                if (target!=null && target.distanceToSqr(boss) <= 16) bossDamage.hit(target, boss, attack(encounter, 110), false);
+                hurtLinger(encounter, boss, attack(encounter, 110), 4, false);
             }
         } else if (encounter.stage == Stage.BEACON) {
             float ratio = boss.getHealth() / boss.getMaxHealth();
             int every = ratio > .7F ? 70 : ratio > .35F ? 50 : 35;
             if (encounter.bossTicks % every != 0) return;
             if (ratio > .7F) {
-                bossDamage.hit(target, boss, attack(encounter, 130), false);
-                encounter.level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1, target.getZ(), 24, .4, .6, .4, .03);
+                if(target!=null)bossDamage.hit(target, boss, attack(encounter, 130), false);
+                hurtLinger(encounter, boss, attack(encounter, 130), 4, false);
+                if(target!=null)encounter.level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1, target.getZ(), 24, .4, .6, .4, .03);
             } else if (ratio > .35F) damage(players, boss, 7, attack(encounter, 120), true, ParticleTypes.SOUL);
             else damage(players, boss, 6, attack(encounter, 180), true, ParticleTypes.SOUL_FIRE_FLAME);
         }
@@ -430,6 +515,7 @@ public final class RunRuntime {
         ServerLevel level = (ServerLevel) boss.level();
         level.sendParticles(particle, boss.getX(), boss.getY() + 1, boss.getZ(), 32, 1.2, .8, 1.2, .04);
         for (ServerPlayer player : players) if (player.distanceToSqr(boss) <= range * range) bossDamage.hit(player, boss, amount, magic);
+        for(Encounter encounter:encounters.values())if(boss.getUUID().equals(encounter.bossId)){hurtLinger(encounter,boss,amount,range,magic);break;}
     }
 
     private List<ServerPlayer> players(MinecraftServer server, UUID runId, ServerLevel level) {

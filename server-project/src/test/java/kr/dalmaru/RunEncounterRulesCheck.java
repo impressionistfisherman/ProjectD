@@ -19,6 +19,9 @@ public final class RunEncounterRulesCheck {
             {"2025-12-31T21:00:00Z","2026-01-01"}
         };
         for(String[] week:weeks)if(!RunEncounterRules.weekId(java.time.Instant.parse(week[0])).equals(java.time.LocalDate.parse(week[1])))throw new AssertionError("J15 KST weekly cutoff: "+week[0]);
+        long now=1_000_000L;
+        if(RunEncounterRules.lingering(0,now)||!RunEncounterRules.lingering(now,now)||!RunEncounterRules.lingering(now-9_999L,now)||RunEncounterRules.lingering(now-10_000L,now))throw new AssertionError("J16 linger window");
+        if(!RunEncounterRules.countsAsSurvivor(true,false,0,now)||RunEncounterRules.countsAsSurvivor(true,true,0,now)||!RunEncounterRules.countsAsSurvivor(false,false,now,now)||RunEncounterRules.countsAsSurvivor(false,false,now-10_000L,now)||RunEncounterRules.countsAsSurvivor(false,true,now,now))throw new AssertionError("J16 survivor count");
         System.out.println("Run encounter rules and Thursday 06:00 KST boundary verified.");
     }
 }
