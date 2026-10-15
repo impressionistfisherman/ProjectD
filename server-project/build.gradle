@@ -262,6 +262,12 @@ tasks.register('verifySelectionBoundary', JavaExec) {
     if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
 }
 
+tasks.register('verifyOperatorLedger', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.OperatorLedgerCheck'
+}
+
 tasks.named('test') {
 	failOnNoDiscoveredTests = false
 }
