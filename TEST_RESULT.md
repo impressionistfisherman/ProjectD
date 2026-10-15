@@ -320,3 +320,6 @@
 ## MDF-P1 M12b 수정 (2026-10-15)
 - PASS: --no-daemon verifyOperatorLedger compileJava (12초, compileClientJava 포함). oscar_p1_fixture에서 기존 operator_adjustments만 지우고 V027을 다시 적용했습니다. 다른 계정 캐릭터 지급, 운영자 계정과 대상 계정 분리, 선택하지 않은 대상, 같은 요청 재생, 초과 회수 거부, 대상 계정 잠금 대기 후 지급을 확인했습니다.
 - 접속 중인 대상에게 최신 프로필을 보내는 것, 인게임 명령, 권한 없는 플레이어, 라이브 서버는 실행하지 않았습니다.
+
+## MDF-P1 M12c (2026-10-15)
+- PASS: --no-daemon verifyOperatorLedger compileJava (12초, compileClientJava 포함). 명령 등록이 기존 sendCharacterProfile을 호출하는지만 확인했습니다. 접속 중인 플레이어에게 패킷이 도착하는 것은 실행하지 않았습니다.

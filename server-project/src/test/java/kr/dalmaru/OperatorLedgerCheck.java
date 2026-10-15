@@ -17,6 +17,10 @@ public final class OperatorLedgerCheck {
 
 	public static void main(String[] args) throws Exception {
 		if (!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p1_fixture.");
+		String network = Files.readString(Path.of("src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
+		int hook = network.indexOf("OperatorAdjustCommand.command");
+		int next = network.indexOf("dalmaru-town", hook);
+		if (hook < 0 || next < 0 || !network.substring(hook, next).contains("sendCharacterProfile")) throw new IllegalStateException("Online target is not refreshed through the existing profile send.");
 		var accounts = new AccountRepository();
 		var characters = new CharacterRepository();
 		var ledger = new OperatorLedger();

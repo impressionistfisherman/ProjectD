@@ -18,7 +18,7 @@ import static net.minecraft.commands.Commands.literal;
 public final class OperatorAdjustCommand {
 	private OperatorAdjustCommand() { }
 
-	public static LiteralArgumentBuilder<CommandSourceStack> command(Function<ServerPlayer, AccountSession> sessionOf) {
+	public static LiteralArgumentBuilder<CommandSourceStack> command(Function<ServerPlayer, AccountSession> sessionOf, java.util.function.BiConsumer<net.minecraft.server.MinecraftServer, kr.dalmaru.account.CharacterProfile> refreshOnline) {
 		return literal("adjust")
 			.requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
 			.then(argument("character", StringArgumentType.word())
@@ -40,7 +40,10 @@ public final class OperatorAdjustCommand {
 									String reason = StringArgumentType.getString(context, "reason");
 									CompletableFuture.runAsync(() -> {
 										String message = session == null ? "먼저 달마루 계정에 접속하세요." : new OperatorLedger().submit(session.accountId(), target, kind, "-".equals(item) ? null : item, delta, request, reason);
-										server.execute(() -> player.sendSystemMessage(Component.literal(message)));
+										kr.dalmaru.account.CharacterProfile profile = null;
+										if (message.startsWith("처리했습니다.") || message.startsWith("이미 처리된 요청입니다.")) try { profile = new kr.dalmaru.account.CharacterRepository().profile(target); } catch (Exception error) { profile = null; }
+										var latest = profile;
+										server.execute(() -> { player.sendSystemMessage(Component.literal(message)); if (latest != null) refreshOnline.accept(server, latest); });
 									});
 									return 1;
 								})))))));
