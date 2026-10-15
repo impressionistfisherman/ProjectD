@@ -199,6 +199,12 @@ public final class CombatRuntime {
 		int damage = CombatCalculator.damage((double) amount, 1, 1, false, defense(player, magic));
 		hurtRpg(player, player.damageSources().mobAttack(boss), damage);
 	}
+	public void hurtLinger(UUID playerId, LivingEntity body, LivingEntity source, float amount, boolean magic) {
+		RuntimeState state = states.get(playerId);
+		int defense = state == null ? 0 : state.gear.defense(magic);
+		int damage = CombatCalculator.damage((double) amount, 1, 1, false, defense);
+		hurtRpg(body, body.damageSources().mobAttack(source), damage);
+	}
 	public static boolean explicitRpgDamage(LivingEntity target) { return RPG_TARGET.get() == target; }
 	public static boolean hurtRpg(LivingEntity target, DamageSource source, double amount) {
 		if (amount <= 0) return false;

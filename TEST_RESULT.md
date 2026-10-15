@@ -301,3 +301,10 @@
 ## MDF-P1 S09h2 (2026-10-15)
 - PASS: --no-daemon verifyEquipmentMoveJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (14초). 장비 이동 DB regression, 실제 이동 receipt handler의 저장결과/거부 안내·최신목록 조회·캐시 덮어쓰기 금지, 공통 UUID/context/선택/동일봉투 retry 경계 검사.
 - 최종 편집 가능 replay 전투 갱신 조건 수정 뒤 compileJava compileClientJava PASS(9초). 실제 패킷 왕복·월드 반영 실패주입·인게임 이동은 미실행. 독립 QA 요청 대상입니다.
+## MDF-P1 M08 (2026-10-15)
+- PASS: --no-daemon verifyRunEncounterRules verifyPremergeRuntime compileJava (16초, compileClientJava 포함). 잔류 0/9999ms 포함·10000ms 제외, 사망자는 생존자 아님, 잔류 중 보스 진행·창 종료 후 정지, 잔류 중 파티 전멸 보류·창 종료 후 전멸.
+- 실서버 잔류 개체 피격·오프라인 전멸의 DB 실패 기록·운영 DB 즉시 PAUSED는 미실행. 독립 QA 요청 대상입니다.
+
+## MDF-P1 M08 통합 (2026-10-15)
+- PASS: --no-daemon verifyRunEncounterRules verifyPremergeRuntime verifyLoadoutJournal verifyEquipmentMoveJournal compileJava compileClientJava 1회 실행 (12초). M08 규칙/생산 메서드 회귀와 O28 장착·장비 이동 fixture 회귀 확인.
+- 운영·실제 접속 종료·인게임 조작 미실행. 잔류 사망 뒤 DB 런 FAILED 전이는 M11 추가 구현 대상으로 남습니다.

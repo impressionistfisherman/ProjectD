@@ -7,8 +7,11 @@ import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 
 public final class RunEncounterRules {
+    public static final long DISCONNECT_LINGER_MS=10_000L;
     public static boolean clickRevive(long elapsedTicks){return elapsedTicks>=100;}
     public static boolean autoRevive(long elapsedTicks){return elapsedTicks>=300;}
+    public static boolean lingering(long disconnectedAt,long now){return disconnectedAt!=0&&now-disconnectedAt<DISCONNECT_LINGER_MS;}
+    public static boolean countsAsSurvivor(boolean connected,boolean dead,long disconnectedAt,long now){return !dead&&(connected||lingering(disconnectedAt,now));}
 
     private RunEncounterRules() { }
     public static LocalDate weekId(Instant instant) {

@@ -71,7 +71,7 @@ public final class DalmaruNetworking {
 	private static final QuestRepository QUESTS = new QuestRepository();
 	private static final EquipmentRepository EQUIPMENT = new EquipmentRepository();
 	private static final RunRepository RUNS = new RunRepository();
-	private static final RunRuntime RUN_RUNTIME = new RunRuntime(COMBAT::bossDamage,COMBAT::remove);
+	private static final RunRuntime RUN_RUNTIME = new RunRuntime(COMBAT::bossDamage,COMBAT::remove,COMBAT::hurtLinger);
 	private static final PartyRuntime PARTIES = new PartyRuntime();
 	private static final SkillRepository SKILLS = new SkillRepository();
 	private static long currentTick;
