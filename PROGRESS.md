@@ -388,3 +388,14 @@
 - 완료조건: 기존경험치/기술 검사 뒤 verifyTrialGrowth·관련client검사 및 compileClientJava. 별도 oscar_p2_fixture15432/schema27만 사용, 플레이 fixture/운영/PID14160 미접근. 새마이그레이션 없음.
 - 구현 완료: 20 상한에서도 XP보관, 11~20 기술점·늦은전직누적/동시처리, 명시적 정식60 재계산(실제 게임 호출 없음), 프로필 상한 안내. PILOT_CONTENT_SPEC의 과거 초과XP 미지급 문구를 추가 승인 정책으로 갱신했습니다.
 - PASS: verifyCharacterExperience/verifyCharacterSkill(최초 실행), verifyTrialGrowth/verifyClientScreenBounds 및 compileClientJava(재검증12초). 최초 실행19초는 새검사 정리 FK 순서만 실패했으며 프로필 먼저 삭제하도록 수정 후 해당 own fixture만 정리했습니다. P2 fixture accounts0/requests0/schema27. 독립검토 요청, 인게임·정식전환 실제 적용 미실행.
+
+## P2-S05 (2026-10-15)
+- oscar/mdf-p2-s05 / 같은 P2 worktree / basebee9a9c. 전직의 레벨10·서버완료플래그3개(직업별마을/시험, 공통이야기) 조건 및 안내만. 보상지급·create/S01 미수정, 획득writer는S06/S10후속. version pilot-2, 완료상태COMPLETED/REWARDED, 이전좀비퀘스트 단독증명 제외.
+- 추가지시564cfc에 따라 P2 DB로 전체p1_regression 실제실행. 공통test fixture whitelist와 명시DB전달로 P1 고정연결 제거. P1 branch/플레이DB/운영환경 미수정.
+
+## P2-S05 전체 회귀 결과 (2026-10-15)
+- 전직 레벨10 + 직업별 마을방문/시험 + 공통 이야기 완료를 서버 pilot-2 증명3개로 확인. COMPLETED/REWARDED만 허용, 기존 좀비의뢰 단독·다른직업/캐릭터/버전·ACTIVE·client완료주장 거부. 기존 보상 지급식/create/그록 S01·S02 영역은 수정하지 않았습니다.
+- proof 계약은 DATA_CONTRACTS§9 및 CharacterRepository.professionGateFlags/PROFESSION_GATE_VERSION. 실제 획득 writer는 후속S06/S10이며 현재 완료 증명은 시험 fixture에서만 생성합니다. UI·typed/개발명령에 전직조건 안내 추가, 프로토콜 변경 없음.
+- 564cfc 추가지시: 전체 p1_regression.ps1을 oscar_p2_fixture로 실제1회 실행, exit0/77.59초. S03/새 전직/기존전직·기술 검사 포함25gates+임시서버smoke1개 모두PASS. 내부 assemble PASS6초. 성공검사 재실행 없음.
+- P1고정DB가 있던16개 검사와4개 연결부를 명시 fixture whitelist로 수정, regression/smoke는 DB를 덮어쓰지 않고 전달합니다. P1branch의 도구는 변경하지 않았습니다.
+- 사후 P2 fixture accounts0/requests0/schema28(description: character supply grants). 이 작업은 V028이나 새 마이그레이션을 적용하지 않았습니다. P2초기화는V001~27이었고 스키마28은 다른작업의 확장으로 관측됩니다. 플레이DB/PID14160/운영환경/배포/push 미접근·미변경. 인게임·실제마을/이야기연동 미실행. 독립리뷰 요청 대상입니다.

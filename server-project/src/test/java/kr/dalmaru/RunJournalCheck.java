@@ -10,7 +10,7 @@ import kr.dalmaru.run.RunRepository;
 
 public final class RunJournalCheck {
     public static void main(String[] args) throws Exception {
-        if (!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside oscar_p1_fixture.");
+        FixtureDatabase.databaseName();
         UUID account = UUID.randomUUID();
         try {
             var session = new AccountRepository().openSession(account);
@@ -40,6 +40,6 @@ public final class RunJournalCheck {
         }
     }
     private static java.sql.Connection connection() throws Exception {
-        return DriverManager.getConnection("jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/oscar_p1_fixture", System.getenv().getOrDefault("DALMARU_DB_USER", "postgres"), System.getenv("DALMARU_DB_PASSWORD"));
+        return DriverManager.getConnection("jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/"+FixtureDatabase.databaseName(), System.getenv().getOrDefault("DALMARU_DB_USER", "postgres"), System.getenv("DALMARU_DB_PASSWORD"));
     }
 }

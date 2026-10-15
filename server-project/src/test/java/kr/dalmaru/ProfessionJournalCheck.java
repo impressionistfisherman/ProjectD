@@ -10,7 +10,7 @@ import kr.dalmaru.request.*;
 public final class ProfessionJournalCheck {
     private interface Action{void run()throws Exception;}
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        FixtureDatabase.databaseName();
         UUID account=UUID.randomUUID();String trap="oscar_profession_fail_"+account.toString().replace("-","");
         try {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();long generation=session.connectionGeneration();
@@ -20,6 +20,7 @@ public final class ProfessionJournalCheck {
             sql("UPDATE dalmaru.character_profiles SET level=10 WHERE character_id=?",character);
             reject(()->characters.selectProfessionJournaled(account,generation,3,character,CharacterProfession.WARRIOR,first));
             sql("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state,progress_count,claimed_at) VALUES(?,'pilot1.zombie_hunt','pilot-1','REWARDED',3,CURRENT_TIMESTAMP)",character);
+            try(var c=EnhancementReplayCheck.connection()){ProfessionGateFixture.complete(c,character,CharacterProfession.WARRIOR);}
             try(var c=EnhancementReplayCheck.connection();var q=c.createStatement()) {
                 q.execute("CREATE FUNCTION dalmaru."+trap+"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.character_id='"+character+"'::uuid AND NEW.unspent_skill_points>OLD.unspent_skill_points THEN RAISE EXCEPTION 'fixture profession rollback'; END IF; RETURN NEW; END $$");
                 q.execute("CREATE TRIGGER "+trap+" BEFORE UPDATE ON dalmaru.character_profiles FOR EACH ROW EXECUTE FUNCTION dalmaru."+trap+"()");

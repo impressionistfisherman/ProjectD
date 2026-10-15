@@ -595,7 +595,7 @@ public final class DalmaruNetworking {
             }
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
-            if(envelope==null)sendCharacterProfession(context,correlation,false,"전직 조건을 확인하세요.",null);
+            if(envelope==null)sendCharacterProfession(context,correlation,false,"10레벨·직업 마을 방문·전직 시험·이야기 완료를 확인하세요.",null);
             else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Profession request failed for {}",session.accountId(),error);
@@ -1256,7 +1256,7 @@ public final class DalmaruNetworking {
 		long requestId = System.nanoTime() & Long.MAX_VALUE;
 		CompletableFuture.supplyAsync(() -> { try { return CHARACTERS.selectProfessionJournaled(session.accountId(), session.connectionGeneration(), requestId, session.activeCharacterId(), profession,null); } catch (Exception exception) { throw new IllegalStateException(exception); } })
 			.thenAccept(saved -> server.execute(() -> {var current=CONNECTIONS.get(player.getUUID());if(current==null||current.accountSession!=session)return;sendCharacterProfile(player,saved.profile());player.sendSystemMessage(Component.literal(saved.profession().koreanName()+" 전직을 완료했습니다. 주력 능력치: "+saved.profession().primaryStat()));}))
-			.exceptionally(error -> { server.execute(() -> player.sendSystemMessage(Component.literal("전직 조건을 충족하지 못했습니다. 레벨 10과 전직 의뢰 완료가 필요합니다."))); return null; });
+			.exceptionally(error -> { server.execute(() -> player.sendSystemMessage(Component.literal("전직 조건을 충족하지 못했습니다. 10레벨·직업 마을 방문·전직 시험·이야기 완료가 필요합니다."))); return null; });
 	}
 
 	private static void sendCharacterStatInvestment(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {

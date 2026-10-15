@@ -13,6 +13,11 @@ import java.util.regex.Pattern;
 
 public final class CharacterRepository {
     public static final int TRIAL_LEVEL_CAP=20;
+    public static final String PROFESSION_GATE_VERSION="pilot-2";
+    public static List<String> professionGateFlags(CharacterProfession profession) {
+        String prefix="profession."+profession.name().toLowerCase(java.util.Locale.ROOT);
+        return List.of(prefix+".village_visit",prefix+".trial","story.four_paths");
+    }
 	static {
 		try {
 			Class.forName("org.postgresql.Driver");
@@ -469,7 +474,12 @@ public final class CharacterRepository {
                 var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
                 if(stored.result()!=null){var selected=CharacterProfession.valueOf(stored.result().get("profession").getAsString());var current=profileForUpdate(connection,characterId);connection.commit();return new ProfessionResult(selected,current,true,stored.receipt());}
 				try (var profile = connection.prepareStatement("SELECT level FROM dalmaru.character_profiles WHERE character_id = ? FOR UPDATE")) { profile.setObject(1, characterId); try (var result = profile.executeQuery()) { if (!result.next() || result.getInt(1) < 10) throw new IllegalArgumentException("Level 10 is required for a profession."); } }
-				try (var quest = connection.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id = ? AND quest_id = 'pilot1.zombie_hunt' AND content_version = 'pilot-1' AND state = 'REWARDED'")) { quest.setObject(1, characterId); try (var result = quest.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Profession quest is not complete."); } }
+                var requiredFlags=professionGateFlags(profession);
+                var labels=List.of("직업 마을 방문","전직 시험","이야기");
+                for(int i=0;i<requiredFlags.size();i++)try(var flag=connection.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? AND state IN ('COMPLETED','REWARDED')")) {
+                    flag.setObject(1,characterId);flag.setString(2,requiredFlags.get(i));flag.setString(3,PROFESSION_GATE_VERSION);
+                    try(var row=flag.executeQuery()){if(!row.next())throw new IllegalArgumentException(labels.get(i)+" 완료가 필요합니다.");}
+                }
 				try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_professions (character_id, base_job) VALUES (?, ?) ON CONFLICT (character_id) DO NOTHING")) { insert.setObject(1, characterId); insert.setString(2, profession.name()); if (insert.executeUpdate() == 1) try (var reward = connection.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_skill_points = unspent_skill_points + 6 + GREATEST(LEAST(level,60)-10,0) WHERE character_id = ?")) { reward.setObject(1, characterId); reward.executeUpdate(); } }
 				try (var selected = connection.prepareStatement("SELECT base_job FROM dalmaru.character_professions WHERE character_id = ?")) { selected.setObject(1, characterId); try (var result = selected.executeQuery()) { result.next(); CharacterProfession saved = CharacterProfession.valueOf(result.getString(1)); if (saved != profession) throw new IllegalArgumentException("Profession was already selected."); var outcome=new JsonObject();outcome.addProperty("profession",saved.name());var receipt=RequestJournal.confirm(connection,stored,outcome);var current=profileForUpdate(connection,characterId);connection.commit();return new ProfessionResult(saved,current,false,receipt); } }
 			} catch (Exception exception) { connection.rollback(); throw exception; }

@@ -20,6 +20,7 @@ public final class CharacterSkillCheck {
 			characters.selectActive(ACCOUNT_ID, session.connectionGeneration(), 1001, character.characterId());
 			characters.grantExperience(character.characterId(), 2160);
 			completeProfessionQuest(character.characterId());
+            try(var connection=connection()){ProfessionGateFixture.complete(connection,character.characterId(),CharacterProfession.WARRIOR);}
 			characters.selectProfession(ACCOUNT_ID, session.connectionGeneration(), 1002, character.characterId(), CharacterProfession.WARRIOR);
 			if (skills.learn(ACCOUNT_ID, session.connectionGeneration(), 1003, character.characterId(), CharacterProfession.WARRIOR, "skill.warrior.sweep") != 1) throw new IllegalStateException("Initial skill rank was not saved.");
 			if (skills.learn(ACCOUNT_ID, session.connectionGeneration(), 1003, character.characterId(), CharacterProfession.WARRIOR, "skill.warrior.sweep") != 1) throw new IllegalStateException("Repeated skill request was not replayed.");

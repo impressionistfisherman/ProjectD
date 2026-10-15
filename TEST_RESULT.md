@@ -453,3 +453,39 @@
 | compileJava/compileClientJava | PASS | 코드 컴파일 성공, 재검증 시 up-to-date |
 
 - 실제 게임 화면·플레이서버·운영DB/PID14160·정식전환 배포는 미실행. 정식 재계산 함수는 서버 호출 경로에 연결하지 않았습니다.
+
+## P2-S05 전체 회귀 결과 (2026-10-15)
+- 전직 레벨10 + 직업별 마을방문/시험 + 공통 이야기 완료를 서버 pilot-2 증명3개로 확인. COMPLETED/REWARDED만 허용, 기존 좀비의뢰 단독·다른직업/캐릭터/버전·ACTIVE·client완료주장 거부. 기존 보상 지급식/create/그록 S01·S02 영역은 수정하지 않았습니다.
+- proof 계약은 DATA_CONTRACTS§9 및 CharacterRepository.professionGateFlags/PROFESSION_GATE_VERSION. 실제 획득 writer는 후속S06/S10이며 현재 완료 증명은 시험 fixture에서만 생성합니다. UI·typed/개발명령에 전직조건 안내 추가, 프로토콜 변경 없음.
+- 564cfc 추가지시: 전체 p1_regression.ps1을 oscar_p2_fixture로 실제1회 실행, exit0/77.59초. S03/새 전직/기존전직·기술 검사 포함25gates+임시서버smoke1개 모두PASS. 내부 assemble PASS6초. 성공검사 재실행 없음.
+- P1고정DB가 있던16개 검사와4개 연결부를 명시 fixture whitelist로 수정, regression/smoke는 DB를 덮어쓰지 않고 전달합니다. P1branch의 도구는 변경하지 않았습니다.
+- 사후 P2 fixture accounts0/requests0/schema28(description: character supply grants). 이 작업은 V028이나 새 마이그레이션을 적용하지 않았습니다. P2초기화는V001~27이었고 스키마28은 다른작업의 확장으로 관측됩니다. 플레이DB/PID14160/운영환경/배포/push 미접근·미변경. 인게임·실제마을/이야기연동 미실행. 독립리뷰 요청 대상입니다.
+
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | PASS |
+| `verifyProfessionGate` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |

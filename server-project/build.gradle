@@ -367,3 +367,5 @@ tasks.register('verifyQuestKillJournal', JavaExec) { group = 'verification'; cla
 tasks.register('verifyProtocolVersion', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProtocolVersionCheck' }
 
 tasks.register('verifyTrialGrowth', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.TrialGrowthCheck' }
+
+tasks.register('verifyProfessionGate', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ProfessionGateCheck' }

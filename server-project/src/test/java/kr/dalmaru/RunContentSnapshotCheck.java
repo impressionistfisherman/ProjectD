@@ -11,7 +11,7 @@ import kr.dalmaru.run.*;
 /** Database-only reservations; no game server or world entry. */
 public final class RunContentSnapshotCheck {
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        FixtureDatabase.databaseName();
         UUID account=UUID.randomUUID();var ownedRuns=new ArrayList<UUID>();
         try {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();

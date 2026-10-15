@@ -19,6 +19,7 @@ public final class CharacterProfessionCheck {
 			characters.selectActive(ACCOUNT_ID, session.connectionGeneration(), 901, character.characterId());
 			characters.grantExperience(character.characterId(), 2160);
 			completeProfessionQuest(character.characterId());
+            try(var connection=connection()){ProfessionGateFixture.complete(connection,character.characterId(),CharacterProfession.WARRIOR);}
 			characters.selectProfession(ACCOUNT_ID, session.connectionGeneration(), 902, character.characterId(), CharacterProfession.WARRIOR);
 			if (characters.profile(character.characterId()).unspentSkillPoints() != 6) throw new IllegalStateException("Initial profession reward was not saved.");
 			characters.selectProfession(ACCOUNT_ID, session.connectionGeneration(), 902, character.characterId(), CharacterProfession.WARRIOR);

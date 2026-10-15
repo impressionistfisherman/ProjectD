@@ -7,7 +7,7 @@ import kr.dalmaru.equipment.*;
 
 public final class EnhancementReplayCheck {
     public static void main(String[] args)throws Exception{
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        FixtureDatabase.databaseName();
         UUID account=UUID.randomUUID();
         try{
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();
@@ -43,7 +43,7 @@ public final class EnhancementReplayCheck {
             }catch(SQLException error){c.rollback();throw error;}
         }
     }
-    static Connection connection()throws SQLException{return DriverManager.getConnection("jdbc:postgresql://"+System.getenv().getOrDefault("DALMARU_DB_HOST","localhost")+":"+System.getenv().getOrDefault("DALMARU_DB_PORT","15432")+"/oscar_p1_fixture",System.getenv().getOrDefault("DALMARU_DB_USER","postgres"),System.getenv("DALMARU_DB_PASSWORD"));}
+    static Connection connection()throws SQLException{return DriverManager.getConnection("jdbc:postgresql://"+System.getenv().getOrDefault("DALMARU_DB_HOST","localhost")+":"+System.getenv().getOrDefault("DALMARU_DB_PORT","15432")+"/"+FixtureDatabase.databaseName(),System.getenv().getOrDefault("DALMARU_DB_USER","postgres"),System.getenv("DALMARU_DB_PASSWORD"));}
     private static void sql(String sql,UUID id)throws SQLException{try(var c=connection();var s=c.prepareStatement(sql)){s.setObject(1,id);s.executeUpdate();}}
     private static long value(String sql,UUID id)throws SQLException{try(var c=connection();var s=c.prepareStatement(sql)){s.setObject(1,id);try(var r=s.executeQuery()){if(!r.next())throw new AssertionError("Missing fixture row");return r.getLong(1);}}}
 }

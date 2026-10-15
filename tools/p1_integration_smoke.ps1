@@ -15,6 +15,7 @@ function Read-Shared([string]$path) {
 }
 try {
     if ([string]::IsNullOrWhiteSpace($env:DALMARU_DB_PASSWORD)) { Fail 'database password is not configured' }
+    if ($env:DALMARU_DB_NAME -notin @('oscar_p1_fixture','oscar_p2_fixture')) { Fail 'explicit P1 or P2 fixture required' }
     $root = Split-Path -Parent $PSScriptRoot
     $project = Join-Path $root 'server-project'
     $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
@@ -39,7 +40,7 @@ try {
     Set-Content -Encoding ascii -Path (Join-Path $temp 'server.properties') -Value "server-port=$port"
     $out = Join-Path $temp 'stdout.log'
     $err = Join-Path $temp 'stderr.log'
-    $env:DALMARU_DB_NAME = 'oscar_p1_fixture'
+
     $proc = Start-Process -FilePath 'java' -ArgumentList @('-Xmx1G','-Dmixin.debug.verbose=true','-jar','server.jar','nogui') -WorkingDirectory $temp -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -WindowStyle Hidden
     $serverPid = $proc.Id
     if ($serverPid -eq 14160) { Fail 'refusing to track the live server process' }

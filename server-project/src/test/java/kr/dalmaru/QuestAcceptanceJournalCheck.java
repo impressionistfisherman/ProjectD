@@ -11,7 +11,7 @@ import kr.dalmaru.request.*;
 public final class QuestAcceptanceJournalCheck {
     private interface Action{void run()throws Exception;}
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        FixtureDatabase.databaseName();
         UUID account=UUID.randomUUID();String trap="oscar_quest_accept_fail_"+account.toString().replace("-","");
         try {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();long generation=session.connectionGeneration();

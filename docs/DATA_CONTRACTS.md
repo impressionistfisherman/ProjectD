@@ -185,3 +185,15 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 - 경매: 동시 입찰, 연장 상한, 단독 자격자, 접속 종료 낙찰, 장애 뒤 재정산.
 
 구현 시 각 시험은 [요구사항 정의서](REQUIREMENTS.md)의 ID와 연결해 `TEST_RESULT.md`에 결과 또는 미실행 사유를 남긴다.
+
+## 9. P2 전직 완료 증명 (S05)
+
+전직은 레벨 10과 아래 세 증명을 모두 요구한다. `character_quest_progress`의 해당 캐릭터 행에서 `content_version='pilot-2'`, `state`가 `COMPLETED` 또는 `REWARDED`여야 한다. 다른 버전·캐릭터·직업의 증명이나 `ACTIVE`/`AVAILABLE` 행은 사용할 수 없다. 이전 `pilot1.zombie_hunt` 완료만으로는 전직할 수 없다.
+
+| 증명 | quest_id |
+|---|---|
+| 선택 직업 마을 방문 | `profession.<warrior/archer/mage/rogue>.village_visit` |
+| 선택 직업 시험 | `profession.<warrior/archer/mage/rogue>.trial` |
+| 네 갈래의 길 이야기 완료 | `story.four_paths` |
+
+키와 버전은 `CharacterRepository.professionGateFlags()` 및 `PROFESSION_GATE_VERSION`으로 공유한다. S06 이야기·S10 마을 연동 전에는 시험 데이터에서만 완료 증명을 만든다. 클라이언트 요청에 완료 플래그를 추가하거나 전직 요청 자체로 증명을 생성하지 않는다. 이 조건 변경은 기존 보상 지급과 분리하며, 이미 확정한 동일 UUID 요청은 원래 결과를 재생한다.

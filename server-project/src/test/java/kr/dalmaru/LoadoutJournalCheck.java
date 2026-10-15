@@ -12,7 +12,7 @@ import kr.dalmaru.run.*;
 public final class LoadoutJournalCheck {
     private interface Action{void run()throws Exception;}
     public static void main(String[] args)throws Exception {
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        FixtureDatabase.databaseName();
         UUID account=UUID.randomUUID();String trap="oscar_loadout_fail_"+account.toString().replace("-","");var runs=new ArrayList<UUID>();
         try {
             var session=new AccountRepository().openSession(account);var characters=new CharacterRepository();long generation=session.connectionGeneration();

@@ -10,7 +10,7 @@ import kr.dalmaru.request.*;
 
 public final class RequestJournalCheck {
     public static void main(String[] args)throws Exception{
-        if(!"oscar_p1_fixture".equals(System.getenv("DALMARU_DB_NAME")))throw new IllegalStateException("Dedicated P1 fixture required");
+        FixtureDatabase.databaseName();
         UUID account=UUID.randomUUID();
         try{
             var accounts=new AccountRepository();var session=accounts.openSession(account);var characters=new CharacterRepository();
