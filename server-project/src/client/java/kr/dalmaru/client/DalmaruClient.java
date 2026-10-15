@@ -94,6 +94,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> {ClientProfileState.acceptSkill(payload);requestSkillRanks();requestLoadout();});
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksResponse.TYPE,
 			(payload, context) -> ClientSkillState.accept(payload));
+        ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RefinementStateResponse.TYPE,(payload,context)->{var profile=ClientProfileState.current();if(profile!=null&&profile.characterId().equals(payload.characterId()))ClientEquipmentState.acceptRefinement(payload);});
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListResponse.TYPE,
 			(payload, context) -> ClientEquipmentState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceResponse.TYPE,
@@ -229,6 +230,22 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         var request=ClientRequestState.begin(correlation,"move_equipment",body);if(request==null)return;
         ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
     }
+    public static void requestRefinement(java.util.UUID equipment){
+        if(ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(equipment)))return;
+        long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("equipmentId",equipment.toString());var request=ClientRequestState.begin(correlation,"refine_item",body);if(request==null)return;
+        ClientEquipmentState.queriedRefinement(correlation,equipment);ClientPlayNetworking.send(request);
+    }
+    private static void requestRefinementState(java.util.UUID equipment){long correlation=ClientEquipmentState.nextRequestId();ClientEquipmentState.queriedRefinement(correlation,equipment);ClientPlayNetworking.send(new DalmaruPayloads.RefinementStateRequest(correlation,equipment));}
+    private static void acceptRefinementOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();var equipment=java.util.UUID.fromString(expected.get("equipmentId").getAsString());String message="재련 조건과 보유 동전을 확인하세요.";
+        if(!"rejected".equals(receipt.state()))try{
+            var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
+            if(!original.has("equipmentId")||!original.get("equipmentId").isJsonPrimitive()||!original.getAsJsonPrimitive("equipmentId").isString()||!original.get("equipmentId").getAsString().equals(equipment.toString())||!original.has("grade")||!original.get("grade").isJsonPrimitive()||!original.getAsJsonPrimitive("grade").isNumber()||!original.has("failures")||!original.get("failures").isJsonPrimitive()||!original.getAsJsonPrimitive("failures").isNumber()||!original.has("success")||!original.get("success").isJsonPrimitive()||!original.getAsJsonPrimitive("success").isBoolean())throw new IllegalStateException("Invalid refinement receipt");
+            int grade=original.get("grade").getAsBigDecimal().intValueExact(),failures=original.get("failures").getAsBigDecimal().intValueExact();if(grade<0||grade>5||failures<0)throw new IllegalStateException("Invalid refinement result");
+            message=receipt.replayed()?"이미 처리된 재련입니다. 최신 상태를 확인합니다.":original.get("success").getAsBoolean()?"재련에 성공했습니다.":"재련에 실패했습니다.";
+        }catch(IllegalArgumentException|IllegalStateException|ArithmeticException|com.google.gson.JsonParseException error){message="재련 결과 확인에 실패했습니다.";}
+        ClientEquipmentState.movementStatus(message);requestRefinementState(equipment);
+    }
     private static void acceptEquipmentMoveOperation(DalmaruPayloads.OperationReceipt receipt){
         ClientEquipmentState.movementStatus("rejected".equals(receipt.state())?"장비 소유권·직업·레벨·전투 상태를 확인하세요.":"최신 장비 상태를 확인합니다.");requestEquipment();
     }
@@ -287,6 +304,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
+        if("refine_item".equals(request.operation())){acceptRefinementOperation(request,receipt);return;}
         if("move_equipment".equals(request.operation())){acceptEquipmentMoveOperation(receipt);return;}
         if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}
         if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}

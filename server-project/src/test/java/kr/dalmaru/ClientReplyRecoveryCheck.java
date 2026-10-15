@@ -30,6 +30,8 @@ public final class ClientReplyRecoveryCheck {
     private static final String HARNESS="""
         import java.util.*;
         class DalmaruPayloads{
+            record RefinementStateResponse(long requestId,UUID characterId,UUID equipmentId,int grade,int failures){}
+
             record OperationReceipt(long correlationId,UUID requestId,UUID eventId,String state,String result,boolean replayed){}
             record LoadoutResponse(long requestId,UUID characterId,long revision,List<String> slots,boolean editable,String status){}
             record SkillRank(String skillId,int rank){}
@@ -105,7 +107,12 @@ public final class ClientReplyRecoveryCheck {
                 var expiry=ClientEquipmentState.class.getDeclaredField("statusUntil");expiry.setAccessible(true);expiry.setLong(null,System.nanoTime()-1);check(ClientEquipmentState.status().equals("latest"));
                 acceptEquipmentMoveOperation(new DalmaruPayloads.OperationReceipt(90,UUID.randomUUID(),UUID.randomUUID(),"completed","{}",true));check(equipmentQueries==1&&ClientEquipmentState.equipment().equals(List.of(latestItem))&&ClientEquipmentState.status().contains("최신"));
                 acceptEquipmentMoveOperation(new DalmaruPayloads.OperationReceipt(91,UUID.randomUUID(),new UUID(0,0),"rejected","{}",false));check(equipmentQueries==2&&ClientEquipmentState.equipment().equals(List.of(latestItem))&&ClientEquipmentState.status().contains("전투"));
-                long oldInventory=ClientEquipmentState.nextRequestId();ClientEquipmentState.selected();ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(oldInventory,"previous",List.of(latestItem)));check(ClientEquipmentState.equipment().isEmpty());
+                long refineQuery=ClientEquipmentState.nextRequestId();ClientEquipmentState.queriedRefinement(refineQuery,gear);
+                ClientEquipmentState.acceptRefinement(new DalmaruPayloads.RefinementStateResponse(refineQuery,a,gear,2,0));check(ClientEquipmentState.refinement(gear).contains("재련 2"));
+                ClientEquipmentState.acceptRefinement(new DalmaruPayloads.RefinementStateResponse(refineQuery-1,a,gear,1,9));check(ClientEquipmentState.refinement(gear).contains("재련 2"));
+                ClientEquipmentState.acceptRefinement(new DalmaruPayloads.RefinementStateResponse(refineQuery+1,a,gear,6,0));check(ClientEquipmentState.refinement(gear).contains("재련 2"));
+                ClientEquipmentState.acceptRefinement(new DalmaruPayloads.RefinementStateResponse(refineQuery+1,a,UUID.randomUUID(),1,0));
+                long oldInventory=ClientEquipmentState.nextRequestId();ClientEquipmentState.selected();ClientEquipmentState.accept(new DalmaruPayloads.EquipmentListResponse(oldInventory,"previous",List.of(latestItem)));check(ClientEquipmentState.equipment().isEmpty());check(ClientEquipmentState.refinement(gear).isEmpty());
             }
         }
         """;

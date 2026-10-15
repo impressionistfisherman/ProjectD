@@ -316,3 +316,7 @@
 ## MDF-P1 M13a 통합 (2026-10-15)
 - PASS: --no-daemon compileJava (5초) 1회. merge 결과 신규 스크립트·증적 문서 2개 추가, 충돌 없음.
 - 복원훈련은 Oscar가 재실행하지 않았습니다. Creed/Jim PASS 및 RTO 2.656초는 god의 독립 검증 통보이며 이번 컴파일 검사와 구분합니다.
+
+## MDF-P1 S09i2 (2026-10-15)
+- PASS: --no-daemon verifyRefinementWireReceipt verifyRefinementJournal verifyClientReplyRecovery verifyClientRequestEnvelope verifyOperationWire compileClientJava (17초). 실제 재련 receipt parser의 replay/reject/누락·분수·등급범위·실패음수·boolean위조·다른장비 거부/원결과 캐시미적용/최신조회. 현재 상태 지연응답·범위·선택 초기화, 조회 owner·세대 검증, 새 조회/응답 codec long 최대 인근 roundtrip, 기존 UUID 경계/DB 재련 regression.
+- 실제 패킷 왕복·인게임 재련은 미실행. 전투 재련효과 미연결로 일반 UI 버튼은 추가하지 않았습니다. M11 실제 world ACK/reconnect는 남습니다. 독립 QA 요청 대상입니다.

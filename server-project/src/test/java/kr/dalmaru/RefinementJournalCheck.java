@@ -27,6 +27,8 @@ public final class RefinementJournalCheck {
             }finally{pool.shutdownNow();}
             check(value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==990&&value("SELECT count(*) FROM dalmaru.character_currency_ledger WHERE event_id=?",saved.receipt().eventId())==1,"Single charge and journal event ledger");
             var second=envelope(UUID.randomUUID(),generation,character,item);var changed=repository.refineJournaled(account,generation,5,item,second);
+            var state=repository.refinementState(account,generation,item);check(state.grade()==changed.currentGrade()&&state.failures()==changed.currentFailures(),"Latest state read");
+            reject(()->repository.refinementState(account,generation,foreign));
             long wallet=value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character);
             var replay=repository.refineJournaled(account,generation,50,item,first);
             check(replay.original().replayed()&&replay.original().grade()==saved.original().grade()&&replay.original().failures()==saved.original().failures()&&replay.original().success()==saved.original().success()&&replay.currentGrade()==changed.currentGrade()&&replay.currentFailures()==changed.currentFailures(),"Original roll and latest refinement state");
@@ -48,6 +50,7 @@ public final class RefinementJournalCheck {
             check(value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==wallet&&value("SELECT refinement_grade FROM dalmaru.character_equipment WHERE equipment_id=?",item)==grade&&value("SELECT refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=?",item)==failures&&value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",failed.requestId())==0&&value("SELECT count(*) FROM dalmaru.character_currency_ledger WHERE character_id=?",character)==ledger,"Charge/roll/journal/ledger rollback");
             drop(trap);repository.refineJournaled(account,generation,7,item,failed);
             var reconnect=new AccountRepository().openSession(account);
+            reject(()->repository.refinementState(account,generation,item));
             reject(()->repository.refine(account,generation,5,item));reject(()->repository.refineJournaled(account,generation,60,item,first));
             reject(()->repository.refineJournaled(account,reconnect.connectionGeneration(),60,item,envelope(first.requestId(),reconnect.connectionGeneration(),character,item)));
             System.out.println("PASS refinement UUID/concurrent/legacy, frozen roll/latest state, charge and ledger once, owner/body/stale-session, atomic rollback");

@@ -331,6 +331,22 @@ public record OperationRequest(long correlationId,UUID requestId,long connection
     };
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
+public record RefinementStateRequest(long requestId,UUID equipmentId) implements CustomPacketPayload {
+    public static final Type<RefinementStateRequest> TYPE=DalmaruPayloads.type("refinement_state_request");
+    public static final StreamCodec<RegistryFriendlyByteBuf,RefinementStateRequest> CODEC=new StreamCodec<>(){
+        public RefinementStateRequest decode(RegistryFriendlyByteBuf b){return new RefinementStateRequest(b.readVarLong(),b.readUUID());}
+        public void encode(RegistryFriendlyByteBuf b,RefinementStateRequest v){b.writeVarLong(v.requestId());b.writeUUID(v.equipmentId());}
+    };
+    @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+}
+public record RefinementStateResponse(long requestId,UUID characterId,UUID equipmentId,int grade,int failures) implements CustomPacketPayload {
+    public static final Type<RefinementStateResponse> TYPE=DalmaruPayloads.type("refinement_state_response");
+    public static final StreamCodec<RegistryFriendlyByteBuf,RefinementStateResponse> CODEC=new StreamCodec<>(){
+        public RefinementStateResponse decode(RegistryFriendlyByteBuf b){return new RefinementStateResponse(b.readVarLong(),b.readUUID(),b.readUUID(),b.readVarInt(),b.readVarInt());}
+        public void encode(RegistryFriendlyByteBuf b,RefinementStateResponse v){b.writeVarLong(v.requestId());b.writeUUID(v.characterId());b.writeUUID(v.equipmentId());b.writeVarInt(v.grade());b.writeVarInt(v.failures());}
+    };
+    @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
+}
 public record OperationReceipt(long correlationId,UUID requestId,UUID eventId,String state,String result,boolean replayed) implements CustomPacketPayload {
     public static final Type<OperationReceipt> TYPE=DalmaruPayloads.type("operation_receipt");
     public static final StreamCodec<RegistryFriendlyByteBuf,OperationReceipt> CODEC=new StreamCodec<>(){

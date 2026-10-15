@@ -190,11 +190,25 @@ public final class EquipmentRepository {
         var outcome=new JsonObject();outcome.addProperty("equipmentId",original.equipmentId().toString());outcome.addProperty("grade",original.grade());outcome.addProperty("failures",original.failures());outcome.addProperty("success",original.success());
         return latestRefinement(connection,character,original,RequestJournal.confirm(connection,stored,outcome));
     }
+    public record RefinementState(UUID equipmentId,int grade,int failures) {}
+    public RefinementState refinementState(UUID account,long generation,UUID equipment)throws SQLException {
+        if(generation<1||equipment==null)throw new IllegalArgumentException("Invalid refinement query.");
+        if(password==null||password.isBlank())throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try(var connection=DriverManager.getConnection(url,username,password)){connection.setAutoCommit(false);try{
+            UUID character;try(var query=connection.prepareStatement("SELECT active_character_id FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? FOR UPDATE")){
+                query.setObject(1,account);query.setLong(2,generation);try(var row=query.executeQuery()){if(!row.next()||row.getObject(1)==null)throw new IllegalArgumentException("Stale refinement query.");character=row.getObject(1,UUID.class);}
+            }
+            var state=currentRefinement(connection,character,equipment);connection.commit();return state;
+        }catch(Exception error){connection.rollback();throw error;}}
+    }
     private static RefinementOutcome latestRefinement(Connection connection,UUID character,RefinementResult original,RequestJournal.Receipt receipt)throws SQLException {
+        var current=currentRefinement(connection,character,original.equipmentId());return new RefinementOutcome(original,current.grade(),current.failures(),receipt);
+    }
+    private static RefinementState currentRefinement(Connection connection,UUID character,UUID equipment)throws SQLException {
         try(var query=connection.prepareStatement("SELECT refinement_grade,refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? FOR UPDATE")){
-            query.setObject(1,original.equipmentId());query.setObject(2,character);try(var rows=query.executeQuery()){
+            query.setObject(1,equipment);query.setObject(2,character);try(var rows=query.executeQuery()){
                 if(!rows.next())throw new IllegalArgumentException("Refinement equipment is not owned by active character.");
-                return new RefinementOutcome(original,rows.getInt(1),rows.getInt(2),receipt);
+                return new RefinementState(equipment,rows.getInt(1),rows.getInt(2));
             }
         }
     }

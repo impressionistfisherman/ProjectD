@@ -284,3 +284,7 @@
 ## MDF-P1 M13a 통합 (2026-10-15)
 - god 지시에 따라 grok/mdf-p1-m13a(38c343c, Creed+Jim PASS 통보)를 로컬 no-ff merge했습니다. 추가 파일은 scripts/m13-fixture-recovery.ps1 및 docs/M13_RECOVERY_EVIDENCE.md 2개이며 코드·기존 기록 충돌은 없습니다.
 - god 통보상 Jim 재현 RTO 2.656초/복원 drill DB 정리 확인. Oscar는 요청된 compileJava만 확인했으며 복원훈련을 다시 실행하지 않았습니다. M13b 인증 확인·전체 P1은 남습니다.
+
+## MDF-P1 S09i2 (2026-10-15)
+- refine_item common UUID router와 client requestRefinement/receipt parser 연결. 원 grade/failures/success receipt는 캐시에 적용하지 않고 별도 RefinementStateRequest/Response로 최신 상태를 조회합니다. 조회도 현재 세대·활성 캐릭터 소유권을 검증하고, client는 장비별 correlation·유효범위·선택 경계로 오래된 상태를 거릅니다.
+- 기존 전투 계산은 refinement_grade를 소비하지 않습니다. 이번 조각은 전송/조회 API까지 연결하고 일반 장비 화면의 새 재련 버튼은 추가하지 않았습니다. 재련 효과 연결 및 UI 노출은 별도 범위 확인이 필요합니다. 계승/run·quest 등 O28/M11/M13b/M14 남음. M12/V027 그록 담당·OscarV028부터 유지. 전체 PARTIAL.

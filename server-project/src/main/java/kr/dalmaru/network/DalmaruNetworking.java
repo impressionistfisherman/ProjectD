@@ -126,6 +126,8 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ShortStepRequest.TYPE, DalmaruPayloads.ShortStepRequest.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.EquipmentEnhanceRequest.TYPE, DalmaruPayloads.EquipmentEnhanceRequest.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.RequestContext.TYPE,DalmaruPayloads.RequestContext.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.RefinementStateRequest.TYPE,DalmaruPayloads.RefinementStateRequest.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.RefinementStateResponse.TYPE,DalmaruPayloads.RefinementStateResponse.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.OperationRequest.TYPE,DalmaruPayloads.OperationRequest.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.OperationReceipt.TYPE,DalmaruPayloads.OperationReceipt.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.EquipmentEnhanceResponse.TYPE, DalmaruPayloads.EquipmentEnhanceResponse.CODEC);
@@ -420,6 +422,13 @@ public final class DalmaruNetworking {
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.GuardRequest.TYPE,(payload,context)->guard(context.player(),payload.guard()));
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentEnhanceRequest.TYPE,(payload,context)->enhanceRequest(context.player(),context.server(),payload.requestId(),payload.equipmentId(),null));
+        ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RefinementStateRequest.TYPE,(payload,context)->{
+            var player=context.player();var state=CONNECTIONS.get(player.getUUID());if(payload.requestId()<1||state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null)return;
+            var session=state.accountSession;
+            CompletableFuture.supplyAsync(()->{try{return EQUIPMENT.refinementState(session.accountId(),session.connectionGeneration(),payload.equipmentId());}catch(Exception error){throw new IllegalStateException(error);}})
+                .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session)ServerPlayNetworking.send(player,new DalmaruPayloads.RefinementStateResponse(payload.requestId(),session.activeCharacterId(),result.equipmentId(),result.grade(),result.failures()));}))
+                .exceptionally(error->{LOGGER.warn("Refinement state query failed for {}",session.accountId(),error);return null;});
+        });
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.OperationRequest.TYPE,(payload,context)->{
             try{
                 var envelope=new kr.dalmaru.request.RequestEnvelope(payload.requestId(),payload.connectionGeneration(),payload.activeCharacterId(),payload.operation(),com.google.gson.JsonParser.parseString(payload.payload()).getAsJsonObject());
@@ -429,7 +438,11 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid enhancement body");
                         enhanceRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
                     }
-                    case "move_equipment"->{
+                    case "refine_item"->{
+                    if(body.size()!=1||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid refinement body");
+                    refineRequest(context.player(),context.server(),payload.correlationId(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
+                }
+                case "move_equipment"->{
                     if(body.size()!=2||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString()||!body.has("equip")||!body.get("equip").isJsonPrimitive()||!body.getAsJsonPrimitive("equip").isBoolean())throw new IllegalArgumentException("Invalid equipment move body");
                     moveEquipment(context.player(),body.get("equipmentId").getAsString(),payload.correlationId(),body.get("equip").getAsBoolean(),envelope);
                 }
@@ -656,6 +669,22 @@ public final class DalmaruNetworking {
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Skill learning outcome for {}",session.accountId(),error);
         });return null;});
+    }
+    private static void refineRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID equipment,kr.dalmaru.request.RequestEnvelope envelope){
+        var state=CONNECTIONS.get(player.getUUID());if(correlation<1||state==null||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return EQUIPMENT.refineJournaled(session.accountId(),session.connectionGeneration(),correlation,equipment,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->server.execute(()->{
+                if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                ServerPlayNetworking.send(player,new DalmaruPayloads.RefinementStateResponse(correlation,session.activeCharacterId(),equipment,result.currentGrade(),result.currentFailures()));
+                var original=result.original();var body=new com.google.gson.JsonObject();body.addProperty("equipmentId",equipment.toString());body.addProperty("grade",original.grade());body.addProperty("failures",original.failures());body.addProperty("success",original.success());var receipt=result.receipt();
+                ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),body.toString(),original.replayed()));
+            }))
+            .exceptionally(error->{server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+                LOGGER.warn("Refinement request outcome for {}",session.accountId(),error);
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+            });return null;});
     }
     private static void enhanceRequest(ServerPlayer player,MinecraftServer server,long correlation,UUID equipment,kr.dalmaru.request.RequestEnvelope envelope){
         ConnectionState state=stateFor(player.getUUID());
