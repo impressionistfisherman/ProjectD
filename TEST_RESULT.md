@@ -407,3 +407,33 @@
 | `p1_integration_smoke.ps1` | 예 | PASS |
 
 - 2026-10-15 MDF-P1 M14b: PASS --no-daemon verifyRunAutoRespawnSafety (8s, compileTestJava 재실행). null·connected=false는 호출 없음. 삼킨 패킷 3회와 닫힌 연결 예외는 차감 0. 완료 부활은 재생 포함 1회. 다른 플레이어·런 밖 플레이어 불변. tick의 autoRespawn 호출은 try 밖. 실제 ServerGamePacketListenerImpl·가짜 플레이어 연결은 미실행.
+
+## M14b 자동 부활 예외 격리 (2026-10-15)
+- ced89aa 검사 브랜치 로컬 --no-ff 머지 8a378d8. Java 충돌 없음, 문서 충돌 양쪽 기록 보존.
+- RunRuntime.autoRespawn의 handleClientCommand만 RuntimeException을 잡아 UUID·예외 클래스 경고와 false를 반환합니다. 기존 조건·부활 횟수 차감 로직 유지, Error는 전파합니다.
+- 실제 메서드 본문 하네스로 실패 연결 뒤 다음 플레이어 처리/부활 횟수 유지/경고 UUID·클래스/Error 동일 객체 전파/성공 부활1회·재생중복방지 검증. 기존 현상 확인용 예외 누출 단언을 교체했습니다.
+- p1_regression.ps1에 verifyRunAutoRespawnSafety 포함, 실제1회 exit0/68.67초, 검사20개+임시서버smoke1개 PASS. 내부 assemble PASS6초, protocol31 JAR 재생성 sha256 56b9847ffa4cb7c3e4a3dda6282b36932f5223dbb68750923ce9ec3fc294d68b.
+- fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `p1_integration_smoke.ps1` | 예 | PASS |

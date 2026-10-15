@@ -18,6 +18,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 
 public final class RunRuntime {
+    private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger(RunRuntime.class);
     private final BossDamage bossDamage;
     private final java.util.function.Consumer<UUID> releaseDisconnected;
     private final LingerDamage lingerDamage;
@@ -135,8 +136,13 @@ public final class RunRuntime {
         if(state==null)return false;
         Encounter encounter=encounters.get(state.runId);
         if(encounter==null||!state.connected||!state.dead||encounter.failed||state.revivesRemaining==0||!player.isDeadOrDying()||!RunEncounterRules.autoRevive(tickCount-state.deathTick))return false;
-        player.connection.handleClientCommand(new net.minecraft.network.protocol.game.ServerboundClientCommandPacket(net.minecraft.network.protocol.game.ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
-        return true;
+        try {
+            player.connection.handleClientCommand(new net.minecraft.network.protocol.game.ServerboundClientCommandPacket(net.minecraft.network.protocol.game.ServerboundClientCommandPacket.Action.PERFORM_RESPAWN));
+            return true;
+        } catch(RuntimeException error) {
+            LOGGER.warn("Automatic run respawn failed for {}: {}",player.getUUID(),error.getClass().getName());
+            return false;
+        }
     }
     public void afterRespawn(ServerPlayer oldPlayer,ServerPlayer newPlayer) {
         State state=playerRuns.get(newPlayer.getUUID());

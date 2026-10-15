@@ -375,3 +375,10 @@
 - fixture 사후 관측 accounts1/operation_requests0/schema27, 남은 계정 c9345596-3e13-4576-bccc-eab3cd8ae87b는 characters0. 소유·생성 주체 미확인으로 삭제하지 않음. 인게임·실제패킷·독립 통합QA 미실행, 최종 승인 대기. 운영 protocol과 호환되는 서버/클라이언트 동시 적용은 별도 승인 사항. 전체 PARTIAL.
 
 - 2026-10-15 MDF-P1 M14b: 체크리스트 3번 자동 부활을 verifyRunAutoRespawnSafety로 검사. 목록에서 빠진 플레이어·disconnect 이후·패킷만 삼킨 연결·예외를 던지는 연결은 부활 횟수를 깎지 않고, 완료된 부활은 재생해도 1회. 다른 플레이어 상태는 그대로. 실제 닫히는 리스너와 시험용 플레이어 연결은 서버가 필요해 사람 확인. 제품 코드 변경 없음, 전체 PARTIAL.
+
+## M14b 자동 부활 예외 격리 (2026-10-15)
+- ced89aa 검사 브랜치 로컬 --no-ff 머지 8a378d8. Java 충돌 없음, 문서 충돌 양쪽 기록 보존.
+- RunRuntime.autoRespawn의 handleClientCommand만 RuntimeException을 잡아 UUID·예외 클래스 경고와 false를 반환합니다. 기존 조건·부활 횟수 차감 로직 유지, Error는 전파합니다.
+- 실제 메서드 본문 하네스로 실패 연결 뒤 다음 플레이어 처리/부활 횟수 유지/경고 UUID·클래스/Error 동일 객체 전파/성공 부활1회·재생중복방지 검증. 기존 현상 확인용 예외 누출 단언을 교체했습니다.
+- p1_regression.ps1에 verifyRunAutoRespawnSafety 포함, 실제1회 exit0/68.67초, 검사20개+임시서버smoke1개 PASS. 내부 assemble PASS6초, protocol31 JAR 재생성 sha256 56b9847ffa4cb7c3e4a3dda6282b36932f5223dbb68750923ce9ec3fc294d68b.
+- fixture localhost15432/oscar_p1_fixture 사후 accounts1/requests0/schema27. 기존 출처미확인 계정 삭제없음. 실제 closing/fake Minecraft 연결·인게임 미실행. 운영DB/PID14160/인증/online-mode/배포/push 변경없음. 독립리뷰 god요청, 전체P1 PARTIAL.
