@@ -349,3 +349,7 @@
 ## MDF-P1 S09k3 (2026-10-15)
 - 서버 처치 entity UUID/캐릭터/의뢰 version에서 고정 요청UUID를 만들고 quest_kill journal·진행도·자동보상을 같은 transaction에서 확정합니다. 동일 처치 replay는 이전 profile/메시지를 재전송하지 않으며 미수락 시 no-op도 보존합니다. DB만 변경하므로 같은 transaction에서 completed 처리합니다.
 - 실제 kill callback에 entity UUID 연결, 응답에 현재 session guard 및 실패 로그 추가. 기존 무식별 함수는 trusted fixture 호환만 유지합니다. ClientRequestState/재접속/운영환경 미변경. run O28→M11b 통합→M14(protocol31) 남음. 전체 PARTIAL.
+
+## MDF-P1 담당 조정 (2026-10-15)
+- god 지시 2026-10-15T03-48-55-466Z-4172db: run writer 저널은 그록 g214 / grok/mdf-p1-runwriter 담당입니다. Oscar S09k2(70448dc)·S09k3(2e8bfa0) 완료, 다음은 M14입니다.
+- M11b 1f7a9e9는 god 통보 기준 Creed PASS / Jim 재QA 중이며 Oscar는 아직 합치지 않았습니다. 재QA 뒤 god 머지 지시와 run writer 결과를 받아 통합 회귀·개발 protocol31 상향을 진행합니다. 운영환경 변경 없음, 전체 PARTIAL.
