@@ -27,6 +27,26 @@ public final class OperatorLedger {
 
     public record Adjustment(UUID requestId, UUID eventId, String kind, String itemId, int delta, String reason, int appliedBalance, int currentBalance, boolean replayed) {}
 
+    public String submit(UUID account, long generation, UUID active, UUID target, String kind, String itemId, int delta, long request, String reason) {
+        if (active == null) return "먼저 달마루 캐릭터를 선택하세요.";
+        if (target == null || !active.equals(target)) return "대상은 현재 선택한 캐릭터여야 합니다.";
+        var payload = new JsonObject();
+        payload.addProperty("kind", kind);
+        if (itemId != null) payload.addProperty("itemId", itemId);
+        payload.addProperty("delta", delta);
+        payload.addProperty("reason", reason == null ? "" : reason);
+        try {
+            Adjustment result = adjust(account, request, RequestEnvelope.legacy(account, generation, active, "operator_adjust", request, payload));
+            return (result.replayed() ? "이미 처리된 요청입니다. " : "처리했습니다. ") + result.kind() + " " + result.delta() + ", 적용 잔액 " + result.appliedBalance() + ", 현재 잔액 " + result.currentBalance();
+        } catch (IllegalArgumentException error) {
+            return switch (String.valueOf(error.getMessage())) {
+                case "Insufficient balance." -> "잔액이 부족해 회수하지 않았습니다.";
+                case "Request ID was reused with another owner or body" -> "같은 요청 번호의 내용이 다릅니다.";
+                default -> "지급·회수를 거부했습니다.";
+            };
+        } catch (SQLException error) { return "지급·회수를 저장하지 못했습니다."; }
+    }
+
     public Adjustment adjust(UUID account, long legacyRequest, RequestEnvelope envelope) throws SQLException {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
         if (!"operator_adjust".equals(envelope.operation())) throw new IllegalArgumentException("Not an operator adjustment.");

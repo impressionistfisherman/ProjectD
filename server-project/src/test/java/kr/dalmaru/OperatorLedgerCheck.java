@@ -51,6 +51,10 @@ public final class OperatorLedgerCheck {
 			reject(() -> ledger.adjust(ACCOUNT, 10, envelope(generation, character, "material", "ironstone", -4, "재료회수")));
 			require(quantity(character, "ironstone") == 3 && rows(ACCOUNT) == 4 && currencyRows(character) == 2, "Material revoke went negative.");
 			require(audit(ACCOUNT, applied.requestId(), character, "copper", null, 40, "보상", 40), "Copper audit row is incomplete.");
+			String granted = ledger.submit(ACCOUNT, generation, character, character, "copper", null, 1, 30, "명령");
+			String replayed = ledger.submit(ACCOUNT, generation, character, character, "copper", null, 1, 30, "명령");
+			String other = ledger.submit(ACCOUNT, generation, character, UUID.randomUUID(), "copper", null, 1, 31, "명령");
+			require(granted.startsWith("처리했습니다.") && granted.contains("적용 잔액 51") && replayed.startsWith("이미 처리된 요청입니다.") && copper(character) == 51 && other.equals("대상은 현재 선택한 캐릭터여야 합니다."), "Operator command result was wrong.");
 			System.out.println("Operator ledger verified.");
 		} finally { cleanup(); }
 	}

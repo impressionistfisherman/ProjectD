@@ -242,6 +242,7 @@ public final class DalmaruNetworking {
 					.then(literal("accept").executes(command -> { acceptQuest(command.getSource().getPlayerOrException(), command.getSource().getServer()); return 1; }))
 					.then(literal("status").executes(command -> { showQuestStatus(command.getSource().getPlayerOrException(), command.getSource().getServer()); return 1; })))
 				.then(literal("profession").then(argument("job", StringArgumentType.word()).executes(command -> { selectProfession(command.getSource().getPlayerOrException(), command.getSource().getServer(), StringArgumentType.getString(command, "job")); return 1; })))
+				.then(kr.dalmaru.ops.OperatorAdjustCommand.command(player -> { var state = CONNECTIONS.get(player.getUUID()); return state == null ? null : state.accountSession; }))
 		));
 
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("dalmaru-town")

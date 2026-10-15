@@ -298,6 +298,10 @@
 - PASS: --no-daemon verifyOperatorLedger compileJava (10초, compileClientJava 포함). oscar_p1_fixture에만 V027 적용. 구리 지급·같은 요청 재생·이후 지급과 저장 잔액 구분, 초과 회수 롤백, 빈 사유·0 증감·다른 본문 거부, 기술점·재료 지급과 음수 회수 거부를 확인했습니다. 구리 행은 기존 currency ledger에 공략 없이 같은 eventId로 1건만 남습니다. 검사 계정과 원장 행은 정리했습니다.
 - 운영자 명령, 인게임, 라이브 서버, 운영 DB는 실행하지 않았습니다.
 
+## MDF-P1 M12b (2026-10-15)
+- PASS: --no-daemon verifyOperatorLedger compileJava (12초, compileClientJava 포함). 명령 경로로 구리 +1, 같은 요청 번호 재생, 다른 캐릭터 거부를 확인했습니다. 잔액은 51에서 멈추고 다른 캐릭터에는 쓰지 않았습니다.
+- 게임 안에서의 명령 입력, 권한 없는 플레이어, 라이브 서버는 실행하지 않았습니다.
+
 ## MDF-P1 S09h1 (2026-10-15)
 - PASS: --no-daemon verifyEquipmentMoveJournal (13초). UUID/다른 correlation/동시 한 번 이동/legacy 채택, 원슬롯·최신 목록 분리, 본문·세대·비활성 캐릭터 장비·월드 잠금·레벨 거부, 교체 장비 밀어내기·귀속 뒤 이력 INSERT 실패 시 전체 rollback, 재시도 성공 후 교체·귀속 확인.
 - 실제 패킷 왕복·인게임 이동은 미검증. 독립 QA 요청 대상입니다.
