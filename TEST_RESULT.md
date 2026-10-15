@@ -453,4 +453,3 @@
 | compileJava/compileClientJava | PASS | 코드 컴파일 성공, 재검증 시 up-to-date |
 
 - 실제 게임 화면·플레이서버·운영DB/PID14160·정식전환 배포는 미실행. 정식 재계산 함수는 서버 호출 경로에 연결하지 않았습니다.
-
