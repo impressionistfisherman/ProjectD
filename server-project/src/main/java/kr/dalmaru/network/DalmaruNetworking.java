@@ -232,7 +232,7 @@ public final class DalmaruNetworking {
 				if(!CombatRewards.excludesRewardTags(killed.entityTags()))grantCombatExperience(player, level.getServer(), CombatRewards.experienceFor(killed.getType()));
 				UUID completedRun = RUN_RUNTIME.bossKilled(player, killed.getUUID());
 				if (completedRun != null) completeRun(player, level.getServer(), completedRun);
-				if (!CombatRewards.excludesRewardTags(killed.entityTags()) && killed.getType().getDescriptionId().equals("entity.minecraft.zombie")) recordQuestZombieKill(player, level.getServer());
+				if (!CombatRewards.excludesRewardTags(killed.entityTags()) && killed.getType().getDescriptionId().equals("entity.minecraft.zombie")) recordQuestZombieKill(player, level.getServer(), killed.getUUID());
 			}
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
@@ -1238,11 +1238,13 @@ public final class DalmaruNetworking {
 			.thenAccept(message -> server.execute(() -> player.sendSystemMessage(Component.literal(message))));
 	}
 
-	private static void recordQuestZombieKill(ServerPlayer player, MinecraftServer server) {
+	private static void recordQuestZombieKill(ServerPlayer player, MinecraftServer server, UUID killedEntity) {
 		AccountSession session = activeSession(player);
 		if (session == null || session.activeCharacterId() == null) return;
-		CompletableFuture.supplyAsync(() -> { try { return QUESTS.recordZombieKill(session.activeCharacterId()); } catch (Exception exception) { throw new IllegalStateException(exception); } })
-			.thenAccept(reward -> { if (reward != null) server.execute(() -> { player.sendSystemMessage(Component.literal(reward.message())); if (reward.profile() != null) sendCharacterProfile(player, reward.profile()); }); });
+		CompletableFuture.supplyAsync(() -> { try { return QUESTS.recordZombieKillJournaled(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),killedEntity); } catch (Exception exception) { throw new IllegalStateException(exception); } })
+			.thenAccept(reward -> { if (reward != null) server.execute(() -> {
+                    var current=CONNECTIONS.get(player.getUUID());if(current==null||current.accountSession!=session)return; player.sendSystemMessage(Component.literal(reward.message())); if (reward.profile() != null) sendCharacterProfile(player, reward.profile()); }); })
+            .exceptionally(error->{LOGGER.error("Failed to record quest kill {} for {}.",killedEntity,session.accountId(),error);return null;});
 	}
 
 	private static void selectProfession(ServerPlayer player, MinecraftServer server, String value) {

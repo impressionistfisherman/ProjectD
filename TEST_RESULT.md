@@ -361,3 +361,7 @@
 ## MDF-P1 S09k2 (2026-10-15)
 - PASS: --no-daemon verifyQuestAcceptanceWire verifyQuestAcceptanceJournal verifyClientReplyRecovery verifyClientRequestEnvelope compileClientJava (18초). 실제 receipt parser의 replay/reject/quest·version 불일치·created 누락/문자boolean 거부, 원created로 REWARDED 진행상태 미덮어쓰기/읽기조회, 실제 QuestState 선택후 이전response 무효화/요청counter유지, 공통 UUID/context/retry 및 DB 원자성 회귀.
 - 실제 패킷 왕복/인게임/개발 명령 조작은 미실행. 자동kill writer와 run 저널/M14는 아직 남습니다. 독립 QA 요청 대상입니다.
+
+## QA MDF-P1 S09k3 (2026-10-15)
+- PASS: --no-daemon verifyQuestKillJournal verifyQuestAcceptanceJournal compileJava compileClientJava (16초). 동시 동일처치/미수락 no-op replay/자동보상 일회/원결과 재생 억제/확정 실패시 진행·XP·journal rollback/동일entity retry/old generation 거부/DB-only completed 확인.
+- fixture oscar_p1_fixture localhost:15432: accounts0/operation_requests0/schema27. 실제 게임·패킷 왕복·운영 서버는 미검증. 실패 이벤트의 프로세스 재시작 후 자동 재수집은 이번 범위에 없으며 오류는 로그로 남깁니다. 독립 QA 대기, 전체 PARTIAL.

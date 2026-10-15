@@ -48,24 +48,49 @@ public final class QuestRepository {
 		}
 	}
 
-	public QuestReward recordZombieKill(UUID characterId) throws SQLException {
+    public QuestReward recordZombieKillJournaled(UUID account,long generation,UUID character,UUID killedEntity)throws SQLException {
+        java.util.Objects.requireNonNull(killedEntity);
+        if(killedEntity.equals(new UUID(0,0)))throw new IllegalArgumentException("Invalid killed entity");
+        var body=new JsonObject();body.addProperty("questId",QUEST_ID);body.addProperty("contentVersion",VERSION);body.addProperty("killedEntityId",killedEntity.toString());
+        UUID id=UUID.nameUUIDFromBytes(("quest_kill:"+character+":"+QUEST_ID+":"+VERSION+":"+killedEntity).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var envelope=new RequestEnvelope(id,generation,character,"quest_kill",body);
+        long correlation=id.getLeastSignificantBits()&Long.MAX_VALUE;
+        try(var connection=connection()){
+            connection.setAutoCommit(false);
+            try {
+                var stored=RequestJournal.begin(connection,account,correlation==0?1:correlation,envelope);
+                if(stored.result()!=null){connection.commit();return null;}
+                QuestReward reward=DEFINITION.enabled()?recordZombieKill(connection,character):null;
+                var result=body.deepCopy();result.addProperty("progressApplied",reward!=null);
+                RequestJournal.confirm(connection,stored,result);
+                // The event only changes database state; no world effect needs a client acknowledgment.
+                RequestJournal.applied(connection,account,generation,id);
+                connection.commit();return reward;
+            }catch(SQLException|RuntimeException error){connection.rollback();throw error;}
+        }
+    }
+
+    /** Trusted fixture compatibility; live kills must supply the entity identity. */
+    public QuestReward recordZombieKill(UUID characterId)throws SQLException {
         if(!DEFINITION.enabled())return null;
-		try (var connection = connection()) {
-			connection.setAutoCommit(false);
-			try {
+        try(var connection=connection()){
+            connection.setAutoCommit(false);
+            try {var reward=recordZombieKill(connection,characterId);connection.commit();return reward;}
+            catch(SQLException|RuntimeException error){connection.rollback();throw error;}
+        }
+    }
+
+    private QuestReward recordZombieKill(Connection connection,UUID characterId)throws SQLException {
 				int count;
 				try (var statement = connection.prepareStatement("SELECT state, progress_count FROM dalmaru.character_quest_progress WHERE character_id = ? AND quest_id = ? AND content_version = ? FOR UPDATE")) {
 					statement.setObject(1, characterId); statement.setString(2, QUEST_ID); statement.setString(3, VERSION);
-					try (var result = statement.executeQuery()) { if (!result.next() || !"ACTIVE".equals(result.getString(1))) { connection.commit(); return null; } count = result.getInt(2) + 1; }
+					try (var result = statement.executeQuery()) { if (!result.next() || !"ACTIVE".equals(result.getString(1))) { return null; } count = result.getInt(2) + 1; }
 				}
-				if (count < DEFINITION.goal()) { update(connection, characterId, count, "ACTIVE"); connection.commit(); return new QuestReward(null, "좀비 토벌 진행: " + count + "/" + DEFINITION.goal()); }
+				if (count < DEFINITION.goal()) { update(connection, characterId, count, "ACTIVE"); return new QuestReward(null, "좀비 토벌 진행: " + count + "/" + DEFINITION.goal()); }
 				update(connection, characterId, count, "REWARDED");
 				CharacterProfile profile = DEFINITION.experience()==0?null:grantExperience(connection, characterId, DEFINITION.experience());
-				connection.commit();
 				return new QuestReward(profile, "\uc880\ube44 \ud1a0\ubc8c \uc644\ub8cc! \uacbd\ud5d8\uce58 "+DEFINITION.experience()+"\uc744 \ud68d\ub4dd\ud588\uc2b5\ub2c8\ub2e4.");
-			} catch (Exception exception) { connection.rollback(); throw exception; }
-		}
-	}
+    }
 
     public String status(UUID characterId)throws SQLException {try(var connection=connection()){return status(connection,characterId);}}
     private static String status(Connection connection,UUID character)throws SQLException {

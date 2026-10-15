@@ -345,3 +345,7 @@
 - 의뢰 수락 common UUID router/client 전송, 기존 QuestRequest.accept typed adapter 및 개발 accept 명령을 acceptJournaled로 연결했습니다. 최신 status 먼저/원 questID·version·created receipt 나중, 불확실 실패는 같은UUID로 재시도합니다. 원created로 진행 상태를 덮지 않고 최신 read-only status를 조회합니다.
 - god 사전 통보·승인(2026-10-15T03-25-47-689Z-177e6b)대로 선택 응답 콜백에 ClientQuestState.selected() 추가. 이전 캐릭터 requestId 무효화·counter유지로 지연응답을 거릅니다. ClientRequestState/접속·재접속 handler는 변경하지 않았습니다. M11b 합칠 때 양쪽 선택초기화 호출 보존 필요.
 - 자동 처치 진행·보상 writer/run O28 및 M14(protocol31) 남음. M11b는 그록 담당. 전체 PARTIAL.
+
+## MDF-P1 S09k3 (2026-10-15)
+- 서버 처치 entity UUID/캐릭터/의뢰 version에서 고정 요청UUID를 만들고 quest_kill journal·진행도·자동보상을 같은 transaction에서 확정합니다. 동일 처치 replay는 이전 profile/메시지를 재전송하지 않으며 미수락 시 no-op도 보존합니다. DB만 변경하므로 같은 transaction에서 completed 처리합니다.
+- 실제 kill callback에 entity UUID 연결, 응답에 현재 session guard 및 실패 로그 추가. 기존 무식별 함수는 trusted fixture 호환만 유지합니다. ClientRequestState/재접속/운영환경 미변경. run O28→M11b 통합→M14(protocol31) 남음. 전체 PARTIAL.
