@@ -730,3 +730,43 @@
 | `verifyStoryQuestCurve` | 예 | PASS |
 | `verifyStoryInvestigationLink` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
+
+- 2026-10-15 P3-S01: PASS verifySupplyStay. 수련 장비, 회복 물품, 10·15레벨 키트, 캐릭터 귀속은 이동 거절. 자유·계정 연철석은 통과. 자동 커밋 연결과 null 연결은 거절. tools/p1_regression.ps1 exit 1, DALMARU_DB_NAME=oscar_p3_fixture. verifySupplyStay PASS. 아래 FAIL 8개는 oscar_p2_fixture 이름만 받는 검사 7개와 smoke다. 인게임 미실행.
+| 검사 | 실제 실행 | 결과 |
+|---|---|---|
+| `verifySupplyStay` | 예 | PASS |
+| `verifyStarterSupply` | 예 | FAIL |
+| `verifyGrowthRewardGrant` | 예 | FAIL |
+| `verifyCharacterDeletion` | 예 | PASS |
+| `verifyPaidStatReset` | 예 | PASS |
+| `verifyVillageRoutes` | 예 | PASS |
+| `verifyQuestStages` | 예 | PASS |
+| `verifyCharacterExperience` | 예 | PASS |
+| `verifyCharacterProfession` | 예 | PASS |
+| `verifyCharacterSkill` | 예 | PASS |
+| `verifyRunJournal` | 예 | PASS |
+| `verifyClientScreenBounds` | 예 | PASS |
+| `verifyRunAutoRespawnSafety` | 예 | PASS |
+| `verifyClientReplyRecovery` | 예 | PASS |
+| `verifyEnhancementReplay` | 예 | PASS |
+| `verifyRequestJournal` | 예 | PASS |
+| `verifyClientRequestEnvelope` | 예 | PASS |
+| `verifyRequestJournalResult` | 예 | PASS |
+| `verifySkillJournal` | 예 | PASS |
+| `verifyStatJournal` | 예 | PASS |
+| `verifyResetJournal` | 예 | PASS |
+| `verifyProfessionJournal` | 예 | PASS |
+| `verifyLoadoutJournal` | 예 | PASS |
+| `verifyEquipmentMoveJournal` | 예 | PASS |
+| `verifyRefinementJournal` | 예 | PASS |
+| `verifyInheritanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceJournal` | 예 | PASS |
+| `verifyQuestAcceptanceWire` | 예 | PASS |
+| `verifyQuestKillJournal` | 예 | PASS |
+| `verifyProtocolVersion` | 예 | PASS |
+| `verifyTrialGrowth` | 예 | FAIL |
+| `verifyProfessionGate` | 예 | FAIL |
+| `verifyWaypointReturn` | 예 | FAIL |
+| `verifyStoryQuestCurve` | 예 | FAIL |
+| `verifyStoryInvestigationLink` | 예 | FAIL |
+| `p1_integration_smoke.ps1` | 예 | FAIL |

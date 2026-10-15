@@ -467,3 +467,5 @@
 - StoryInvestigationLinkCheck 확장: 서버 조건 없는 field/evidence/report confirm 3회 각각 거부. 매번 실제 reportConfirmed=false, S06 ready=false/개인보고거부, XP·전·조사지급원장·확정단계·실패요청저널 불변 확인. 보고 NPC 반경 밖 요청도 거부. 이후 설정에서 읽은 정상현장/개인조각/보고위치로 완료하고 S06 연결·600XP/물품1회·위치변경뒤UUID재생 확인.
 - verifyStoryInvestigationLink + verifyQuestStages + compileClientJava targeted PASS16초. 전체35개 실제PASS exit0/102.72초. 임시35565기동·RunRespawnMixin PASS. 검사는 localhost15432/oscar_p2_fixture만 사용. 운영·플레이DB/PID14160/배포/push 미변경.
 - 이전 S07 무증거confirm 결함은 f71ccb0 변경과 이번 위조차단 검사에서 재현되지 않음. 최종 통합 승인은 Creed 재검토 및 Pam 통합 검토 후 god가 선언하며 Oscar는 승인하지 않음. 실제 사람플레이는 미실행, 마을/조사 좌표는 설정 자리표시.
+
+- 2026-10-15 P3-S01: 시작·전직·조사 지급 물품과 캐릭터 귀속은 창고·거래·우편으로 옮기지 못한다. 판정은 호출자 트랜잭션 안에서 `SupplyStay.refuseMove`가 하고, `StarterSupply.tradable`은 호출만 한다. 클라 확정은 받지 않는다. 통신 32. 인게임 미실행, 전체 PARTIAL. oscar_p3_fixture 통지 전이라 전체 회귀는 아직이다.
