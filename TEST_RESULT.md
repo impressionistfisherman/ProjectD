@@ -320,3 +320,7 @@
 ## MDF-P1 S09i2 (2026-10-15)
 - PASS: --no-daemon verifyRefinementWireReceipt verifyRefinementJournal verifyClientReplyRecovery verifyClientRequestEnvelope verifyOperationWire compileClientJava (17초). 실제 재련 receipt parser의 replay/reject/누락·분수·등급범위·실패음수·boolean위조·다른장비 거부/원결과 캐시미적용/최신조회. 현재 상태 지연응답·범위·선택 초기화, 조회 owner·세대 검증, 새 조회/응답 codec long 최대 인근 roundtrip, 기존 UUID 경계/DB 재련 regression.
 - 실제 패킷 왕복·인게임 재련은 미실행. 전투 재련효과 미연결로 일반 UI 버튼은 추가하지 않았습니다. M11 실제 world ACK/reconnect는 남습니다. 독립 QA 요청 대상입니다.
+
+## MDF-P1 M11a (2026-10-15)
+- PASS: --no-daemon verifyRunWipe compileJava (16초, compileClientJava 포함), verifyPremergeRuntime (7초). oscar_p1_fixture에서 PAUSED 런만 FAILED가 되고, 같은 호출은 한 번만 적용되며, COMPLETED와 주간 횟수 1은 유지되고 active는 null입니다.
+- 잔류 개체를 실제로 죽이는 인게임 전멸, 재접속, 라이브 서버는 실행하지 않았습니다.

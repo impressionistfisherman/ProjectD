@@ -288,3 +288,6 @@
 ## MDF-P1 S09i2 (2026-10-15)
 - refine_item common UUID router와 client requestRefinement/receipt parser 연결. 원 grade/failures/success receipt는 캐시에 적용하지 않고 별도 RefinementStateRequest/Response로 최신 상태를 조회합니다. 조회도 현재 세대·활성 캐릭터 소유권을 검증하고, client는 장비별 correlation·유효범위·선택 경계로 오래된 상태를 거릅니다.
 - 기존 전투 계산은 refinement_grade를 소비하지 않습니다. 이번 조각은 전송/조회 API까지 연결하고 일반 장비 화면의 새 재련 버튼은 추가하지 않았습니다. 재련 효과 연결 및 UI 노출은 별도 범위 확인이 필요합니다. 계승/run·quest 등 O28/M11/M13b/M14 남음. M12/V027 그록 담당·OscarV028부터 유지. 전체 PARTIAL.
+
+## MDF-P1 M11a (2026-10-15)
+- 잔류 개체 사망으로 파티가 전멸하면 `failUnattendedWipe`가 ACTIVE 또는 PAUSED 런만 FAILED로 바꿉니다. 주간 클리어 횟수와 요청 저널은 바꾸지 않습니다. 실패 런은 `active`가 찾지 않아 재접속이 그 런을 재개하지 않습니다. 전체 PARTIAL.
