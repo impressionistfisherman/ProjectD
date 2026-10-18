@@ -16,7 +16,7 @@ V025의 `operation_requests`는 UUID 봉투의 서버 계산 SHA-256 본문 해�
 
 S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operation_request`/`operation_receipt`를 사용한다. 첫 적용은 강화다. 작업 이름64자·본문8192자 한도로 디코딩하고 서버가 작업·본문·세대·활성 캐릭터를 검증한다. 영수증은 원결과, 이벤트 UUID, 상태와 재생 여부를 구분한다. 클라이언트는 요청 ID·상관 ID·현재 문맥을 확인하고 100tick 뒤 같은 불변 봉투를 재전송한다. 확정 불가능한 DB 통신 오류는 `accepted` 상태로 유지해 동일 UUID로 복구하며, 확실한 검증 거부만 `rejected`다. 인벤토리는 항상 최신 조회로 갱신한다. 라이브 protocol28 배포와 실제 월드 반영 ACK는 포함하지 않는다.
 
-개발판 protocol은 32이다(P2). 역참 요청/응답을 포함한다. protocol30 이후 추가된 `refinement_state_request`/`refinement_state_response`(S09i2) 등 신규 패킷을 포함하며, 서버·클라이언트가 `DalmaruNetworking.PROTOCOL_VERSION` 한 상수를 공유한다. Hello 버전이 다르면 서버가 접속을 끊고("달마루 통신 버전이 맞지 않습니다.") Welcome을 보내지 않으며, 클라이언트는 같은 버전의 Welcome만 호환으로 인정한다. `verifyProtocolVersion`이 상수, 핸드셰이크 코덱, 불일치 거부 순서를 검사한다. 라이브 protocol28과 운영 설정은 바꾸지 않았다.
+개발판 protocol은 33이다(P3 플레이 접근). 금고·상점·채집·제작·직접 거래는 기존 `operation_request`로 보내고, 좌표는 서버 플레이어 위치만 쓴다. 재련·계승은 이 층에 없다. 역참 요청/응답을 포함한다. protocol30 이후 추가된 `refinement_state_request`/`refinement_state_response`(S09i2) 등 신규 패킷을 포함하며, 서버·클라이언트가 `DalmaruNetworking.PROTOCOL_VERSION` 한 상수를 공유한다. Hello 버전이 다르면 서버가 접속을 끊고("달마루 통신 버전이 맞지 않습니다.") Welcome을 보내지 않으며, 클라이언트는 같은 버전의 Welcome만 호환으로 인정한다. `verifyProtocolVersion`이 상수, 핸드셰이크 코덱, 불일치 거부 순서를 검사한다. 라이브 protocol28과 운영 설정은 바꾸지 않았다.
 
 이 문서는 달마루의 콘텐츠 정의, 영구 저장, 서버 요청·응답이 지켜야 할 최소 계약을 정한다. 이는 Java 클래스나 DB 마이그레이션 파일이 아니라 구현이 따라야 하는 형태와 불변 조건이다. 수치 자체는 [시험 콘텐츠 명세](PILOT_CONTENT_SPEC.md), 게임 규칙은 [세부 규칙과 예외 처리](RULES_AND_OPERATIONS.md)를 따른다.
 
@@ -214,3 +214,9 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 - 조사 보상/600XP는 S07 하나가 소유한다. S06은 InvestigationEvidence.completed(Connection,UUID)로 완료만 확인하며 보고 시 지급0이다. 실제 어댑터는 S07 reportConfirmed를 호출한다. 최초 공략500XP도 기존 공략 지급만 사용한다.
 
 S06/S07 실연결: Networking이 `QuestStageRepository::reportConfirmed`를 주입한다. 같은 Connection/자동커밋금지/FOR SHARE 계약을 유지한다. S07 report 보상600XP·조사물품만 한 번 지급하고 S06은 이야기REWARDED 전환만 수행한다. S07 신뢰경계는 f71ccb0 통합 뒤 현장·증거·보고 위조 요청 3회가 실제 완료 reader와 S06 보고를 해금하지 못하는 검사로 확인했다. 정상 완료·재전송의 1회 지급도 유지하며 최종 독립 검토/승인은 별도다.
+
+## P3 V039 금전 우편 원장 전환 (2026-10-18 god 승인)
+- V038 우편 이벤트 행을 S13이 각각 수령한다. 원장 `mail_event_id`는 기존 `character_mailbox.event_id`를 가리키는 역사적 UUID이며, 우편 보관 이력 삭제 후에도 값은 유지한다.
+- `mail.claim`은 `(character_id, mail_event_id)`로 한 번만 기록하고, 나머지 reason은 기존 `(source_run_id, character_id, reason)` 중복 보호를 유지한다. 수령의 행 잠금·claimed_at·지갑 상한 판정은 유지한다.
+- 기존 수령 원장은 캐릭터·런·currency.copper·수량·claimed_at으로 유일하게 확인되는 우편 UUID만 이전한다. 모호하거나 중복된 이력은 V039 전체를 롤백하며 임의 연결하지 않는다.
+- V039 적용 후 이벤트 UUID를 전달하는 수령 코드를 사용한다. 기존 수령 코드는 필수 이벤트 제약으로 확정을 거절하므로 구 수령기와 혼합 운영하지 않는다. V039 실패는 구 스키마·데이터를 유지한다. 여러 금전 우편 수령이 기록된 뒤에는 기존 3열 UNIQUE 복원이 불가능할 수 있으므로 검증 없이 V038로 축소하지 않는다.

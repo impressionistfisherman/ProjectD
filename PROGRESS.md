@@ -592,6 +592,8 @@
 - 2026-10-16 P3-S04: 양쪽이 확인해야 맡긴 재료가 바뀐다. 취소와 만료는 되돌린다. 두 계정 잠금은 UUID 오름차순. 옮기기 전에 SupplyStay.refuseMove. V033 trade_offers. content/trade.json 임시 60초. 패킷 없음. verifyDirectTrade PASS. 이 커밋의 전체 회귀는 아직. 인게임 미실행.
 - 2026-10-16 S04 잠금 회귀: 24002cc, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
 - 2026-10-16 S04 수정: 확인은 제안 버전에 묶인다. 내용이 바뀌면 버전이 오르고 양쪽 확인은 풀린다. 줄이 없으면 확인은 거절. 완료·취소·만료 줄은 남긴다. 전도 맡길 수 있고 원장 사유는 trade.in, trade.out. V037. verifyDirectTrade PASS. 이 수정의 전체 회귀는 아직. 인게임 미실행.
+- 2026-10-18 S04 83fa4d2 잠금 회귀: grok_p3_fixture, exit 0. 인게임 미실행.
+- 2026-10-18 P3 플레이 접근: protocol 33. F7 임시 화면에서 금고·상점·채집·제작·직접 거래. 좌표는 서버 위치. 재련·계승 없음. 기존 서버 함수는 그대로. 잠금 회귀 exit 0. 인게임 미실행.
 
 ## P3 S04/S05/S06 통합 (2026-10-18)
 - 승인된 83fa4d2 병합: Grok 제품·마이그레이션 원본 보존, 양쪽 문서·회귀 태스크 합집합. 신규 검사 3개는 기존 공용 P3 DB guard 사용.
@@ -612,3 +614,12 @@
 - clean41be420bf890640dea818517e015f78185aebfb5에서 공유 잠금 단일 전체48 PASS/exit0/207.26초. assemble·임시35565 RunRespawnMixin PASS. 상한부분/전액환급, 4.29bn 분할우편/이벤트재생, 오프라인낙찰, 교차경매잔액, 정산롤백·재시작, 종료경매캐릭터삭제/타인우편보존 포함.
 - 사후 OscarP3DB accounts0/operation_requests0/run_auctions0/schema38, mailbox.event_id UUID PK/quantity INTEGER/>0/이벤트별 UNIQUE 확인. 전체검사 및 사후조건 검사 모두 자기token 잠금 해제 확인.
 - 상세 hive/research/MDF_P3_S14_OSCAR.md/.log/_timing.json/_postconditions.log. 초기 실패 로그 별도보존. Creed 독립검토/god 최종통합 대기. Grok S13 수령·패킷·화면/프로토콜 미수정, 실제플레이·push·배포 미실행.
+- 2026-10-18 S13: oscar/mdf-p3 2f77fbf를 --no-ff로 받았다. protocol 33. 우편 행은 읽어서 한 번만 수령한다. 넣는 코드는 그대로. currency.copper는 지갑과 mail.claim. beacon_core는 ACCOUNT. 장비 상자는 보관함. 지급 물품은 거절. V038은 안 바꿈. 잠금 회귀 exit 0. 인게임 미실행.
+- 2026-10-18 S13 추가: 수령은 행마다. 지갑 상한을 넘으면 그 행은 우편에 남고 안내 문구를 보낸다. verifyMailboxClaim PASS. 같은 item의 여러 행은 V038 전이라 시험 DB에 넣을 수 없었다.
+- 2026-10-18 재련·계승: F7 임시 화면에 버튼을 붙였다. 재련은 불러온 첫 장비, 계승은 첫 장비와 둘째 장비. 기존 requestRefinement·requestInheritance만 호출한다. protocol 33. compileClientJava 성공. 인게임 미실행.
+
+## P3 최종 통합 준비 (2026-10-18)
+- god86bf5f 승인: 7f1d0c2에 Grok13cb162 --no-ff 병합. 충돌3(PROGRESS/TEST_RESULT/회귀목록)은 양쪽기록과검사 합집합 보존. Grok제품/검사 원본보존, 최종protocol33. V028~V038/V036비움 유지.
+- 필수다중금전우편검사로 두번째 mail.claim 원장23505 재현. godad0c3a 승인예외: 새V039(기존V038불변), mail.claim만(character,mail_event_id) 유니크/다른원장기존부분UNIQUE 유지, grantCopper SQL+event값전달만수정.
+- V039 모호한기존우편매칭은원자롤백/구스키마38보존, 정상legacyID·금액·source보존과정확eventbackfill/이벤트중복거부/비우편중복보호를잠금하실증. 테스트용seed만정리.
+- 수정후 집중3 PASS19초(다중행/상한보존/재생/이후수령, 기존MailboxClaim, protocol33). 초기실패보존. 단일잠금 전체50 예정, 아직최종통합PASS아님.

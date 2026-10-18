@@ -11,6 +11,7 @@ public final class RewardEligibilityCheck {
     @FunctionalInterface private interface Operation { void run() throws Exception; }
     public static void main(String[] args) throws Exception {
         FixtureDatabase.databaseName();
+        applyContributions();
         var idle=new RunContribution();check(!idle.record(Action.RECEIVED_HIT,50)&&idle.action()==null,"AFK damage qualified");
         idle.input(51);check(!idle.record(Action.RECEIVED_HIT,252),"Old input qualified");
         idle.input(253);check(idle.record(Action.RECEIVED_HIT,254),"Input then damage rejected");
@@ -64,6 +65,12 @@ public final class RewardEligibilityCheck {
             drop(trap);
             for(UUID run:ownedRuns)sql("DELETE FROM dalmaru.run_instances WHERE run_id=?",run);
             for(UUID account:accounts){sql("DELETE FROM dalmaru.operation_requests WHERE account_id=?",account);EnhancementReplayCheck.cleanup(account);}
+        }
+    }
+    private static void applyContributions() throws Exception {
+        try (var connection = EnhancementReplayCheck.connection(); var check = connection.prepareStatement("SELECT 1 FROM dalmaru.schema_migrations WHERE version=35")) {
+            try (var result = check.executeQuery()) { if (result.next()) return; }
+            try (var statement = connection.createStatement()) { statement.execute(java.nio.file.Files.readString(java.nio.file.Path.of("database", "migrations", "V035__run_contributions.sql"))); }
         }
     }
     private static void sql(String text,Object... args)throws SQLException{try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement(text)){for(int i=0;i<args.length;i++)q.setObject(i+1,args[i]);q.executeUpdate();}}

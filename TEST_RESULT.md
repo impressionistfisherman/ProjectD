@@ -1103,6 +1103,8 @@
 - 2026-10-16 P3-S04: PASS verifyDirectTrade. 연철석 2는 한 번만 맡김. 재생은 다시 맡기지 않음. 회복 물품과 캐릭터 귀속은 거절. 한쪽 확인은 바꾸지 않음. 양쪽 확인 뒤에만 바뀜. 취소와 만료는 맡긴 것을 되돌림. 전체 회귀는 이 변경을 포함하지 않음.
 - 2026-10-16 S04 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. 커밋 24002cc. tools/p1_regression.ps1 exit 0. verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyDirectTrade, verifyBasicCraft, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, 저널·클라이언트 검사, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, p1_integration_smoke.ps1 모두 PASS.
 - 2026-10-16 S04 수정: PASS verifyDirectTrade. 상대 맡김 전 확인은 거절. 다른 버전 확인은 거절. 맡김을 바꾸면 이전 확인은 풀리고 완료되지 않음. 완료·취소·만료 뒤 줄이 남음. 전 5와 3을 바꾸면 지갑과 trade.out/trade.in이 맞음.
+- 2026-10-18 S04 83fa4d2 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. tools/p1_regression.ps1 exit 0. verifyDirectTrade 포함 40개와 p1_integration_smoke.ps1 PASS.
+- 2026-10-18 P3 플레이 접근: verifyProtocolVersion PASS. verifyClientScreenBounds PASS. 잠금 회귀 exit 0. 인게임 미실행.
 
 ## P3 S04/S05/S06 통합 (2026-10-18)
 - 승인된 83fa4d2 병합: Grok 제품·마이그레이션 원본 보존, 양쪽 문서·회귀 태스크 합집합. 신규 검사 3개는 기존 공용 P3 DB guard 사용.
@@ -1123,3 +1125,10 @@
 - clean41be420bf890640dea818517e015f78185aebfb5에서 공유 잠금 단일 전체48 PASS/exit0/207.26초. assemble·임시35565 RunRespawnMixin PASS. 상한부분/전액환급, 4.29bn 분할우편/이벤트재생, 오프라인낙찰, 교차경매잔액, 정산롤백·재시작, 종료경매캐릭터삭제/타인우편보존 포함.
 - 사후 OscarP3DB accounts0/operation_requests0/run_auctions0/schema38, mailbox.event_id UUID PK/quantity INTEGER/>0/이벤트별 UNIQUE 확인. 전체검사 및 사후조건 검사 모두 자기token 잠금 해제 확인.
 - 상세 hive/research/MDF_P3_S14_OSCAR.md/.log/_timing.json/_postconditions.log. 초기 실패 로그 별도보존. Creed 독립검토/god 최종통합 대기. Grok S13 수령·패킷·화면/프로토콜 미수정, 실제플레이·push·배포 미실행.
+- 2026-10-18 S13: verifyMailboxClaim PASS. grok_p3_fixture에 V035가 없어 첫 전체 회귀는 verifyRewardEligibility FAIL. 검사가 없을 때만 V035를 적용한 뒤 다시 돌린 잠금 회귀는 exit 0. 그 사이 verifyRunJournal은 접속 실패로 한 번 FAIL, 단독 재실행 PASS. 통과한 전체 회귀에 verifyMailboxClaim과 verifyRewardEligibility가 포함된다. 인게임 미실행.
+
+## P3 최종 통합 준비 (2026-10-18)
+- god86bf5f 승인: 7f1d0c2에 Grok13cb162 --no-ff 병합. 충돌3(PROGRESS/TEST_RESULT/회귀목록)은 양쪽기록과검사 합집합 보존. Grok제품/검사 원본보존, 최종protocol33. V028~V038/V036비움 유지.
+- 필수다중금전우편검사로 두번째 mail.claim 원장23505 재현. godad0c3a 승인예외: 새V039(기존V038불변), mail.claim만(character,mail_event_id) 유니크/다른원장기존부분UNIQUE 유지, grantCopper SQL+event값전달만수정.
+- V039 모호한기존우편매칭은원자롤백/구스키마38보존, 정상legacyID·금액·source보존과정확eventbackfill/이벤트중복거부/비우편중복보호를잠금하실증. 테스트용seed만정리.
+- 수정후 집중3 PASS19초(다중행/상한보존/재생/이후수령, 기존MailboxClaim, protocol33). 초기실패보존. 단일잠금 전체50 예정, 아직최종통합PASS아님.

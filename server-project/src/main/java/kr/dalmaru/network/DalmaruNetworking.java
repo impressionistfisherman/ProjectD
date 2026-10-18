@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 32;
+	public static final int PROTOCOL_VERSION = 33;
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
@@ -516,6 +516,7 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
                     }
+                case "vault_move","shop_trade","gather_node","craft_recipe","direct_trade","claim_mail"->playAccess(context,payload.correlationId(),envelope);
                     default->throw new IllegalArgumentException("Unsupported operation");
                 }
             }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){rejectOperation(context.player(),payload.correlationId(),payload.requestId());}
@@ -667,6 +668,17 @@ public final class DalmaruNetworking {
         CompletableFuture.supplyAsync(()->{try{return CHARACTERS.note(session.accountId(),session.connectionGeneration(),correlation,envelope,fresh);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Village request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void playAccess(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null||!state.accountSession.activeCharacterId().equals(envelope.activeCharacterId())){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        CompletableFuture.supplyAsync(()->{try{return kr.dalmaru.play.PlayAccess.act(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),dimension,x,y,z,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error)){Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();if(kr.dalmaru.mail.MailboxClaim.WALLET_LIMIT.equals(cause.getMessage())){var body=new com.google.gson.JsonObject();body.addProperty("message",cause.getMessage());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"rejected",body.toString(),false));}else rejectOperation(player,correlation,envelope.requestId());}LOGGER.warn("Play access failed for {}",session.accountId(),error);});return null;});
     }
 
     private static com.google.gson.JsonObject villageList(){

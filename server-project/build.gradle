@@ -144,6 +144,11 @@ tasks.register('applyCurrentMigrations', JavaExec) {
 	mainClass = 'kr.dalmaru.ApplyCurrentMigrations'
 }
 
+tasks.register('verifyMailboxClaim', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.MailboxClaimCheck'
+}
 tasks.register('verifyDirectTrade', JavaExec) {
 	group = 'verification'
 	classpath = sourceSets.test.runtimeClasspath
@@ -422,3 +427,5 @@ tasks.register('verifyRewardEligibility', JavaExec) { group = 'verification'; cl
 tasks.register('verifyEnhancementTail', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.EnhancementTailCheck' }
 
 tasks.register('verifyAuctionSettlement', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.AuctionSettlementCheck' }
+
+tasks.register('verifyMailboxAuctionIntegration', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.MailboxAuctionIntegrationCheck' }
