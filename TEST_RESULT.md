@@ -1132,3 +1132,9 @@
 - 필수다중금전우편검사로 두번째 mail.claim 원장23505 재현. godad0c3a 승인예외: 새V039(기존V038불변), mail.claim만(character,mail_event_id) 유니크/다른원장기존부분UNIQUE 유지, grantCopper SQL+event값전달만수정.
 - V039 모호한기존우편매칭은원자롤백/구스키마38보존, 정상legacyID·금액·source보존과정확eventbackfill/이벤트중복거부/비우편중복보호를잠금하실증. 테스트용seed만정리.
 - 수정후 집중3 PASS19초(다중행/상한보존/재생/이후수령, 기존MailboxClaim, protocol33). 초기실패보존. 단일잠금 전체50 예정, 아직최종통합PASS아님.
+
+## P3 최종 통합 전체 회귀 결과 (2026-10-18)
+- clean merge a3ee02234a749b5dbe57f1cd0ea8bc515c45e530(7f1d0c2 +13cb162)에서 잠금 단일 전체50 PASS/exit0/214.73초. protocol33 및 assemble·임시35565 RunRespawnMixin PASS.
+- 필수시나리오: 같은런금전우편3행 독립수령, 2행수령후지갑상한/남은행보존, 재요청무중복, 잔액사용후후속수령 PASS. godad0c3a 승인 V039/최소event전달 예외만 Grok코드수정, V038불변.
+- 사후OscarDB accounts0/operation_requests0/run_auctions0/schema39. V028~V038순서/V036비움 유지, V039추가. non-mail기존부분UNIQUE/mail.claim별eventUNIQUE 확인. 전체 및 사후확인 모두 자기잠금해제.
+- 상세 hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json/_postconditions.log, V039이전증거 MDF_P3_V039_MIGRATION_OSCAR.log, 집중실패/수정후로그 보존. V039 Creed 별도검토/god통합승인 대기, push/mainmerge/실제인게임 미실행.
