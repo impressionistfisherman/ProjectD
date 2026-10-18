@@ -181,8 +181,8 @@ public final class RunRuntime implements RunMechanicAccess {
             if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");
             Encounter existing=encounters.get(runId);
             long now=System.currentTimeMillis();
-            if(existing==null||existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000)||!lifecycle.joinable())throw new IllegalStateException("Run is no longer available.");
-            previous.connected=true; previous.disconnectedAt=0;dropLinger(player.getUUID());
+            if(existing==null||existing.failed||now>=existing.deadline||(kr.dalmaru.run.RunEncounterRules.pauseExpired(existing.pausedAt,now))||!lifecycle.joinable())throw new IllegalStateException("Run is no longer available.");
+            if(!kr.dalmaru.run.RunEncounterRules.reconnectAllowed(previous.disconnectedAt,now))throw new IllegalStateException("Reconnect window has expired.");previous.connected=true; previous.disconnectedAt=0;dropLinger(player.getUUID());
             if(existing.pausedAt!=0)existing.pausedAt=0;
             if(!inside(player,existing))teleport(player,existing);
             return;
@@ -203,6 +203,7 @@ public final class RunRuntime implements RunMechanicAccess {
         }else if(!lifecycle.joinable()){
             throw new IllegalStateException("Run lifecycle does not allow another entrant.");
         }
+        if(removedMember(encounter,player.getUUID()))throw new IllegalStateException("Member was removed from this run.");
         State state=new State(runId,difficulty==RunDifficulty.FIRST_STEP?5:3);
         state.returnLevel=(ServerLevel)player.level();state.returnPosition=player.position();state.returnMode=player.gameMode.getGameModeForPlayer();
         state.lastSafe=encounter.floor.getCenter().add(0,1,0);
@@ -216,8 +217,9 @@ public final class RunRuntime implements RunMechanicAccess {
     }
     private void enterExisting(ServerPlayer player,UUID runId,Encounter existing){
         State previous=playerRuns.get(player.getUUID());long now=System.currentTimeMillis();
-        if(previous!=null){if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");if(existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000))throw new IllegalStateException("Run is no longer available.");previous.connected=true;previous.disconnectedAt=0;dropLinger(player.getUUID());if(existing.pausedAt!=0)existing.pausedAt=0;if(!inside(player,existing))teleport(player,existing);return;}
-        if(existing.failed||now>=existing.deadline||(existing.pausedAt!=0&&now-existing.pausedAt>=300000))throw new IllegalStateException("Run is no longer available.");
+        if(previous!=null){if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");if(existing.failed||now>=existing.deadline||(kr.dalmaru.run.RunEncounterRules.pauseExpired(existing.pausedAt,now)))throw new IllegalStateException("Run is no longer available.");if(!kr.dalmaru.run.RunEncounterRules.reconnectAllowed(previous.disconnectedAt,now))throw new IllegalStateException("Reconnect window has expired.");previous.connected=true;previous.disconnectedAt=0;dropLinger(player.getUUID());if(existing.pausedAt!=0)existing.pausedAt=0;if(!inside(player,existing))teleport(player,existing);return;}
+        if(existing.failed||now>=existing.deadline||(kr.dalmaru.run.RunEncounterRules.pauseExpired(existing.pausedAt,now)))throw new IllegalStateException("Run is no longer available.");
+        if(removedMember(existing,player.getUUID()))throw new IllegalStateException("Member was removed from this run.");
         State state=new State(runId,existing.difficulty==RunDifficulty.FIRST_STEP?5:3);state.returnLevel=(ServerLevel)player.level();state.returnPosition=player.position();state.returnMode=player.gameMode.getGameModeForPlayer();state.lastSafe=existing.floor.getCenter().add(0,1,0);playerRuns.put(player.getUUID(),state);teleport(player,existing);
     }
     public DeathResult recordDeath(ServerPlayer player) {
@@ -320,9 +322,10 @@ public final class RunRuntime implements RunMechanicAccess {
         for(ServerPlayer player:server.getPlayerList().getPlayers())if(runId(player)==null&&region(player)!=null)player.connection.disconnect(Component.literal("다른 공략 구역에는 입장할 수 없습니다."));
         long now=System.currentTimeMillis();
         expireLinger(server,now);
+        tickExits(server,now);
         for(Encounter encounter:new ArrayList<>(encounters.values())) {
             pauseIfQuiet(encounter,now);
-            if(now>=encounter.deadline||(encounter.pausedAt!=0&&now-encounter.pausedAt>=300000)){close(server,encounter.runId);continue;}
+            if(now>=encounter.deadline||(kr.dalmaru.run.RunEncounterRules.pauseExpired(encounter.pausedAt,now))){close(server,encounter.runId);continue;}
             if(encounter.bossId!=null&&encounter.level.getEntity(encounter.bossId) instanceof Mob boss)boss.setNoAi(encounter.pausedAt!=0||encounter.failed);
         }
         for(var entry:playerRuns.entrySet()){
@@ -353,6 +356,103 @@ public final class RunRuntime implements RunMechanicAccess {
         }
     }
 
+    // ---- P4-S07 individual exit: voluntary leave, 180-second reconnect expiry, safe return ----
+    private static final long EXIT_RETRY_MS=5_000L,EXIT_BLOCKED_MS=30_000L;
+    private final RunMemberService members=new RunMemberService();
+    private final java.util.concurrent.ExecutorService exitWorker=java.util.concurrent.Executors.newSingleThreadExecutor(task->{Thread thread=new Thread(task,"dalmaru-run-exit");thread.setDaemon(true);return thread;});
+    private final java.util.concurrent.ConcurrentLinkedQueue<java.util.function.Consumer<MinecraftServer>> exitDone=new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private final java.util.Set<UUID> exitInFlight=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final Map<UUID,Long> exitRetryAt=new HashMap<>();
+    private volatile java.util.function.BiConsumer<ServerPlayer,ExitReason> exitListener=(player,reason)->{};
+    /** Called on the server thread after a member is removed and returned, so combat/UI state can be refreshed. */
+    public void memberExited(java.util.function.BiConsumer<ServerPlayer,ExitReason> listener){exitListener=java.util.Objects.requireNonNull(listener);}
+    /** The player asks to leave; the server resolves the character itself. Use -1 to skip the roster revision check. */
+    public boolean requestVoluntaryExit(ServerPlayer player,long expectedRevision){
+        State state=playerRuns.get(player.getUUID());
+        if(state==null||!state.connected)return false;
+        return requestExit(((ServerLevel)player.level()).getServer(),player.getUUID(),state.runId,ExitReason.VOLUNTARY,expectedRevision);
+    }
+    /** Publishes a committed exit (for example the S08 kick) by character id; call only after the transaction committed. */
+    public boolean publishMemberExit(MinecraftServer server,MemberExit exit,ExitReason reason){
+        if(exit==null||(exit.status()!=ExitStatus.REMOVED&&exit.status()!=ExitStatus.ALREADY_REMOVED))return false;
+        for(var entry:playerRuns.entrySet())if(exit.characterId().equals(entry.getValue().characterId)&&entry.getValue().runId.equals(exit.runId())){publishExit(server,entry.getKey(),exit,reason);return true;}
+        return false;
+    }
+    /** Lets the runtime map a player to the character it plays in this run; needed for publishMemberExit. */
+    public void bindCharacter(UUID playerId,UUID characterId){State state=playerRuns.get(playerId);if(state!=null)state.characterId=characterId;}
+    private boolean removedMember(Encounter encounter,UUID playerId){return encounter!=null&&encounter.removed.contains(playerId);}
+    private void tickExits(MinecraftServer server,long now){
+        for(java.util.function.Consumer<MinecraftServer> done;(done=exitDone.poll())!=null;)done.accept(server);
+        for(var entry:new ArrayList<>(playerRuns.entrySet())){
+            State state=entry.getValue();
+            if(state.connected||state.disconnectedAt==0||kr.dalmaru.run.RunEncounterRules.reconnectAllowed(state.disconnectedAt,now))continue;
+            Encounter encounter=encounters.get(state.runId);
+            if(encounter==null||encounter.failed)continue;
+            Long retry=exitRetryAt.get(entry.getKey());
+            if(retry!=null&&now<retry)continue;
+            requestExit(server,entry.getKey(),state.runId,ExitReason.RECONNECT_EXPIRED,RunMemberExit.ANY_REVISION);
+        }
+    }
+    private boolean requestExit(MinecraftServer server,UUID playerId,UUID runId,ExitReason reason,long expectedRevision){
+        if(!exitInFlight.add(playerId))return false;
+        exitWorker.execute(()->{
+            MemberExit result=null;Exception failure=null;
+            try{result=members.exit(runId,playerId,reason,expectedRevision);}catch(Exception error){failure=error;}
+            MemberExit outcome=result;Exception error=failure;
+            exitDone.add(current->completeExit(current,playerId,runId,reason,outcome,error));
+        });
+        return true;
+    }
+    private void completeExit(MinecraftServer server,UUID playerId,UUID runId,ExitReason reason,MemberExit result,Exception failure){
+        exitInFlight.remove(playerId);
+        State state=playerRuns.get(playerId);
+        if(state==null||!state.runId.equals(runId))return;
+        ServerPlayer player=server.getPlayerList().getPlayer(playerId);
+        long now=System.currentTimeMillis();
+        if(failure!=null){
+            LOGGER.warn("Run member exit failed for {}: {}",playerId,failure.getClass().getName());
+            exitRetryAt.put(playerId,now+EXIT_RETRY_MS);
+            if(player!=null&&reason==ExitReason.VOLUNTARY)player.sendSystemMessage(Component.literal("파티 이탈을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+            return;
+        }
+        switch(result.status()){
+            case REMOVED,ALREADY_REMOVED->publishExit(server,playerId,result,reason);
+            case STALE_REVISION->{
+                exitRetryAt.put(playerId,now+EXIT_RETRY_MS);
+                if(player!=null&&reason==ExitReason.VOLUNTARY)player.sendSystemMessage(Component.literal("파티 명단이 바뀌었습니다. 다시 시도해 주세요."));
+            }
+            case NOT_PARTICIPANT,WRONG_PHASE->{
+                exitRetryAt.put(playerId,now+EXIT_BLOCKED_MS);
+                if(player!=null&&reason==ExitReason.VOLUNTARY)player.sendSystemMessage(Component.literal("지금은 파티에서 나갈 수 없습니다."));
+            }
+        }
+    }
+    private void publishExit(MinecraftServer server,UUID playerId,MemberExit exit,ExitReason reason){
+        State state=playerRuns.get(playerId);
+        if(state==null||!state.runId.equals(exit.runId()))return;
+        Encounter encounter=encounters.get(state.runId);
+        ServerPlayer player=server.getPlayerList().getPlayer(playerId);
+        if(player!=null)cancelChannel(player,CancelReason.PHASE);
+        dropLinger(playerId);
+        playerRuns.remove(playerId);
+        exitRetryAt.remove(playerId);
+        if(encounter!=null){encounter.removed.add(playerId);encounter.revision++;encounter.brazierTicks.remove(playerId);}
+        if(player!=null){
+            boolean returned=false;
+            try{
+                if(player.isSpectator())player.setGameMode(state.returnMode);
+                player.teleportTo(state.returnLevel,state.returnPosition.x,state.returnPosition.y,state.returnPosition.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
+                returned=true;
+            }catch(RuntimeException error){LOGGER.warn("Run exit return failed for {}: {}",playerId,error.getClass().getName());}
+            player.sendSystemMessage(Component.literal(switch(reason){case VOLUNTARY->"파티를 나가 던전 밖으로 돌아왔습니다.";case KICKED->"파티에서 추방되어 던전 밖으로 돌아왔습니다.";case RECONNECT_EXPIRED->"재접속 시간이 지나 던전 밖으로 돌아왔습니다.";}));
+            try{exitListener.accept(player,reason);}catch(RuntimeException error){LOGGER.warn("Run exit listener failed: {}",error.getClass().getName());}
+            if(returned&&exit.returnPending()){
+                UUID runId=exit.runId(),character=exit.characterId();
+                exitWorker.execute(()->{try{members.acknowledgeReturn(runId,character);}catch(Exception error){LOGGER.warn("Run exit return acknowledgement failed for {}: {}",character,error.getClass().getName());}});
+            }
+        }else releaseDisconnected.accept(playerId);
+        if(playerRuns.values().stream().noneMatch(member->member.runId.equals(exit.runId())))close(server,exit.runId());
+    }
     public void leave(ServerPlayer player) { State state=playerRuns.get(player.getUUID());if(state!=null)close(((ServerLevel)player.level()).getServer(),state.runId); }
     public void disconnect(ServerPlayer player) {
         State state=playerRuns.get(player.getUUID());if(state==null)return;
@@ -802,7 +902,7 @@ public final class RunRuntime implements RunMechanicAccess {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
-        private long revision=1; private BossPosture posture; private final List<BossTelegraph.Active> telegraphs=new ArrayList<>(); private int bossCycles; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
+        private final java.util.Set<UUID> removed=new java.util.HashSet<>(); private long revision=1; private BossPosture posture; private final List<BossTelegraph.Active> telegraphs=new ArrayList<>(); private int bossCycles; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
         private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize);this.neglect=content.mechanics()==null?null:new BrazierNeglect(content.mechanics().brazier()); }
     }
 }

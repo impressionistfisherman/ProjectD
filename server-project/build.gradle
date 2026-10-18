@@ -435,3 +435,5 @@ tasks.register('verifyBossPartyScaling', JavaExec) { group = 'verification'; cla
 tasks.register('verifyBossPosture', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossPostureCheck' }
 
 tasks.register('verifyBossTelegraph', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossTelegraphCheck' }
+tasks.register('verifyRunMemberExit', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunMemberExitCheck' }
+tasks.register('verifyRunReconnectWindow', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunReconnectWindowCheck' }
