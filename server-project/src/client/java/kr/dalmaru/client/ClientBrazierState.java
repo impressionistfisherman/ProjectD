@@ -8,10 +8,12 @@ final class ClientBrazierState {
 	private static int total;
 	private static int remaining;
 	private static String result = "";
+	private static String neglect = "IDLE";
+	private static int neglectTicks;
 
 	private ClientBrazierState() { }
 
-	static void resetForConnection() { next = 1; lit = 0; total = 0; remaining = 0; result = ""; }
+	static void resetForConnection() { next = 1; lit = 0; total = 0; remaining = 0; result = ""; neglect = "IDLE"; neglectTicks = 0; }
 	static long nextId() { return next++; }
 	static boolean channeling() { return remaining > 0; }
 
@@ -19,8 +21,10 @@ final class ClientBrazierState {
 		lit = hud.litCount();
 		total = hud.total();
 		remaining = hud.remainingTicks();
-		if (total < 1) result = "";
-		else if (!hud.result().isEmpty()) result = hud.result();
+		if (total < 1) { result = ""; neglect = "IDLE"; neglectTicks = 0; return; }
+		if (!hud.result().isEmpty()) result = hud.result();
+		neglect = hud.neglect() == null ? "IDLE" : hud.neglect();
+		neglectTicks = Math.max(0, hud.neglectTicks());
 	}
 
 	static String line() {
@@ -29,6 +33,17 @@ final class ClientBrazierState {
 		if (remaining > 0) text += " · 남은 " + remaining + "틱";
 		if (!result.isEmpty()) text += " · " + label(result);
 		return text;
+	}
+
+	static String neglectLine() {
+		if (total < 1) return "";
+		int seconds = (Math.max(0, neglectTicks) + 19) / 20;
+		return switch (neglect) {
+			case "IDLE" -> neglectTicks > 0 ? "임시 방치 남은 " + seconds + "초" : "";
+			case "WARNING" -> "임시 경고 남은 " + seconds + "초";
+			case "DAMAGING" -> "임시 피해 중 · 다음 " + seconds + "초";
+			default -> "";
+		};
 	}
 
 	private static String label(String value) {

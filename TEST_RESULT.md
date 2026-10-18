@@ -1170,3 +1170,7 @@
 ## P4-S03 입력 연결 (2026-10-18)
 - verifyProtocolVersion, verifyCombatConsistency, verifyBrazierNeglect PASS. 전투 검사는 기술 사용 1회와 실제 피격 콜백, 환경 피해가 채널 콜백을 올리지 않음을 확인했다. 채널이 실제로 끊기는지는 런타임 취소 메서드 연결과 이 검사로 확인했고, 인게임 채널은 하지 않았다.
 - 잠금 대기 5회 포함 단일 전체 회귀 exit 0, 약 365초. 검사 56개와 p1_integration_smoke.ps1 PASS. verifySkillContent, verifyBrazierChannel 포함. 잠금은 끝나고 삭제.
+
+## P4-S03 방치 HUD (2026-10-18)
+- verifyProtocolVersion PASS. HUD 코덱은 revision 3, 점화 1/2, 채널 40틱, WARNING, 200틱을 왕복했다. 화면 문구는 `임시 방치`, `임시 경고`, `임시 피해 중`. bosses와 성공 문구는 없다. verifyClientScreenBounds PASS.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 p1_integration_smoke.ps1 PASS. verifyBrazierNeglect 포함. 잠금은 끝나고 삭제. 인게임 HUD는 보지 않음.

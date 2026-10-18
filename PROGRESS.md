@@ -670,3 +670,7 @@
 - `mechanicActions`의 기술 인자는 플레이어 UUID다. `skillUsed`는 ServerPlayer라 한 줄 메서드 참조는 컴파일되지 않는다. 서버에서 UUID로 플레이어를 찾아 `skillUsed`를 호출하고, 피격은 `receivedHit`를 그대로 연결했다.
 - 환경 피해는 적대 판정이 아니면 `receivedHit`로 들어가지 않는다. 그 판정은 오스카 전투 코드에 있다.
 - grok_p3_fixture. 잠금 대기 5회를 포함한 단일 전체 회귀 exit 0, 약 365초. 검사 56개와 스모크 PASS. verifyCombatConsistency, verifyBrazierNeglect, verifyProtocolVersion 포함. 인게임 미실행. push 없음.
+
+## P4-S03 방치 HUD (2026-10-18)
+- 화로 단계 HUD에 스냅샷 방치 상태만 표시한다. IDLE은 `임시 방치 남은 N초`, WARNING은 `임시 경고 남은 N초`, DAMAGING은 `임시 피해 중 · 다음 N초`. 초는 틱을 20으로 올려 센다. bosses는 패킷에 넣지 않는다. protocol 34.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 스모크 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyBrazierNeglect 포함. 인게임 미실행. push 없음. 바닐라 소리는 이번 지시에 없어 넣지 않았다.

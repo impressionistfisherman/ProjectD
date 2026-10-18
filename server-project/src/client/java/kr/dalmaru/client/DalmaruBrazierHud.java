@@ -11,11 +11,13 @@ final class DalmaruBrazierHud {
 	static void register() {
 		HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath(DalmaruMod.MOD_ID, "brazier"), (graphics, delta) -> {
 			String line = ClientBrazierState.line();
-			if (line.isEmpty()) return;
+			String neglect = ClientBrazierState.neglectLine();
+			if (line.isEmpty() && neglect.isEmpty()) return;
 			var client = net.minecraft.client.Minecraft.getInstance();
 			int x = graphics.guiWidth() / 2 - 91;
 			int y = graphics.guiHeight() - 84;
-			graphics.text(client.font, line, x, y, 0xFFFFFFFF, false);
+			if (!line.isEmpty()) graphics.text(client.font, line, x, y, 0xFFFFFFFF, false);
+			if (!neglect.isEmpty()) graphics.text(client.font, neglect, x, y - 12, 0xFFFFCC55, false);
 		});
 	}
 }

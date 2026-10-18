@@ -1541,7 +1541,7 @@ public final class DalmaruNetworking {
 		if (!active) {
 			if (!state.brazierHud && result.isEmpty()) return;
 			state.brazierHud = false;
-			ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(0, 0, 0, 0, result));
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(0, 0, 0, 0, result, "IDLE", 0));
 			return;
 		}
 		int lit = 0, remaining = 0;
@@ -1550,7 +1550,7 @@ public final class DalmaruNetworking {
 			if (player.getUUID().equals(brazier.channelPlayerId())) remaining = brazier.remainingTicks();
 		}
 		state.brazierHud = true;
-		ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(snapshot.revision(), lit, snapshot.braziers().size(), remaining, result));
+		ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(snapshot.revision(), lit, snapshot.braziers().size(), remaining, result, snapshot.neglect().name(), Math.max(0, snapshot.neglectRemainingTicks())));
 	}
 
 	private static void disconnect(ServerPlayNetworking.Context context, String message) {
