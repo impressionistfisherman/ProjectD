@@ -50,6 +50,14 @@ final class ClientBrazierState {
 		};
 	}
 
+	static java.util.List<String> lines() {
+		var ordered = new java.util.ArrayList<String>();
+		if (!bossLine().isEmpty()) ordered.add(bossLine());
+		if (!neglectLine().isEmpty()) ordered.add(neglectLine());
+		if (!line().isEmpty()) ordered.add(line());
+		return java.util.List.copyOf(ordered);
+	}
+
 	static String bossLine() {
 		if (bosses.isEmpty()) return "";
 		var text = new StringBuilder();

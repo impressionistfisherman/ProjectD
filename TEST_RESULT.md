@@ -1183,3 +1183,10 @@
 ## P4-S04 보스 HUD (2026-10-18)
 - verifyProtocolVersion PASS. 코덱에 보스 문자열 `120.0/400.0/30.0/100.0/COLLAPSED/80`이 포함된다. 화면 문구는 임시 보스 체력, 자세, 보통, 붕괴, 면역, 남은 초.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 206초. 검사 61개와 p1_integration_smoke.ps1 PASS. verifyBossPartyScaling, verifyBossPosture, verifyRunPartyMembership, verifyRunKickVote, verifyRunEntryPartyOpen, verifyBrazierChannel, verifyBrazierNeglect 포함. 잠금은 끝나고 삭제. 인게임 HUD는 보지 않음.
+
+## P4-S09 화면 경로 (2026-10-18)
+- verifyProtocolVersion PASS. `Protocol 34 constant/handshake/P3-mismatch-reject PASS`.
+- verifyClientScreenBounds PASS. 파티 화면 버튼 8개와 대상 칸이 320x180부터 960x540까지 화면 안에 있고 겹치지 않는다. 열기 콜백은 `party_menu`, 버튼 콜백은 명단·초대·수락·추방 투표·찬성·반대다.
+- verifyClientReplyRecovery PASS. `Actual client classes: lost/reordered/foreign-character/loadout-recovery/rank-retry PASS`.
+- verifyP4PlayAccess PASS. `P4 play access PASS`. 늦은 파티 응답은 로딩을 바꾸지 않는다. 거절 사유와 재시도 명단을 보여 준다. `추방 확정`은 `거절: 성공으로 처리할 수 없습니다`로 바뀐다. 재접속 스냅샷은 보스 줄만 남기고, 세 줄 순서는 보스·경고·화로다. 소스에서 호환 확인 다음, Welcome 전에 `sendBrazierHud`가 있다. 파티 화면에 `자진 이탈`과 `추방 확정` 문구는 없다.
+- 이 검사는 build.gradle과 전체 회귀 스크립트에 없다. DB를 쓰지 않아 잠금을 잡지 않았다. 잠금 전체 회귀는 돌리지 않음. 인게임 미실행.

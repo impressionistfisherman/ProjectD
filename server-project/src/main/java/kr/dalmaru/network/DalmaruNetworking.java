@@ -302,6 +302,7 @@ public final class DalmaruNetworking {
 				return;
 			}
 			state.compatible = true;
+			sendBrazierHud(context.player(), "");
 			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.Welcome(PROTOCOL_VERSION));
 			sendCharacterSelectionReady(context.player(), state);
 		});

@@ -91,8 +91,8 @@ public final class ProtocolVersionCheck {
         require(accept >= 0 && equal > accept && set > equal, "Client accepts Welcome without version equality");
         String run = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruRunScreen.java"));
         String party = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPartyScreen.java"));
-        require(run.contains("임시 파티") && run.contains("openParty()") && run.contains("ClientRunState.status()"), "F6 party entry missing");
-        require(party.contains("임시 파티") && party.contains("로딩") && party.contains("requestParty(\"party_menu\")"), "Party frame does not show loading");
+        require(run.contains("\"파티\"") && run.contains("openParty()") && run.contains("ClientRunState.status()"), "F6 party entry missing");
+        require(party.contains("\"파티\"") && party.contains("로딩") && party.contains("\"명단\"") && party.contains("requestParty(\"party_menu\")"), "Party frame does not show loading");
         require(!party.contains("성공"), "Party frame shows success");
         int use = server.indexOf("UseBlockCallback.EVENT.register");
         int brazier = server.indexOf("startBrazier", use);
@@ -100,7 +100,7 @@ public final class ProtocolVersionCheck {
         require(use > 0 && brazier > use && protect > brazier && server.contains("cancelBrazier"), "Brazier click must reach the server before the protected-block reject");
         String hud = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruBrazierHud.java"));
         String brazierState = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientBrazierState.java"));
-        require(hud.contains("ClientBrazierState.line()") && hud.contains("neglectLine()") && hud.contains("bossLine()") && brazierState.contains("임시 화로") && brazierState.contains("남은 "), "Brazier HUD missing progress");
+        require(hud.contains("ClientBrazierState.lines()") && brazierState.contains("임시 화로") && brazierState.contains("남은 "), "Brazier HUD missing progress");
         require(brazierState.contains("임시 방치") && brazierState.contains("임시 경고") && brazierState.contains("임시 피해 중"), "Neglect HUD missing");
         require(brazierState.contains("임시 보스 체력") && brazierState.contains("자세") && brazierState.contains("붕괴") && brazierState.contains("면역") && server.contains("snapshot.bosses()") && server.contains("bossHooks"), "Boss HUD missing");
         require(client.contains("cancel_brazier") && brazierState.contains("채널 진행") && !hud.contains("성공") && !brazierState.contains("성공"), "Brazier HUD shows success");

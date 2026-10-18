@@ -10,16 +10,16 @@ final class DalmaruBrazierHud {
 
 	static void register() {
 		HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, Identifier.fromNamespaceAndPath(DalmaruMod.MOD_ID, "brazier"), (graphics, delta) -> {
-			String line = ClientBrazierState.line();
-			String neglect = ClientBrazierState.neglectLine();
-			String boss = ClientBrazierState.bossLine();
-			if (line.isEmpty() && neglect.isEmpty() && boss.isEmpty()) return;
+			var lines = ClientBrazierState.lines();
+			if (lines.isEmpty()) return;
 			var client = net.minecraft.client.Minecraft.getInstance();
 			int x = graphics.guiWidth() / 2 - 91;
 			int y = graphics.guiHeight() - 84;
-			if (!line.isEmpty()) graphics.text(client.font, line, x, y, 0xFFFFFFFF, false);
-			if (!neglect.isEmpty()) graphics.text(client.font, neglect, x, y - 12, 0xFFFFCC55, false);
-			if (!boss.isEmpty()) graphics.text(client.font, boss, x, y - (neglect.isEmpty() ? 12 : 24), 0xFFFF6666, false);
+			for (int index = lines.size() - 1; index >= 0; index--) {
+				String text = lines.get(index);
+				int color = text.contains("보스") ? 0xFFFF6666 : text.contains("방치") || text.contains("경고") || text.contains("피해") ? 0xFFFFCC55 : 0xFFFFFFFF;
+				graphics.text(client.font, text, x, y - (lines.size() - 1 - index) * 10, color, false);
+			}
 		});
 	}
 }

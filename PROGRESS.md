@@ -687,3 +687,10 @@
 - oscar/mdf-p4 @3ab081d를 머지했다. `bossHooks(RUN_RUNTIME::bossDamageTaken, RUN_RUNTIME::bossSkillHit)`는 인자 타입이 맞아 그대로 연결했다.
 - 보스 목록이 있으면 화로 단계가 아니어도 HUD에 체력/최대, 자세/최대, 보통·붕괴·면역, 남은 초를 표시한다. 목록이 비면 줄을 지운다.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 206초. 검사 61개와 스모크 PASS. verifyBossPartyScaling, verifyBossPosture, verifyRunKickVote, verifyProtocolVersion 포함. 인게임 미실행. push 없음.
+
+## P4-S09 화면 경로 (2026-10-18)
+- PARTIAL. F6 버튼과 파티 제목은 `파티`. 줄은 상태, 대상, 명단, 초대, 수락, 추방 투표, 찬성, 반대, 닫기. 열릴 때와 명단 버튼이 `party_menu`를 다시 요청한다.
+- HUD는 위에서 보스, 방치, 화로 순이다. 빈 줄은 빼고 10픽셀 간격이다. 화로·방치·보스 수치의 `임시` 문구는 유지한다.
+- 호환 확인 직후 `sendBrazierHud`로 스냅샷을 다시 보낸다. 스냅샷이 없으면 빈 패킷을 보내지 않는다. 늦은 파티 응답은 버리고, 거절 뒤에는 다시 요청할 수 있다. `추방 확정`은 화면에 올리지 않는다.
+- 자진 이탈, 3분 재접속, 추방 확정 화면은 없다. 봉화창·혼파·원혼화염 표시도 없다. 완료와 보상은 기존 F7을 이번 해시에서 다시 연결하지 않았다. 런 입장은 여전히 `PartyRunService.open`을 호출하지 않는다.
+- `verifyP4PlayAccess`는 build.gradle에 없다. 초기화 스크립트로 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyClientReplyRecovery PASS. DB 없음. 잠금 전체 회귀는 돌리지 않음. c9bee3e 회귀를 이 변경의 통과로 쓰지 않는다. 인게임 미실행. push 없음.
