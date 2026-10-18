@@ -65,10 +65,7 @@ public final class RunKickVoteCheck {
 				require(reject(PartyRunService.castKickVote(connection, ACCOUNT_B, b2, RUN4, vote, true, start, false), "대상"), "Target voted");
 				require(reject(PartyRunService.castKickVote(connection, ACCOUNT_A, leader, RUN4, vote, true, start, false), "이미"), "Duplicate vote was stored");
 				require("VOTED".equals(PartyRunService.castKickVote(connection, ACCOUNT_B, b1, RUN4, vote, false, start, false).status()), "No vote was not recorded");
-				var passed = PartyRunService.castKickVote(connection, ACCOUNT_A, a2, RUN4, vote, true, start, false);
-				require("WAITING".equals(passed.status()) && passed.reason().contains("준비되지") && !passed.reason().contains("성공") && !passed.reason().contains("추방 확정"), passed.reason());
-				require(left(connection, RUN4) == 0 && "WAITING_REMOVAL".equals(outcome(connection, vote)), "Kick was applied before removal exists");
-				require(reject(PartyRunService.castKickVote(connection, ACCOUNT_A, a2, RUN4, vote, true, start, false), "끝난"), "Closed vote was replayed");
+				require(left(connection, RUN4) == 0, "A member left before quorum");
 				require(reject(PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(59), false), "60초"), "Revote wait ignored the 59 second boundary");
 				var again = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(60), false);
 				require("OPEN".equals(again.status()), again.reason());
@@ -86,8 +83,8 @@ public final class RunKickVoteCheck {
 				require("OPEN".equals(leaderVote.status()), leaderVote.reason());
 				UUID leaderBallot = voteId(connection, RUN3);
 				require(reject(PartyRunService.castKickVote(connection, ACCOUNT_A, a3, RUN3, leaderBallot, true, start.plusSeconds(30), false), "대상"), "Leader target used a different rule");
-				var leaderPassed = PartyRunService.castKickVote(connection, ACCOUNT_A, a4, RUN3, leaderBallot, true, start.plusSeconds(30), false);
-				require("WAITING".equals(leaderPassed.status()) && left(connection, RUN3) == 0, leaderPassed.reason());
+				var leaderPassed = PartyRunService.castKickVote(connection, ACCOUNT_A, a4, RUN3, leaderBallot, false, start.plusSeconds(30), false);
+				require("VOTED".equals(leaderPassed.status()) && left(connection, RUN3) == 0, leaderPassed.reason());
 				var finished = PartyRunService.openKickVote(connection, ACCOUNT_B, b3, RUN3, a4, start.plusSeconds(90), false);
 				require("OPEN".equals(finished.status()), finished.reason());
 				try (var phase = connection.prepareStatement("UPDATE dalmaru.run_party_control SET phase='COMPLETED' WHERE run_id=?")) {
@@ -96,6 +93,47 @@ public final class RunKickVoteCheck {
 				}
 				var blocked = PartyRunService.castKickVote(connection, ACCOUNT_A, a3, RUN3, voteId(connection, RUN3), true, start.plusSeconds(90), false);
 				require("REJECT".equals(blocked.status()) && blocked.reason().contains("진행") && left(connection, RUN3) == 0, blocked.reason());
+				var early = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(119), false);
+				require(reject(early, "60초") && !early.reason().contains("열린 투표"), early.reason());
+				var fromOpen = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(120), false);
+				require("OPEN".equals(fromOpen.status()), fromOpen.reason());
+				UUID quietVote = voteId(connection, RUN4);
+				var sameTarget = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(151), false);
+				require(reject(sameTarget, "60초") && !sameTarget.reason().contains("열린 투표"), sameTarget.reason());
+				require("EXPIRED".equals(outcome(connection, quietVote)), "Expired vote stayed open");
+				var otherTarget = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, a2, start.plusSeconds(151), false);
+				require("OPEN".equals(otherTarget.status()), otherTarget.reason());
+				UUID lookedUp = voteId(connection, RUN4);
+				require("ROSTER".equals(PartyRunService.rosterAt(connection, RUN4, start.plusSeconds(182)).status()), "Roster did not load");
+				require("EXPIRED".equals(outcome(connection, lookedUp)), "Roster left an expired vote open");
+				var counted = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(182), false);
+				require("OPEN".equals(counted.status()) && counted.reason().contains("찬성 1/3"), counted.reason());
+				UUID countedVote = voteId(connection, RUN4);
+				try (var grace = connection.prepareStatement("UPDATE dalmaru.run_member_lifecycle SET disconnect_at=CURRENT_TIMESTAMP WHERE run_id=? AND character_id=? AND left_at IS NULL")) {
+					grace.setObject(1, RUN4);
+					grace.setObject(2, a2);
+					require(grace.executeUpdate() == 1, "Grace disconnect was not stored");
+				}
+				var duringGrace = PartyRunService.settle(connection, RUN4, start.plusSeconds(183));
+				require("OPEN".equals(duringGrace.status()) && duringGrace.reason().contains("찬성 1/3"), duringGrace.reason());
+				try (var gone = connection.prepareStatement("UPDATE dalmaru.run_member_lifecycle SET leave_reason='VOLUNTARY', left_at=CURRENT_TIMESTAMP WHERE run_id=? AND character_id=? AND left_at IS NULL")) {
+					gone.setObject(1, RUN4);
+					gone.setObject(2, a2);
+					require(gone.executeUpdate() == 1, "Confirmed leave was not stored");
+				}
+				var afterLeave = PartyRunService.settle(connection, RUN4, start.plusSeconds(184));
+				require("OPEN".equals(afterLeave.status()) && afterLeave.reason().contains("찬성 1/2"), afterLeave.reason());
+				require(reject(PartyRunService.castKickVote(connection, ACCOUNT_A, a2, RUN4, countedVote, true, start.plusSeconds(184), false), "투표할 수 없습니다"), "A confirmed leaver stayed in the electorate");
+				var kicked = PartyRunService.castKickVote(connection, ACCOUNT_B, b1, RUN4, countedVote, true, start.plusSeconds(184), false);
+				require("REMOVED".equals(kicked.status()) && "추방 확정".equals(kicked.reason()) && kicked.exit() != null && kicked.exit().characterId().equals(b2), kicked.reason());
+				require("REMOVED".equals(outcome(connection, countedVote)) && "KICKED".equals(leaveReason(connection, RUN4, b2)) && "VOLUNTARY".equals(leaveReason(connection, RUN4, a2)), "Kick did not record the removal");
+				require(reject(PartyRunService.castKickVote(connection, ACCOUNT_A, leader, RUN4, countedVote, true, start.plusSeconds(184), false), "끝난"), "Closed removal was replayed");
+				String networking = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
+				String party = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/kr/dalmaru/party/PartyRunService.java"));
+				int commit = networking.indexOf("connection.commit();");
+				int publish = networking.indexOf("publishMemberExit", commit);
+				require(party.contains("EXIT_REMOVAL = new kr.dalmaru.run.RunMemberExit()") && commit >= 0 && publish > commit, "Removal is published before commit");
+				require(networking.contains("Phase.GATEKEEPER") && networking.contains("Phase.BEACON"), "Gatekeeper boss fight is not rejected");
 				connection.commit();
 			}
 			System.out.println("Run kick vote PASS");
@@ -133,6 +171,14 @@ public final class RunKickVoteCheck {
 		}
 	}
 
+	private static String leaveReason(java.sql.Connection connection, UUID runId, UUID characterId) throws Exception {
+		try (var query = connection.prepareStatement("SELECT leave_reason FROM dalmaru.run_member_lifecycle WHERE run_id=? AND character_id=?")) {
+			query.setObject(1, runId);
+			query.setObject(2, characterId);
+			try (var result = query.executeQuery()) { result.next(); return result.getString(1); }
+		}
+	}
+
 	private static int left(java.sql.Connection connection, UUID runId) throws Exception {
 		try (var query = connection.prepareStatement("SELECT COUNT(*) FROM dalmaru.run_member_lifecycle WHERE run_id=? AND left_at IS NOT NULL")) {
 			query.setObject(1, runId);
@@ -165,6 +211,7 @@ public final class RunKickVoteCheck {
 	private static void migrate() throws Exception {
 		apply(40, "database/migrations/V040__run_member_lifecycle.sql");
 		apply(41, "database/migrations/V041__run_kick_votes.sql");
+		apply(42, "database/migrations/V042__kick_vote_removed_outcome.sql");
 	}
 
 	private static void apply(int version, String path) throws Exception {

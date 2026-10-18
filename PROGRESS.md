@@ -670,3 +670,35 @@
 - `mechanicActions`의 기술 인자는 플레이어 UUID다. `skillUsed`는 ServerPlayer라 한 줄 메서드 참조는 컴파일되지 않는다. 서버에서 UUID로 플레이어를 찾아 `skillUsed`를 호출하고, 피격은 `receivedHit`를 그대로 연결했다.
 - 환경 피해는 적대 판정이 아니면 `receivedHit`로 들어가지 않는다. 그 판정은 오스카 전투 코드에 있다.
 - grok_p3_fixture. 잠금 대기 5회를 포함한 단일 전체 회귀 exit 0, 약 365초. 검사 56개와 스모크 PASS. verifyCombatConsistency, verifyBrazierNeglect, verifyProtocolVersion 포함. 인게임 미실행. push 없음.
+
+## P4-S03 방치 HUD (2026-10-18)
+- 화로 단계 HUD에 스냅샷 방치 상태만 표시한다. IDLE은 `임시 방치 남은 N초`, WARNING은 `임시 경고 남은 N초`, DAMAGING은 `임시 피해 중 · 다음 N초`. 초는 틱을 20으로 올려 센다. bosses는 패킷에 넣지 않는다. protocol 34.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 스모크 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyBrazierNeglect 포함. 인게임 미실행. push 없음. 바닐라 소리는 이번 지시에 없어 넣지 않았다.
+- 이어서 클라이언트만: WARNING으로 바뀌는 패킷에 종 소리 1회, DAMAGING으로 바뀌는 패킷에 피격 소리 1회. 같은 상태가 이어지면 다시 내지 않는다. 서버는 안 고쳤다. verifyProtocolVersion PASS. 전체 회귀는 다시 돌리지 않음. 인게임 소리는 듣지 않음.
+
+## P4-S08 크리드 수정 (2026-10-18)
+- 같은 대상 60초는 `opened_at` 기준이다. 119초는 거절, 120초는 허용. 성공·만료 모두 개시 시각을 쓴다.
+- 보스 전투는 GATEKEEPER와 BEACON이다.
+- 새 투표와 명단 조회는 만료된 열린 투표를 먼저 닫는다. 개시 31초 뒤 다른 대상 투표는 열린다. 같은 대상은 60초 안이면 거절한다.
+- 추방 확정은 여전히 반환하지 않는다. verifyRunKickVote는 잠금 아래 PASS이고 전체 회귀 스크립트에는 없다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 213초. 검사 56개와 스모크 PASS. push 없음. 인게임 미실행.
+
+## P4-S04 보스 HUD (2026-10-18)
+- oscar/mdf-p4 @3ab081d를 머지했다. `bossHooks(RUN_RUNTIME::bossDamageTaken, RUN_RUNTIME::bossSkillHit)`는 인자 타입이 맞아 그대로 연결했다.
+- 보스 목록이 있으면 화로 단계가 아니어도 HUD에 체력/최대, 자세/최대, 보통·붕괴·면역, 남은 초를 표시한다. 목록이 비면 줄을 지운다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 206초. 검사 61개와 스모크 PASS. verifyBossPartyScaling, verifyBossPosture, verifyRunKickVote, verifyProtocolVersion 포함. 인게임 미실행. push 없음.
+
+## P4-S09 화면 경로 (2026-10-18)
+- PARTIAL. F6 버튼과 파티 제목은 `파티`. 줄은 상태, 대상, 명단, 초대, 수락, 추방 투표, 찬성, 반대, 닫기. 열릴 때와 명단 버튼이 `party_menu`를 다시 요청한다.
+- HUD는 위에서 보스, 방치, 화로 순이다. 빈 줄은 빼고 10픽셀 간격이다. 화로·방치·보스 수치의 `임시` 문구는 유지한다.
+- 호환 확인 직후 `sendBrazierHud`로 스냅샷을 다시 보낸다. 스냅샷이 없으면 빈 패킷을 보내지 않는다. 늦은 파티 응답은 버리고, 거절 뒤에는 다시 요청할 수 있다. `추방 확정`은 화면에 올리지 않는다.
+- 자진 이탈, 3분 재접속, 추방 확정 화면은 없다. 봉화창·혼파·원혼화염 표시도 없다. 완료와 보상은 기존 F7을 이번 해시에서 다시 연결하지 않았다. 런 입장은 여전히 `PartyRunService.open`을 호출하지 않는다.
+- `verifyP4PlayAccess`는 build.gradle에 없다. 초기화 스크립트로 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyClientReplyRecovery PASS. DB 없음. 잠금 전체 회귀는 돌리지 않음. c9bee3e 회귀를 이 변경의 통과로 쓰지 않는다. 인게임 미실행. push 없음.
+
+## P4-S07 연결 (2026-10-18)
+- 머지 `f660118`(47c44c2). 오스카 파일은 머지로만 들어왔다. S05 예고 클래스도 그 머지에 포함된다.
+- 정족수 뒤에는 `RunMemberExit`가 멤버를 지우고, 커밋 다음에 `publishMemberExit(..., KICKED)`를 호출한다. 화면 상태는 `REMOVED`, 문구는 `추방 확정`. V042는 투표 결과에 `REMOVED`를 추가한다.
+- F6 `자진 이탈`은 `requestVoluntaryExit(player, -1)`. 입장과 재접속은 `bindCharacter`. 이탈 뒤 `memberExited`가 `COMBAT.remove`를 호출한다.
+- 열린 투표 분모는 `left_at`이 없는 유권자만 센다. `disconnect_at`만 있는 유예 단절은 분모에 남는다.
+- 입장 트랜잭션이 명단을 READY로 연다. 봉화창·혼파·원혼화염은 서버 파티클이다. 클라이언트 예고 화면은 없다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 212초. 검사 64개와 스모크 PASS. verifyRunKickVote, verifyRunMemberExit, verifyRunReconnectWindow, verifyBossTelegraph 포함. verifyP4PlayAccess는 회귀 밖이고 따로 PASS. 인게임 미실행. push 없음.

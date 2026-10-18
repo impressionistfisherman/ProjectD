@@ -12,7 +12,9 @@ import java.util.UUID;
 public final class PartyRunService {
 	private PartyRunService() { }
 
-	public record Outcome(String status, String reason) { }
+	public record Outcome(String status, String reason, kr.dalmaru.run.RunMechanicAccess.MemberExit exit) {
+		public Outcome(String status, String reason) { this(status, reason, null); }
+	}
 
 	public static Connection connect() throws SQLException {
 		String password = System.getenv("DALMARU_DB_PASSWORD");
@@ -130,8 +132,11 @@ public final class PartyRunService {
 		return new Outcome("ROSTER", rosterText(connection, runId));
 	}
 
-	public static Outcome roster(Connection connection, UUID runId) throws SQLException {
+	public static Outcome roster(Connection connection, UUID runId) throws SQLException { return rosterAt(connection, runId, Instant.now()); }
+
+	public static Outcome rosterAt(Connection connection, UUID runId, Instant now) throws SQLException {
 		if (runId == null || lock(connection, runId) == null) return reject("거절: 파티 명단은 아직 열리지 않았습니다.");
+		closeExpired(connection, runId, now);
 		return new Outcome("ROSTER", rosterText(connection, runId));
 	}
 
@@ -147,6 +152,7 @@ public final class PartyRunService {
 		if (!present(connection, runId, actorCharacter) || !present(connection, runId, targetCharacter)) return reject("거절: 대상이 명단에 없습니다.");
 		int present = presentCount(connection, runId);
 		if (present < rules.voteMinPresent()) return reject("거절: 3명 미만은 추방 투표를 열 수 없습니다.");
+		closeExpired(connection, runId, now);
 		if (openVote(connection, runId) != null) return reject("거절: 열린 투표가 있습니다.");
 		Instant blockedUntil = revoteBlockedUntil(connection, runId, targetCharacter, rules.revoteWaitSeconds());
 		if (blockedUntil != null && now.isBefore(blockedUntil)) return reject("거절: 같은 대상은 60초 뒤에 다시 투표할 수 있습니다.");
@@ -192,8 +198,7 @@ public final class PartyRunService {
 		if (yesCount >= PartyVoteRules.requiredYes(eligible + 1)) {
 			if (bossFight) return reject("거절: 보스 전투 중에는 추방을 확정하지 않습니다.");
 			if (!"ACTIVE".equals(row.phase)) return reject("거절: 진행 중인 공략에서만 추방을 확정할 수 없습니다.");
-			close(connection, voteId, now, "WAITING_REMOVAL");
-			return removalPending(connection, runId, vote.target, row.revision);
+			return removeKicked(connection, voteId, runId, vote.target, row.revision, now);
 		}
 		long remaining = Math.max(0, vote.expiresAt.getEpochSecond() - now.getEpochSecond());
 		return new Outcome("VOTED", "찬성 " + yesCount + "/" + eligible + " · 필요 " + PartyVoteRules.requiredYes(eligible + 1) + " · 남은 " + remaining + "초");
@@ -210,11 +215,27 @@ public final class PartyRunService {
 		return new Outcome("OPEN", voteText(connection, voteId, Math.max(0, vote.expiresAt.getEpochSecond() - now.getEpochSecond())));
 	}
 
-	private static kr.dalmaru.run.RunMechanicAccess.MemberExitAdapter EXIT_REMOVAL;
+	private static final kr.dalmaru.run.RunMechanicAccess.MemberExitAdapter EXIT_REMOVAL = new kr.dalmaru.run.RunMemberExit();
 
-	private static Outcome removalPending(Connection connection, UUID runId, UUID characterId, long revision) throws SQLException {
-		if (EXIT_REMOVAL != null) EXIT_REMOVAL.removeMember(connection, runId, characterId, revision, kr.dalmaru.run.RunMechanicAccess.ExitReason.KICKED);
-		return new Outcome("WAITING", "거절: 추방 제거는 아직 준비되지 않았습니다.");
+	private static Outcome removeKicked(Connection connection, UUID voteId, UUID runId, UUID characterId, long revision, Instant now) throws SQLException {
+		var exit = EXIT_REMOVAL.removeMember(connection, runId, characterId, revision, kr.dalmaru.run.RunMechanicAccess.ExitReason.KICKED);
+		if (exit.status() == kr.dalmaru.run.RunMechanicAccess.ExitStatus.REMOVED || exit.status() == kr.dalmaru.run.RunMechanicAccess.ExitStatus.ALREADY_REMOVED) {
+			close(connection, voteId, now, "REMOVED");
+			return new Outcome("REMOVED", "추방 확정", exit);
+		}
+		String reason = switch (exit.status()) {
+			case STALE_REVISION -> "거절: 명단이 바뀌었습니다.";
+			case NOT_PARTICIPANT -> "거절: 대상이 명단에 없습니다.";
+			default -> "거절: 지금은 추방할 수 없습니다.";
+		};
+		return reject(reason);
+	}
+
+	private static void closeExpired(Connection connection, UUID runId, Instant now) throws SQLException {
+		UUID voteId = openVote(connection, runId);
+		if (voteId == null) return;
+		var vote = lockVote(connection, voteId);
+		if (vote != null && !vote.closed && !now.isBefore(vote.expiresAt)) expire(connection, voteId, now);
 	}
 
 	private static Outcome expire(Connection connection, UUID voteId, Instant now) throws SQLException {
@@ -322,7 +343,7 @@ public final class PartyRunService {
 	}
 
 	private static Instant revoteBlockedUntil(Connection connection, UUID runId, UUID target, int waitSeconds) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT closed_at FROM dalmaru.run_kick_votes WHERE run_id=? AND target_character_id=? AND closed_at IS NOT NULL ORDER BY closed_at DESC LIMIT 1")) {
+		try (var query = connection.prepareStatement("SELECT opened_at FROM dalmaru.run_kick_votes WHERE run_id=? AND target_character_id=? ORDER BY opened_at DESC LIMIT 1")) {
 			query.setObject(1, runId);
 			query.setObject(2, target);
 			try (var result = query.executeQuery()) {
@@ -345,7 +366,7 @@ public final class PartyRunService {
 	}
 
 	private static boolean elector(Connection connection, UUID voteId, UUID characterId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.run_kick_electorate WHERE vote_id=? AND character_id=?")) {
+		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.run_kick_electorate e JOIN dalmaru.run_kick_votes v ON v.vote_id=e.vote_id JOIN dalmaru.run_member_lifecycle l ON l.run_id=v.run_id AND l.character_id=e.character_id AND l.left_at IS NULL WHERE e.vote_id=? AND e.character_id=?")) {
 			query.setObject(1, voteId);
 			query.setObject(2, characterId);
 			try (var result = query.executeQuery()) { return result.next(); }
@@ -361,14 +382,14 @@ public final class PartyRunService {
 	}
 
 	private static int electorateCount(Connection connection, UUID voteId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT COUNT(*) FROM dalmaru.run_kick_electorate WHERE vote_id=?")) {
+		try (var query = connection.prepareStatement("SELECT COUNT(*) FROM dalmaru.run_kick_electorate e JOIN dalmaru.run_kick_votes v ON v.vote_id=e.vote_id JOIN dalmaru.run_member_lifecycle l ON l.run_id=v.run_id AND l.character_id=e.character_id AND l.left_at IS NULL WHERE e.vote_id=?")) {
 			query.setObject(1, voteId);
 			try (var result = query.executeQuery()) { result.next(); return result.getInt(1); }
 		}
 	}
 
 	private static int yesCount(Connection connection, UUID voteId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT COUNT(*) FROM dalmaru.run_kick_ballots WHERE vote_id=? AND choice='YES'")) {
+		try (var query = connection.prepareStatement("SELECT COUNT(*) FROM dalmaru.run_kick_ballots b JOIN dalmaru.run_kick_electorate e ON e.vote_id=b.vote_id AND e.character_id=b.voter_character_id JOIN dalmaru.run_kick_votes v ON v.vote_id=b.vote_id JOIN dalmaru.run_member_lifecycle l ON l.run_id=v.run_id AND l.character_id=b.voter_character_id AND l.left_at IS NULL WHERE b.vote_id=? AND b.choice='YES'")) {
 			query.setObject(1, voteId);
 			try (var result = query.executeQuery()) { result.next(); return result.getInt(1); }
 		}

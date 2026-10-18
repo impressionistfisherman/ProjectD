@@ -329,6 +329,7 @@ tasks.register('verifySafetyDatabase', JavaExec) { group = 'verification'; class
 tasks.register('verifyReadyBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ReadyBoundaryCheck' }
 
 tasks.register('verifyClientScreenBounds', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientScreenBoundsCheck' }
+tasks.register('verifyP4PlayAccess', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.client.P4PlayAccessCheck' }
 
 tasks.register('verifyFieldReviveBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.FieldReviveBoundaryCheck' }
 

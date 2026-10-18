@@ -1170,3 +1170,29 @@
 ## P4-S03 입력 연결 (2026-10-18)
 - verifyProtocolVersion, verifyCombatConsistency, verifyBrazierNeglect PASS. 전투 검사는 기술 사용 1회와 실제 피격 콜백, 환경 피해가 채널 콜백을 올리지 않음을 확인했다. 채널이 실제로 끊기는지는 런타임 취소 메서드 연결과 이 검사로 확인했고, 인게임 채널은 하지 않았다.
 - 잠금 대기 5회 포함 단일 전체 회귀 exit 0, 약 365초. 검사 56개와 p1_integration_smoke.ps1 PASS. verifySkillContent, verifyBrazierChannel 포함. 잠금은 끝나고 삭제.
+
+## P4-S03 방치 HUD (2026-10-18)
+- verifyProtocolVersion PASS. HUD 코덱은 revision 3, 점화 1/2, 채널 40틱, WARNING, 200틱을 왕복했다. 화면 문구는 `임시 방치`, `임시 경고`, `임시 피해 중`. bosses와 성공 문구는 없다. verifyClientScreenBounds PASS.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 p1_integration_smoke.ps1 PASS. verifyBrazierNeglect 포함. 잠금은 끝나고 삭제. 인게임 HUD는 보지 않음.
+- 소리 추가 후 verifyProtocolVersion PASS. WARNING 전환은 `SoundEvents.BELL_BLOCK`, DAMAGING 전환은 `SoundEvents.PLAYER_HURT`. HUD 그리기에는 playSound가 없다. 전체 회귀는 다시 돌리지 않음. 인게임 소리는 듣지 않음.
+
+## P4-S08 크리드 수정 (2026-10-18)
+- grok_p3_fixture. `verifyRunKickVote` 잠금 실행. `Run kick vote PASS`. 개시 119초 거절, 120초 허용. 만료 투표를 닫은 뒤 31초 뒤 다른 대상은 OPEN, 같은 대상은 60초 거절. 조회도 만료 투표를 EXPIRED로 닫음. 소스는 GATEKEEPER와 BEACON을 함께 본다. 이 검사는 전체 회귀에 없다.
+- 잠금 단일 전체 회귀 exit 0, 약 213초. 검사 56개와 p1_integration_smoke.ps1 PASS. 잠금은 끝나고 삭제. 인게임 미실행. 추방 확정은 검사하지 않음.
+
+## P4-S04 보스 HUD (2026-10-18)
+- verifyProtocolVersion PASS. 코덱에 보스 문자열 `120.0/400.0/30.0/100.0/COLLAPSED/80`이 포함된다. 화면 문구는 임시 보스 체력, 자세, 보통, 붕괴, 면역, 남은 초.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 206초. 검사 61개와 p1_integration_smoke.ps1 PASS. verifyBossPartyScaling, verifyBossPosture, verifyRunPartyMembership, verifyRunKickVote, verifyRunEntryPartyOpen, verifyBrazierChannel, verifyBrazierNeglect 포함. 잠금은 끝나고 삭제. 인게임 HUD는 보지 않음.
+
+## P4-S09 화면 경로 (2026-10-18)
+- verifyProtocolVersion PASS. `Protocol 34 constant/handshake/P3-mismatch-reject PASS`.
+- verifyClientScreenBounds PASS. 파티 화면 버튼 8개와 대상 칸이 320x180부터 960x540까지 화면 안에 있고 겹치지 않는다. 열기 콜백은 `party_menu`, 버튼 콜백은 명단·초대·수락·추방 투표·찬성·반대다.
+- verifyClientReplyRecovery PASS. `Actual client classes: lost/reordered/foreign-character/loadout-recovery/rank-retry PASS`.
+- verifyP4PlayAccess PASS. `P4 play access PASS`. 늦은 파티 응답은 로딩을 바꾸지 않는다. 거절 사유와 재시도 명단을 보여 준다. `추방 확정`은 `거절: 성공으로 처리할 수 없습니다`로 바뀐다. 재접속 스냅샷은 보스 줄만 남기고, 세 줄 순서는 보스·경고·화로다. 소스에서 호환 확인 다음, Welcome 전에 `sendBrazierHud`가 있다. 파티 화면에 `자진 이탈`과 `추방 확정` 문구는 없다.
+- 이 검사는 build.gradle과 전체 회귀 스크립트에 없다. DB를 쓰지 않아 잠금을 잡지 않았다. 잠금 전체 회귀는 돌리지 않음. 인게임 미실행.
+
+## P4-S07 연결 (2026-10-18)
+- verifyProtocolVersion, verifyClientScreenBounds, verifyP4PlayAccess PASS. 자진 이탈 버튼은 `leave`를 보낸다. `REMOVED`는 `추방 확정`을 보여 주고, `WAITING`에 같은 문구가 오면 거절한다. `EXITING`은 `이탈을 요청했습니다.`를 보여 준다.
+- grok_p3_fixture. `verifyRunKickVote` 잠금 실행. 첫 회차는 투표 결과 제약이 `REMOVED`를 거절해 FAIL. V042 적용 후 `Run kick vote PASS`. 유예 단절은 찬성 1/3을 유지하고, 이탈 확정은 1/2로 줄어든다. 정족수는 `추방 확정`과 `leave_reason=KICKED`를 남긴다.
+- 잠금 단일 전체 회귀 exit 0, 약 212초. 잠금은 끝나고 삭제. 인게임 미실행.
+- PASS: verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyMailboxClaim, verifyDirectTrade, verifyBasicCraft, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, verifyRunJournal, verifyCombatConsistency, verifyClientScreenBounds, verifyRunAutoRespawnSafety, verifyClientReplyRecovery, verifyEnhancementReplay, verifyRequestJournal, verifyClientRequestEnvelope, verifyRequestJournalResult, verifyContentCatalog, verifyRunContentSnapshot, verifySkillContent, verifySkillJournal, verifyStatJournal, verifyResetJournal, verifyProfessionJournal, verifyLoadoutJournal, verifyEquipmentMoveJournal, verifyRefinementJournal, verifyInheritanceJournal, verifyQuestAcceptanceJournal, verifyQuestAcceptanceWire, verifyQuestKillJournal, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, verifyWeaponSlots, verifyRefinementGrade, verifyRefinementKeep, verifyInheritanceShare, verifyRewardEligibility, verifyEnhancementTail, verifyAuctionSettlement, verifyMailboxAuctionIntegration, verifyP4ContentContracts, verifyBrazierChannel, verifyBrazierNeglect, verifyRunPartyMembership, verifyRunEntryPartyOpen, verifyRunKickVote, verifyBossPartyScaling, verifyBossPosture, verifyBossTelegraph, verifyRunMemberExit, verifyRunReconnectWindow, p1_integration_smoke.ps1.

@@ -8,19 +8,27 @@ final class ClientBrazierState {
 	private static int total;
 	private static int remaining;
 	private static String result = "";
+	private static String neglect = "IDLE";
+	private static int neglectTicks;
+	private static String bosses = "";
 
 	private ClientBrazierState() { }
 
-	static void resetForConnection() { next = 1; lit = 0; total = 0; remaining = 0; result = ""; }
+	static void resetForConnection() { next = 1; lit = 0; total = 0; remaining = 0; result = ""; neglect = "IDLE"; neglectTicks = 0; bosses = ""; }
 	static long nextId() { return next++; }
 	static boolean channeling() { return remaining > 0; }
 
-	static void accept(DalmaruPayloads.P4BrazierHud hud) {
+	static String accept(DalmaruPayloads.P4BrazierHud hud) {
+		String previous = neglect;
 		lit = hud.litCount();
 		total = hud.total();
 		remaining = hud.remainingTicks();
-		if (total < 1) result = "";
-		else if (!hud.result().isEmpty()) result = hud.result();
+		bosses = hud.bosses() == null ? "" : hud.bosses();
+		if (total < 1) { result = ""; neglect = "IDLE"; neglectTicks = 0; return previous; }
+		if (!hud.result().isEmpty()) result = hud.result();
+		neglect = hud.neglect() == null ? "IDLE" : hud.neglect();
+		neglectTicks = Math.max(0, hud.neglectTicks());
+		return previous;
 	}
 
 	static String line() {
@@ -29,6 +37,47 @@ final class ClientBrazierState {
 		if (remaining > 0) text += " · 남은 " + remaining + "틱";
 		if (!result.isEmpty()) text += " · " + label(result);
 		return text;
+	}
+
+	static String neglectLine() {
+		if (total < 1) return "";
+		int seconds = (Math.max(0, neglectTicks) + 19) / 20;
+		return switch (neglect) {
+			case "IDLE" -> neglectTicks > 0 ? "임시 방치 남은 " + seconds + "초" : "";
+			case "WARNING" -> "임시 경고 남은 " + seconds + "초";
+			case "DAMAGING" -> "임시 피해 중 · 다음 " + seconds + "초";
+			default -> "";
+		};
+	}
+
+	static java.util.List<String> lines() {
+		var ordered = new java.util.ArrayList<String>();
+		if (!bossLine().isEmpty()) ordered.add(bossLine());
+		if (!neglectLine().isEmpty()) ordered.add(neglectLine());
+		if (!line().isEmpty()) ordered.add(line());
+		return java.util.List.copyOf(ordered);
+	}
+
+	static String bossLine() {
+		if (bosses.isEmpty()) return "";
+		var text = new StringBuilder();
+		for (String part : bosses.split("\\|")) {
+			String[] fields = part.split("/");
+			if (fields.length != 6) continue;
+			String state = switch (fields[4]) {
+				case "NORMAL" -> "보통";
+				case "COLLAPSED" -> "붕괴";
+				case "IMMUNE" -> "면역";
+				default -> "";
+			};
+			if (state.isEmpty()) continue;
+			int ticks;
+			try { ticks = Integer.parseInt(fields[5]); } catch (NumberFormatException bad) { continue; }
+			int seconds = (Math.max(0, ticks) + 19) / 20;
+			if (text.length() > 0) text.append(" / ");
+			text.append("임시 보스 체력 ").append(fields[0]).append('/').append(fields[1]).append(" · 자세 ").append(fields[2]).append('/').append(fields[3]).append(" · ").append(state).append(" · 남은 ").append(seconds).append("초");
+		}
+		return text.toString();
 	}
 
 	private static String label(String value) {
