@@ -435,3 +435,7 @@ tasks.register('verifyP4ContentContracts', JavaExec) { group = 'verification'; c
 tasks.register('verifyBrazierChannel', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BrazierChannelCheck' }
 
 tasks.register('verifyBrazierNeglect', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BrazierNeglectCheck' }
+
+tasks.register('verifyRunPartyMembership', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunPartyMembershipCheck' }
+
+tasks.register('verifyRunEntryPartyOpen', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunEntryPartyOpenCheck' }

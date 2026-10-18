@@ -51,6 +51,9 @@ public final class RunRepository {
                 UUID runId = UUID.randomUUID();
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_instances (run_id, content_id, difficulty, week_id, party_size, scaling_tier, state,content_version,content_snapshot) VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE',?,?::jsonb)")) { insert.setObject(1, runId); insert.setString(2, CONTENT); insert.setString(3, difficulty.name()); insert.setObject(4, week); insert.setInt(5, participants.size()); insert.setInt(6, tier); insert.setString(7,content.version());insert.setString(8,content.snapshot());insert.executeUpdate(); }
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_participants (run_id, character_id,frozen_loadout,loadout_revision) VALUES (?, ?,?::jsonb,?)")) { for (UUID characterId : participants) { var loadout=kr.dalmaru.skill.LoadoutRepository.load(connection,characterId); insert.setObject(1, runId); insert.setObject(2, characterId); insert.setString(3,kr.dalmaru.skill.LoadoutRepository.encode(loadout.slots()));insert.setLong(4,loadout.revision());insert.addBatch(); } insert.executeBatch(); }
+                // Same transaction as the run row: the roster exists exactly when the run does (account lock already held above).
+                var roster = kr.dalmaru.party.PartyRunService.open(connection, runId, active, "READY");
+                if (!"ROSTER".equals(roster.status())) throw new IllegalStateException("Run party roster did not open: " + roster.reason());
                 request(connection, accountId, generation, requestId, "ENTER", runId, "ACTIVE");
                 var created = new RunRecord(runId, difficulty, participants.size(), tier, "ACTIVE", false);
                 kr.dalmaru.request.RequestJournal.confirm(connection, stored, entryOutcome(created));
