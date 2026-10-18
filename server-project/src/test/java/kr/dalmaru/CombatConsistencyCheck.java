@@ -51,10 +51,14 @@ public final class CombatConsistencyCheck {
         defense=new DefenseState();defense.revive(10);require(defense.immune(69)&&!defense.immune(70),"C06 revive immunity");
         defense.revive(100);defense.attack();require(!defense.immune(100),"C06 attack ends immunity");
         String source=Files.readString(Path.of("src/main/java/kr/dalmaru/combat/CombatRuntime.java"));
-        String methods="private java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> contentSource=player->kr.dalmaru.content.ContentCatalog.current();"+method(source,"public kr.dalmaru.content.ContentCatalog content(")+method(source,"public kr.dalmaru.content.ContentCatalog.Skill skill(")+method(source,"public void tick(long")+method(source,"public SweepResult useSweep(")+method(source,"public void recordValidHit(");
+        String methods="private java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> contentSource=player->kr.dalmaru.content.ContentCatalog.current();"+method(source,"public kr.dalmaru.content.ContentCatalog content(")+method(source,"public kr.dalmaru.content.ContentCatalog.Skill skill(")+method(source,"public void tick(long")+method(source,"public SweepResult useSweep(")+method(source,"public void recordValidHit(")+method(source,"public void recordIncomingHit(");
         String code="""
             import java.util.*;
             public class CombatProof {
+                int skillEvents,hitEvents;
+                java.util.function.Consumer<UUID> skillUsed=ignored->skillEvents++;
+                java.util.function.Consumer<ServerPlayer> receivedHit=ignored->hitEvents++;
+                java.util.function.BiConsumer<ServerPlayer,kr.dalmaru.run.RunContribution.Action> contribution=(player,action)->{};
                 enum SweepResult {UNAVAILABLE,STAMINA,COOLDOWN,USED}
                 static class RuntimeState {int maximumStamina=100;double stamina=40,staminaRegenerationPerSecond=5;long lastCombatTick=0;}
                 Map<UUID,RuntimeState> states=new HashMap<>();Set<UUID> disconnected=new HashSet<>();Map<UUID,Long>sweepCooldowns=new HashMap<>();
@@ -68,8 +72,9 @@ public final class CombatConsistencyCheck {
                     runtime.disconnected.add(id);runtime.tick(40);if(state.stamina!=45)throw new AssertionError("Offline regeneration");
                     runtime.disconnected.clear();state.stamina=99;runtime.tick(60);if(state.stamina!=100)throw new AssertionError("C02 regeneration cap");
                     if(runtime.useSweep(id,80)!=SweepResult.USED||state.stamina!=80||state.lastCombatTick!=0)throw new AssertionError("C03 empty cast refreshed combat or lost cost");
-                    if(runtime.useSweep(id,81)!=SweepResult.COOLDOWN||state.stamina!=80)throw new AssertionError("Repeated cast charged twice");
+                    if(runtime.useSweep(id,81)!=SweepResult.COOLDOWN||state.stamina!=80||runtime.skillEvents!=1)throw new AssertionError("Repeated cast charged twice or emitted mechanic event");
                     runtime.recordValidHit(new ServerPlayer(id),82);if(state.lastCombatTick!=82)throw new AssertionError("Valid damage did not refresh");
+                    runtime.recordIncomingHit(new ServerPlayer(id),83);if(state.lastCombatTick!=83||runtime.hitEvents!=1)throw new AssertionError("Actual HP hit callback missing");
                 }
             }
             class ServerPlayer {UUID id;ServerPlayer(UUID id){this.id=id;}UUID getUUID(){return id;}}
@@ -90,6 +95,7 @@ public final class CombatConsistencyCheck {
             import kr.dalmaru.combat.DefenseState;
             import kr.dalmaru.combat.CombatEffects;
             public class ProtectionProof {
+                int mechanicHits;java.util.function.Consumer<ServerPlayer> receivedHit=ignored->mechanicHits++;
                 static class Vec { Vec normalize(){return this;} Vec subtract(Vec v){return this;} double dot(Vec v){return 1;} }
                 static class ServerPlayer { final UUID id=UUID.randomUUID();UUID getUUID(){return id;} Vec getLookAngle(){return new Vec();} Vec position(){return new Vec();} }
                 static class DamageSource { Object entity;DamageSource(Object e){entity=e;} Object getEntity(){return entity;} Vec getSourcePosition(){return new Vec();} boolean is(Object tag){return false;} }
@@ -100,12 +106,16 @@ public final class CombatConsistencyCheck {
                 static void checkCase(boolean valid)throws Exception{
                     var p=new ServerPlayer();var source=new DamageSource(new Object());
                     var proof=new ProtectionProof();proof.defense.guard(true,0);
-                    if(proof.protect(p,source,100,0,valid)!=0||proof.hits!=(valid?1:0))throw new AssertionError("R6 full guard timer");
+                    if(proof.protect(p,source,100,0,valid)!=0||proof.hits!=(valid?1:0)||proof.mechanicHits!=0)throw new AssertionError("R6 full guard timer");
                     proof=new ProtectionProof();proof.defense.dodge(0,true);
-                    if(proof.protect(p,source,100,1,valid)!=0||proof.hits!=(valid?1:0)||proof.evasiveUntil.containsKey(p.id)!=valid)throw new AssertionError("R6 dodge/environment timer or passive");
+                    if(proof.protect(p,source,100,1,valid)!=0||proof.hits!=(valid?1:0)||proof.evasiveUntil.containsKey(p.id)!=valid||proof.mechanicHits!=0)throw new AssertionError("R6 dodge/environment timer or passive");
                     proof=new ProtectionProof();proof.effects.shield(p.id,"shield",100,1000,0);
-                    if(proof.protect(p,source,100,1,valid)!=0||proof.hits!=(valid?1:0))throw new AssertionError("R6 full shield timer");
-                    proof=new ProtectionProof();if(proof.protect(p,source,0,1,valid)!=0||proof.hits!=0)throw new AssertionError("R6 zero damage timer");
+                    if(proof.protect(p,source,100,1,valid)!=0||proof.hits!=(valid?1:0)||proof.mechanicHits!=(valid?1:0))throw new AssertionError("R6 full shield timer or environment hazard cancelled channel");
+                    proof=new ProtectionProof();if(proof.protect(p,source,0,1,valid)!=0||proof.hits!=0||proof.mechanicHits!=0)throw new AssertionError("R6 zero damage timer");
+                    proof=new ProtectionProof();proof.defense.revive(0);proof.effects.shield(p.id,"shield",100,1000,0);
+                    if(proof.protect(p,source,100,1,valid)!=0||proof.mechanicHits!=0||proof.effects.shieldRemaining(p.id,1)!=100)throw new AssertionError("Immune hit cancelled channel or consumed shield");
+                    proof=new ProtectionProof();proof.effects.shield(p.id,"shield",25,1000,0);
+                    if(proof.protect(p,source,100,1,valid)!=75||proof.mechanicHits!=(valid?1:0))throw new AssertionError("Partial shield hit callback");
                 }
                 public static void check()throws Exception{checkCase(false);checkCase(true);}
             }

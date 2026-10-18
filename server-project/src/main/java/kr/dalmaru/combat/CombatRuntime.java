@@ -34,6 +34,9 @@ public final class CombatRuntime {
     private java.util.function.BiConsumer<ServerPlayer,kr.dalmaru.run.RunContribution.Action> contribution=(player,action)->{};
     private java.util.function.Consumer<ServerPlayer> playerInput=player->{};
     public void contributions(java.util.function.BiConsumer<ServerPlayer,kr.dalmaru.run.RunContribution.Action> listener,java.util.function.Consumer<ServerPlayer> input){contribution=java.util.Objects.requireNonNull(listener);playerInput=java.util.Objects.requireNonNull(input);}
+    private java.util.function.Consumer<UUID> skillUsed=player->{};
+    private java.util.function.Consumer<ServerPlayer> receivedHit=player->{};
+    public void mechanicActions(java.util.function.Consumer<UUID> skill,java.util.function.Consumer<ServerPlayer> hit){skillUsed=java.util.Objects.requireNonNull(skill);receivedHit=java.util.Objects.requireNonNull(hit);}
     public kr.dalmaru.content.ContentCatalog content(UUID player){return contentSource.apply(player);}
     public kr.dalmaru.content.ContentCatalog.Skill skill(UUID player,String id){return content(player).skill(id);}
     public DefenseState defenseState(UUID player){return defenseStates.computeIfAbsent(player,id->new DefenseState());}
@@ -60,7 +63,9 @@ public final class CombatRuntime {
         boolean blockable=source.getEntity()!=null&&!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD);
         double cost=damage>=180?60:damage>=130?40:damage>=100?20:10;
         double reduced=defense.reduce(damage,tick,blockable,front,hasShield(player.getUUID()),cost,resistsStagger(player.getUUID(),tick));
+        double beforeShield=reduced;
         reduced=effects.absorb(player.getUUID(),reduced,tick);
+        if(validCombat&&reduced<beforeShield)receivedHit.accept(player);
         if(validCombat&&damage>0&&reduced<damage){if(!defense.immune(tick)||defense.dodgeImmune(tick))recordValidHit(player,tick);if(source.getEntity() instanceof ServerPlayer attacker)recordValidHit(attacker,tick);}
         movementEffects(player,tick);return reduced;
     }
@@ -200,13 +205,13 @@ public final class CombatRuntime {
 	}
 	public void bossDamage(ServerPlayer player, LivingEntity boss, float amount, boolean magic) {
 		int damage = CombatCalculator.damage((double) amount, 1, 1, false, defense(player, magic));
-		hurtRpg(player, player.damageSources().mobAttack(boss), damage);
+		hurtRpg(player, boss==null?player.damageSources().magic():player.damageSources().mobAttack(boss), damage);
 	}
 	public void hurtLinger(UUID playerId, LivingEntity body, LivingEntity source, float amount, boolean magic) {
 		RuntimeState state = states.get(playerId);
 		int defense = state == null ? 0 : state.gear.defense(magic);
 		int damage = CombatCalculator.damage((double) amount, 1, 1, false, defense);
-		hurtRpg(body, body.damageSources().mobAttack(source), damage);
+		hurtRpg(body, source==null?body.damageSources().magic():body.damageSources().mobAttack(source), damage);
 	}
 	public static boolean explicitRpgDamage(LivingEntity target) { return RPG_TARGET.get() == target; }
 	public static boolean hurtRpg(LivingEntity target, DamageSource source, double amount) {
@@ -225,6 +230,7 @@ public final class CombatRuntime {
 		if (state != null) {state.lastCombatTick = tick;contribution.accept(player,kr.dalmaru.run.RunContribution.Action.EFFECT);}
 	}
     public void recordIncomingHit(ServerPlayer player,long tick){
+        receivedHit.accept(player);
         RuntimeState state=states.get(player.getUUID());
         if(state!=null){state.lastCombatTick=tick;contribution.accept(player,kr.dalmaru.run.RunContribution.Action.RECEIVED_HIT);}
     }
@@ -237,7 +243,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		sweepCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useAdvance(UUID playerId, long tick) {
@@ -249,7 +255,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		advanceCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useRisingStrike(UUID playerId, long tick) {
@@ -261,7 +267,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		risingStrikeCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useBattleCry(UUID playerId, long tick) {
@@ -273,7 +279,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		battleCryCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult usePiercingShot(UUID playerId, long tick) {
@@ -285,7 +291,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		piercingShotCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useSpiritTalisman(UUID playerId, long tick) {
@@ -297,7 +303,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		spiritTalismanCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useAmbush(UUID playerId, long tick) {
@@ -309,7 +315,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		ambushCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useRetreatShot(UUID playerId, long tick) {
@@ -321,7 +327,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		retreatShotCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useBindingTalisman(UUID playerId, long tick) {
@@ -333,7 +339,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		bindingTalismanCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useSmokeBomb(UUID playerId, long tick) {
@@ -345,7 +351,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		smokeBombCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useShackleStrike(UUID playerId, long tick) {
@@ -357,7 +363,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		shackleStrikeCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useEscape(UUID playerId, long tick) {
@@ -369,7 +375,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		escapeCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public SweepResult useTrackingMark(UUID playerId, long tick) {
@@ -381,7 +387,7 @@ public final class CombatRuntime {
 		defenseState(playerId).attack();state.stamina -= definition.energy();
 
 		trackingMarkCooldowns.put(playerId, tick + definition.cooldownTicks());
-		return SweepResult.USED;
+		skillUsed.accept(playerId);return SweepResult.USED;
 	}
 	public SweepResult useBindingShot(UUID playerId, long tick) {
         var definition=skill(playerId,"skill.archer.binding_shot");
@@ -389,14 +395,14 @@ public final class CombatRuntime {
 		if (state == null) return SweepResult.UNAVAILABLE;
 		if (state.stamina < definition.energy()) return SweepResult.STAMINA;
 		if (tick < bindingShotCooldowns.getOrDefault(playerId, 0L)) return SweepResult.COOLDOWN;
-		defenseState(playerId).attack();state.stamina -= definition.energy();  bindingShotCooldowns.put(playerId, tick + definition.cooldownTicks()); return SweepResult.USED;
+		defenseState(playerId).attack();state.stamina -= definition.energy();  bindingShotCooldowns.put(playerId, tick + definition.cooldownTicks()); skillUsed.accept(playerId);return SweepResult.USED;
 	}
 	public SweepResult useProtectiveTalisman(UUID playerId, long tick) {
         var definition=skill(playerId,"skill.mage.protective_talisman"); return use(playerId, tick, definition.energy(), definition.cooldownTicks(), protectiveTalismanCooldowns); }
 	public SweepResult useShortStep(UUID playerId, long tick) {
         var definition=skill(playerId,"skill.mage.short_step"); return use(playerId, tick, definition.energy(), definition.cooldownTicks(), shortStepCooldowns); }
 	private SweepResult use(UUID playerId, long tick, int cost, long cooldown, Map<UUID, Long> cooldowns) {
-		RuntimeState state=states.get(playerId); if(state==null)return SweepResult.UNAVAILABLE; if(state.stamina<cost)return SweepResult.STAMINA; if(tick<cooldowns.getOrDefault(playerId,0L))return SweepResult.COOLDOWN; defenseState(playerId).attack();state.stamina-=cost;  cooldowns.put(playerId,tick+cooldown); return SweepResult.USED;
+		RuntimeState state=states.get(playerId); if(state==null)return SweepResult.UNAVAILABLE; if(state.stamina<cost)return SweepResult.STAMINA; if(tick<cooldowns.getOrDefault(playerId,0L))return SweepResult.COOLDOWN; defenseState(playerId).attack();state.stamina-=cost;  cooldowns.put(playerId,tick+cooldown); skillUsed.accept(playerId);return SweepResult.USED;
 	}
 
 	public void tick(long tick) {
