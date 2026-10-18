@@ -1484,7 +1484,9 @@ public final class DalmaruNetworking {
 
 	private static boolean bossFight(ServerPlayer player) {
 		var snapshot = RUN_RUNTIME.mechanicSnapshot(player);
-		return snapshot != null && snapshot.phase() == kr.dalmaru.run.RunMechanicAccess.Phase.BEACON;
+		if (snapshot == null) return false;
+		var phase = snapshot.phase();
+		return phase == kr.dalmaru.run.RunMechanicAccess.Phase.GATEKEEPER || phase == kr.dalmaru.run.RunMechanicAccess.Phase.BEACON;
 	}
 
 	private static kr.dalmaru.party.PartyRunService.Outcome partyOutcome(java.sql.Connection connection, DalmaruPayloads.P4Request payload, UUID account, UUID character, UUID runId, boolean bossFight) throws java.sql.SQLException {

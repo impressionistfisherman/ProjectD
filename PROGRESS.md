@@ -675,3 +675,10 @@
 - 화로 단계 HUD에 스냅샷 방치 상태만 표시한다. IDLE은 `임시 방치 남은 N초`, WARNING은 `임시 경고 남은 N초`, DAMAGING은 `임시 피해 중 · 다음 N초`. 초는 틱을 20으로 올려 센다. bosses는 패킷에 넣지 않는다. protocol 34.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 스모크 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyBrazierNeglect 포함. 인게임 미실행. push 없음. 바닐라 소리는 이번 지시에 없어 넣지 않았다.
 - 이어서 클라이언트만: WARNING으로 바뀌는 패킷에 종 소리 1회, DAMAGING으로 바뀌는 패킷에 피격 소리 1회. 같은 상태가 이어지면 다시 내지 않는다. 서버는 안 고쳤다. verifyProtocolVersion PASS. 전체 회귀는 다시 돌리지 않음. 인게임 소리는 듣지 않음.
+
+## P4-S08 크리드 수정 (2026-10-18)
+- 같은 대상 60초는 `opened_at` 기준이다. 119초는 거절, 120초는 허용. 성공·만료 모두 개시 시각을 쓴다.
+- 보스 전투는 GATEKEEPER와 BEACON이다.
+- 새 투표와 명단 조회는 만료된 열린 투표를 먼저 닫는다. 개시 31초 뒤 다른 대상 투표는 열린다. 같은 대상은 60초 안이면 거절한다.
+- 추방 확정은 여전히 반환하지 않는다. verifyRunKickVote는 잠금 아래 PASS이고 전체 회귀 스크립트에는 없다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 213초. 검사 56개와 스모크 PASS. push 없음. 인게임 미실행.

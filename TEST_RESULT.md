@@ -1175,3 +1175,7 @@
 - verifyProtocolVersion PASS. HUD 코덱은 revision 3, 점화 1/2, 채널 40틱, WARNING, 200틱을 왕복했다. 화면 문구는 `임시 방치`, `임시 경고`, `임시 피해 중`. bosses와 성공 문구는 없다. verifyClientScreenBounds PASS.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 p1_integration_smoke.ps1 PASS. verifyBrazierNeglect 포함. 잠금은 끝나고 삭제. 인게임 HUD는 보지 않음.
 - 소리 추가 후 verifyProtocolVersion PASS. WARNING 전환은 `SoundEvents.BELL_BLOCK`, DAMAGING 전환은 `SoundEvents.PLAYER_HURT`. HUD 그리기에는 playSound가 없다. 전체 회귀는 다시 돌리지 않음. 인게임 소리는 듣지 않음.
+
+## P4-S08 크리드 수정 (2026-10-18)
+- grok_p3_fixture. `verifyRunKickVote` 잠금 실행. `Run kick vote PASS`. 개시 119초 거절, 120초 허용. 만료 투표를 닫은 뒤 31초 뒤 다른 대상은 OPEN, 같은 대상은 60초 거절. 조회도 만료 투표를 EXPIRED로 닫음. 소스는 GATEKEEPER와 BEACON을 함께 본다. 이 검사는 전체 회귀에 없다.
+- 잠금 단일 전체 회귀 exit 0, 약 213초. 검사 56개와 p1_integration_smoke.ps1 PASS. 잠금은 끝나고 삭제. 인게임 미실행. 추방 확정은 검사하지 않음.

@@ -130,8 +130,11 @@ public final class PartyRunService {
 		return new Outcome("ROSTER", rosterText(connection, runId));
 	}
 
-	public static Outcome roster(Connection connection, UUID runId) throws SQLException {
+	public static Outcome roster(Connection connection, UUID runId) throws SQLException { return rosterAt(connection, runId, Instant.now()); }
+
+	public static Outcome rosterAt(Connection connection, UUID runId, Instant now) throws SQLException {
 		if (runId == null || lock(connection, runId) == null) return reject("거절: 파티 명단은 아직 열리지 않았습니다.");
+		closeExpired(connection, runId, now);
 		return new Outcome("ROSTER", rosterText(connection, runId));
 	}
 
@@ -147,6 +150,7 @@ public final class PartyRunService {
 		if (!present(connection, runId, actorCharacter) || !present(connection, runId, targetCharacter)) return reject("거절: 대상이 명단에 없습니다.");
 		int present = presentCount(connection, runId);
 		if (present < rules.voteMinPresent()) return reject("거절: 3명 미만은 추방 투표를 열 수 없습니다.");
+		closeExpired(connection, runId, now);
 		if (openVote(connection, runId) != null) return reject("거절: 열린 투표가 있습니다.");
 		Instant blockedUntil = revoteBlockedUntil(connection, runId, targetCharacter, rules.revoteWaitSeconds());
 		if (blockedUntil != null && now.isBefore(blockedUntil)) return reject("거절: 같은 대상은 60초 뒤에 다시 투표할 수 있습니다.");
@@ -215,6 +219,13 @@ public final class PartyRunService {
 	private static Outcome removalPending(Connection connection, UUID runId, UUID characterId, long revision) throws SQLException {
 		if (EXIT_REMOVAL != null) EXIT_REMOVAL.removeMember(connection, runId, characterId, revision, kr.dalmaru.run.RunMechanicAccess.ExitReason.KICKED);
 		return new Outcome("WAITING", "거절: 추방 제거는 아직 준비되지 않았습니다.");
+	}
+
+	private static void closeExpired(Connection connection, UUID runId, Instant now) throws SQLException {
+		UUID voteId = openVote(connection, runId);
+		if (voteId == null) return;
+		var vote = lockVote(connection, voteId);
+		if (vote != null && !vote.closed && !now.isBefore(vote.expiresAt)) expire(connection, voteId, now);
 	}
 
 	private static Outcome expire(Connection connection, UUID voteId, Instant now) throws SQLException {
@@ -322,7 +333,7 @@ public final class PartyRunService {
 	}
 
 	private static Instant revoteBlockedUntil(Connection connection, UUID runId, UUID target, int waitSeconds) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT closed_at FROM dalmaru.run_kick_votes WHERE run_id=? AND target_character_id=? AND closed_at IS NOT NULL ORDER BY closed_at DESC LIMIT 1")) {
+		try (var query = connection.prepareStatement("SELECT opened_at FROM dalmaru.run_kick_votes WHERE run_id=? AND target_character_id=? ORDER BY opened_at DESC LIMIT 1")) {
 			query.setObject(1, runId);
 			query.setObject(2, target);
 			try (var result = query.executeQuery()) {

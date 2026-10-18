@@ -96,6 +96,21 @@ public final class RunKickVoteCheck {
 				}
 				var blocked = PartyRunService.castKickVote(connection, ACCOUNT_A, a3, RUN3, voteId(connection, RUN3), true, start.plusSeconds(90), false);
 				require("REJECT".equals(blocked.status()) && blocked.reason().contains("진행") && left(connection, RUN3) == 0, blocked.reason());
+				var early = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(119), false);
+				require(reject(early, "60초") && !early.reason().contains("열린 투표"), early.reason());
+				var fromOpen = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(120), false);
+				require("OPEN".equals(fromOpen.status()), fromOpen.reason());
+				UUID quietVote = voteId(connection, RUN4);
+				var sameTarget = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, b2, start.plusSeconds(151), false);
+				require(reject(sameTarget, "60초") && !sameTarget.reason().contains("열린 투표"), sameTarget.reason());
+				require("EXPIRED".equals(outcome(connection, quietVote)), "Expired vote stayed open");
+				var otherTarget = PartyRunService.openKickVote(connection, ACCOUNT_A, leader, RUN4, a2, start.plusSeconds(151), false);
+				require("OPEN".equals(otherTarget.status()), otherTarget.reason());
+				UUID lookedUp = voteId(connection, RUN4);
+				require("ROSTER".equals(PartyRunService.rosterAt(connection, RUN4, start.plusSeconds(182)).status()), "Roster did not load");
+				require("EXPIRED".equals(outcome(connection, lookedUp)), "Roster left an expired vote open");
+				String networking = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
+				require(networking.contains("Phase.GATEKEEPER") && networking.contains("Phase.BEACON"), "Gatekeeper boss fight is not rejected");
 				connection.commit();
 			}
 			System.out.println("Run kick vote PASS");
