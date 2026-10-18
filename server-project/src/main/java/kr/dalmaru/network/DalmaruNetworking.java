@@ -84,6 +84,15 @@ public final class DalmaruNetworking {
 
 	public static void initialize() {
         COMBAT.contentSource(RUN_RUNTIME::content);
+        java.util.function.BiConsumer<ServerPlayer,kr.dalmaru.run.RunContribution.Action> contribution=(player,action)->{
+            var state=CONNECTIONS.get(player.getUUID());
+            if(state==null||state.accountSession==null||state.accountSession.activeCharacterId()==null)return;
+            UUID runId=RUN_RUNTIME.runId(player),character=state.accountSession.activeCharacterId();
+            if(runId==null||!RUN_RUNTIME.recordContribution(player,character,action))return;
+            CompletableFuture.runAsync(()->{try{RUNS.recordContribution(runId,character,action);}catch(Exception error){LOGGER.warn("Failed to persist run action; completion retains its snapshot.",error);}},LIFECYCLE_DB);
+        };
+        COMBAT.contributions(contribution,RUN_RUNTIME::contributionInput);
+        RUN_RUNTIME.mechanicAction(player->contribution.accept(player,kr.dalmaru.run.RunContribution.Action.MECHANIC));
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.WaypointRequest.TYPE,DalmaruPayloads.WaypointRequest.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.StoryStateRequest.TYPE,DalmaruPayloads.StoryStateRequest.CODEC);
@@ -227,19 +236,21 @@ public final class DalmaruNetworking {
             if(entity instanceof ServerPlayer player&&baseDamageTaken>0)interruptWaypoint(player,"피격으로 귀환이 취소되었습니다.");
 			if (damageTaken > 0) {
 				if (source.getEntity() instanceof ServerPlayer player && hostileCombatEntity(player,entity)) COMBAT.recordValidHit(player, currentTick);
-				if (entity instanceof ServerPlayer player && hostileCombatEntity(player,source.getEntity())) COMBAT.recordValidHit(player, currentTick);
+				if (entity instanceof ServerPlayer player && hostileCombatEntity(player,source.getEntity())) COMBAT.recordIncomingHit(player, currentTick);
 			}
 		});
 		// AFTER_DAMAGE is not fired for lethal damage, so revives are counted here.
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
             if(entity instanceof ServerPlayer player)interruptWaypoint(player,"사망으로 귀환이 취소되었습니다.");
             if(source.getEntity() instanceof ServerPlayer player&&hostileCombatEntity(player,entity))COMBAT.recordValidHit(player,currentTick);
+            if(entity instanceof ServerPlayer player&&hostileCombatEntity(player,source.getEntity()))COMBAT.recordIncomingHit(player,currentTick);
 			if(entity instanceof LivingEntity living)RUN_RUNTIME.mobDied(living);
 			if (entity instanceof ServerPlayer player){if(RUN_RUNTIME.runId(player)==null)fieldDeath(player);else {failRunAfterFinalDeath(player,serverFor(player));sendRunReviveState(player);}}
 		});
 		ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((level, killer, killed, damageSource) -> {
 			if (killer instanceof ServerPlayer player) {
 				if(!CombatRewards.excludesRewardTags(killed.entityTags()))grantCombatExperience(player, level.getServer(), CombatRewards.experienceFor(killed.getType()),killed.getUUID(),new kr.dalmaru.quest.StoryQuestRepository.Position(level.dimension().identifier().toString(),killed.getX(),killed.getY(),killed.getZ()));
+				if(hostileCombatEntity(player,killed))COMBAT.recordValidHit(player,currentTick);
 				UUID completedRun = RUN_RUNTIME.bossKilled(player, killed.getUUID());
 				if (completedRun != null) completeRun(player, level.getServer(), completedRun);
 				if (!CombatRewards.excludesRewardTags(killed.entityTags()) && killed.getType().getDescriptionId().equals("entity.minecraft.zombie")) recordQuestZombieKill(player, level.getServer(), killed.getUUID());
@@ -932,7 +943,8 @@ public final class DalmaruNetworking {
 		if (state == null || state.accountSession == null) return;
 		AccountSession session = state.accountSession;
         if(!FINISHING_RUNS.add(runId))return;
-		CompletableFuture.supplyAsync(() -> { try { RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, runId, true); Map<UUID, CharacterProfile> profiles = new HashMap<>(); for (var reward : RUNS.rewards(runId)) profiles.put(reward.characterId(), CHARACTERS.profile(reward.characterId())); return profiles; } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(profiles -> server.execute(() -> {
+        var contributions=RUN_RUNTIME.contributions(runId);
+		CompletableFuture.supplyAsync(() -> { try { RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, runId, true, contributions); Map<UUID, CharacterProfile> profiles = new HashMap<>(); for (var reward : RUNS.rewards(runId)) profiles.put(reward.characterId(), CHARACTERS.profile(reward.characterId())); return profiles; } catch (Exception exception) { throw new IllegalStateException(exception); } },LIFECYCLE_DB).thenAccept(profiles -> server.execute(() -> {
 			FINISHING_RUNS.remove(runId);RUN_RUNTIME.close(server,runId);acknowledgeReturns(server,runId);
             for (var entry : CONNECTIONS.entrySet()) { ConnectionState memberState = entry.getValue(); if (memberState.accountSession == null) continue; CharacterProfile profile = profiles.get(memberState.accountSession.activeCharacterId()); if (profile == null) continue; ServerPlayer member = server.getPlayerList().getPlayer(entry.getKey()); if (member == null) continue; sendCharacterProfile(member, profile); member.sendSystemMessage(Component.literal("폐봉수대를 완료했습니다. 경험치 500과 공략 보상을 획득했습니다.")); }
 		})).exceptionally(error -> { LOGGER.error("Failed to complete run.", error);server.execute(()->FINISHING_RUNS.remove(runId)); return null; });

@@ -137,7 +137,7 @@ public final class PremergeDatabaseCheck {
     private static UUID item(UUID owner,String id,int level,String profession)throws Exception{UUID key=UUID.randomUUID();sql("INSERT INTO dalmaru.character_equipment(equipment_id,character_id,slot_id,item_id,required_level,profession,location) VALUES(?,?,NULL,?,?,?,'INVENTORY')",key,owner,id,level,profession);return key;}
     private static UUID run(UUID... participants)throws Exception{
         UUID key=UUID.randomUUID();sql("INSERT INTO dalmaru.run_instances(run_id,content_id,difficulty,week_id,party_size,scaling_tier,state) VALUES(?,'run.bongsudae','FIRST_STEP',CURRENT_DATE,?,?,'ACTIVE')",key,participants.length,participants.length);
-        for(UUID id:participants){sql("INSERT INTO dalmaru.run_participants(run_id,character_id) VALUES(?,?)",key,id);sql("INSERT INTO dalmaru.character_run_weekly_clears(character_id,content_id,difficulty,week_id) VALUES(?,'run.bongsudae','FIRST_STEP',CURRENT_DATE) ON CONFLICT DO NOTHING",id);}
+        for(UUID id:participants){sql("INSERT INTO dalmaru.run_participants(run_id,character_id) VALUES(?,?)",key,id);sql("INSERT INTO dalmaru.run_contributions(run_id,character_id,action) VALUES(?,?,'EFFECT')",key,id);sql("INSERT INTO dalmaru.character_run_weekly_clears(character_id,content_id,difficulty,week_id) VALUES(?,'run.bongsudae','FIRST_STEP',CURRENT_DATE) ON CONFLICT DO NOTHING",id);}
         return key;
     }
     private static Connection connection()throws Exception{return DriverManager.getConnection("jdbc:postgresql://127.0.0.1:"+System.getenv("DALMARU_DB_PORT")+"/oscar_fixture","oscar_fixture",System.getenv("DALMARU_DB_PASSWORD"));}

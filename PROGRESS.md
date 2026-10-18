@@ -562,3 +562,15 @@
 - UUID 재생·귀속·동시성·confirm rollback 및 옛 원장 금액 보존. 공개 시그니처/protocol32 유지, Grok 제품 미수정.
 - focused4 PASS41초, compile3종 PASS18초. 공유잠금 전체42 PASS/exit0/289.76초, assemble/임시35565 RunRespawnMixin PASS. 사후 OscarP3DB accounts0/requests0/schema32. 상세 research/MDF_P3_S10_OSCAR.md/.log/_timing.json.
 - 인게임·운영/플레이DB·배포·push 미실행. Creed 독립검토/god 통합승인 대기.
+
+## P3 S12 유효 행동 자격 구현 (2026-10-16)
+- V035 run_contributions: 입장명단 복합FK/개인 유니크, 최초행동과 취소 상태 보존. RunRewardRepository의 기존 grant 계약을 유지하며 유효자만 개인 보상·XP·첫보상을 지급. 취소자는 주간 횟수도 제외.
+- 서버 적중/실제 보호·정화/화로 완료를 기록. 피격은 최근10초 공격·방어·회피 입력 또는 현재 이동입력 필요. 부활 무적만으로 자격을 주지 않으며 클리어 이후 신규 자격을 차단. 유효행동 후 사망/접속종료 자격 유지.
+- 최초행동 비동기 저장과 별개로 불변 snapshot을 finish overload에서 보상과 같은 transaction에 반영. 마지막 보스 적중을 완료 호출 전에 기록. 기존 finish 시그니처/protocol32 유지.
+- compile3종 PASS22초, focused4 PASS39초. 최초 compile은 후속 편집 스크립트의 작업경로 오류로 미완료 State 필드를 검사하여 실패했으며 경로 수정 후 통과. 전체43 회귀는 다음 공유잠금 실행 예정.
+- 실제 회복 스킬은 현재 코드에 없으므로 추가하지 않음. 기존 자진이탈은 런 전체 실패/종료이며 보상 없음. 개별 정상추방 경로는 아직 없고 서버 revokeContribution 함수로 취소를 지원. 실제 플레이/통신 추가 없음.
+
+## P3 S12 전체 회귀 통과 (2026-10-18 증거 회수)
+- 첫 전체 실패는 역참 원본이벤트 추출 대역의 recordIncomingHit 누락이었으며 1줄 보완. 관련2 PASS29초 후 공유잠금 단일 전체43 모두 PASS/exit0/247.53초. assemble·임시35565 RunRespawnMixin PASS. 앱 재시작 뒤 로그/timing으로 회수했으며 중복회귀 없음.
+- OscarP3DB 사후 accounts0/requests0/schema35. V035 적용, 새 패킷·화면·protocol 변경 없음. 기존 지급/finish 계약 보존.
+- 상세 MDF_P3_S12_OSCAR.md/.log/_timing.json; 최초실패 _initial.log/_timing.json 보존. 인게임 미실행, 크리드 독립검토/god 통합승인 대기.

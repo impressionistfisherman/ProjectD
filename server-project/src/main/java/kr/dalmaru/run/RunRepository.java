@@ -84,6 +84,10 @@ public final class RunRepository {
         }
     }
     public RunRecord finish(UUID accountId, long generation, long requestId, UUID runId, boolean success) throws SQLException {
+        return finish(accountId,generation,requestId,runId,success,java.util.Map.of());
+    }
+    public RunRecord finish(UUID accountId, long generation, long requestId, UUID runId, boolean success, java.util.Map<UUID,RunContribution.Action> contributions) throws SQLException {
+        contributions=java.util.Map.copyOf(contributions);
         if (generation < 1 || requestId < 1 || password == null || password.isBlank()) throw new IllegalArgumentException("Invalid run result.");
         try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try {
             UUID active = activeCharacter(connection, accountId, generation); RunRecord replay = replay(connection, accountId, generation, requestId, success ? "COMPLETE" : "FAIL"); if (replay != null) { connection.commit(); return replay; }
@@ -92,12 +96,32 @@ public final class RunRepository {
             if((success&&"COMPLETED".equals(run.state()))||(!success&&"FAILED".equals(run.state()))){connection.commit();return new RunRecord(runId,run.difficulty(),run.partySize(),run.scalingTier(),run.state(),true);}
             if(!"ACTIVE".equals(run.state()))throw new IllegalArgumentException("Run cannot be finished.");
             if (success) {
+                for(var entry:contributions.entrySet())writeContribution(connection,runId,entry.getKey(),entry.getValue(),false);
                 rewards.grant(connection, runId, run.difficulty());
-                try (var increment = connection.prepareStatement("UPDATE dalmaru.character_run_weekly_clears SET clear_count=clear_count+1 WHERE character_id IN (SELECT character_id FROM dalmaru.run_participants WHERE run_id=?) AND content_id=? AND difficulty=? AND week_id=(SELECT week_id FROM dalmaru.run_instances WHERE run_id=?)")) { increment.setObject(1, runId); increment.setString(2, CONTENT); increment.setString(3, run.difficulty().name()); increment.setObject(4, runId); increment.executeUpdate(); }
+                try (var increment = connection.prepareStatement("UPDATE dalmaru.character_run_weekly_clears SET clear_count=clear_count+1 WHERE character_id IN (SELECT p.character_id FROM dalmaru.run_participants p WHERE p.run_id=? AND NOT EXISTS(SELECT 1 FROM dalmaru.run_contributions c WHERE c.run_id=p.run_id AND c.character_id=p.character_id AND c.revoked)) AND content_id=? AND difficulty=? AND week_id=(SELECT week_id FROM dalmaru.run_instances WHERE run_id=?)")) { increment.setObject(1, runId); increment.setString(2, CONTENT); increment.setString(3, run.difficulty().name()); increment.setObject(4, runId); increment.executeUpdate(); }
             }
             String state = success ? "COMPLETED" : "FAILED"; try (var update = connection.prepareStatement("UPDATE dalmaru.run_instances SET state=?, finished_at=CURRENT_TIMESTAMP WHERE run_id=?")) { update.setString(1, state); update.setObject(2, runId); update.executeUpdate(); }
             request(connection, accountId, generation, requestId, success ? "COMPLETE" : "FAIL", runId, state); connection.commit(); return new RunRecord(runId, run.difficulty(), run.partySize(), run.scalingTier(), state, false);
         } catch (Exception exception) { connection.rollback(); throw exception; } }
+    }
+    /** Called only with server-verified evidence, never with a client-supplied eligibility flag. */
+    public void recordContribution(UUID runId,UUID characterId,RunContribution.Action action) throws SQLException {
+        changeContribution(runId,characterId,java.util.Objects.requireNonNull(action),false);
+    }
+    public void revokeContribution(UUID runId,UUID characterId) throws SQLException {
+        changeContribution(runId,characterId,null,true);
+    }
+    private void changeContribution(UUID runId,UUID characterId,RunContribution.Action action,boolean revoked) throws SQLException {
+        try(var connection=DriverManager.getConnection(url,username,password)){connection.setAutoCommit(false);try{
+            if(!"ACTIVE".equals(lockRun(connection,runId).state()))throw new IllegalArgumentException("Run is not active.");
+            writeContribution(connection,runId,characterId,action,revoked);connection.commit();
+        }catch(Exception error){connection.rollback();throw error;}}
+    }
+    private static void writeContribution(Connection connection,UUID runId,UUID characterId,RunContribution.Action action,boolean revoked) throws SQLException {
+        try(var statement=connection.prepareStatement("INSERT INTO dalmaru.run_contributions(run_id,character_id,action,revoked) SELECT run_id,character_id,?,? FROM dalmaru.run_participants WHERE run_id=? AND character_id=? ON CONFLICT(run_id,character_id) DO UPDATE SET action=COALESCE(dalmaru.run_contributions.action,EXCLUDED.action),revoked=dalmaru.run_contributions.revoked OR EXCLUDED.revoked")){
+            statement.setString(1,action==null?null:action.name());statement.setBoolean(2,revoked);statement.setObject(3,runId);statement.setObject(4,characterId);
+            if(statement.executeUpdate()!=1)throw new IllegalArgumentException("Not an entry participant.");
+        }
     }
     public RunRecord active(UUID characterId) throws SQLException {
         return resume(characterId);

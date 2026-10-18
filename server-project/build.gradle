@@ -401,3 +401,5 @@ tasks.register('verifyRefinementGrade', JavaExec) { group = 'verification'; clas
 tasks.register('verifyRefinementKeep', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementKeepCheck' }
 
 tasks.register('verifyInheritanceShare', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.InheritanceShareCheck' }
+
+tasks.register('verifyRewardEligibility', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RewardEligibilityCheck' }
