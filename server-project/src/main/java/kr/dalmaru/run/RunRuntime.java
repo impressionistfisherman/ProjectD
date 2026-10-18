@@ -30,6 +30,7 @@ public final class RunRuntime implements RunMechanicAccess {
         this.releaseDisconnected=java.util.Objects.requireNonNull(releaseDisconnected);
         this.lingerDamage=java.util.Objects.requireNonNull(lingerDamage);
     }
+    /** Null source denotes a run hazard; damage still uses the normal combat pipeline. */
     @FunctionalInterface public interface BossDamage { void hit(ServerPlayer player, net.minecraft.world.entity.LivingEntity boss, float amount, boolean magic); }
     @FunctionalInterface public interface LingerDamage { void hit(UUID playerId, net.minecraft.world.entity.LivingEntity body, net.minecraft.world.entity.LivingEntity source, float amount, boolean magic); }
     private final Map<UUID, State> playerRuns = new HashMap<>();
@@ -69,6 +70,10 @@ public final class RunRuntime implements RunMechanicAccess {
         if(player.level()!=e.level)return Result.WRONG_PHASE;
         return null;
     }
+    public void skillUsed(UUID playerId){
+        State state=playerRuns.get(playerId);Encounter e=state==null?null:encounters.get(state.runId);
+        if(e!=null){ServerPlayer player=e.level.getServer().getPlayerList().getPlayer(playerId);if(player!=null)skillUsed(player);}
+    }
     @Override public void skillUsed(ServerPlayer player){cancelChannel(player,CancelReason.SKILL);}
     @Override public void receivedHit(ServerPlayer player){cancelChannel(player,CancelReason.HIT);}
     private boolean cancelChannel(ServerPlayer player,CancelReason reason) {
@@ -86,7 +91,8 @@ public final class RunRuntime implements RunMechanicAccess {
         if(e.brazier!=null&&e.stage==Stage.BRAZIER)for(int i=0;i<e.brazier.count();i++){
             UUID owner=e.brazier.owner(i);braziers.add(new BrazierView(brazierPosition(e,i),e.brazier.lit(i),owner,owner==null?0:e.brazier.remaining(owner)));
         }
-        return new Snapshot(e.runId,e.revision,Phase.valueOf(e.stage.name()),e.partySize,braziers,Neglect.IDLE,0,List.of());
+        boolean neglectActive=e.neglect!=null&&!e.failed&&e.stage==Stage.BRAZIER&&e.mobs.isEmpty();
+        return new Snapshot(e.runId,e.revision,Phase.valueOf(e.stage.name()),e.partySize,braziers,neglectActive?e.neglect.state():Neglect.IDLE,neglectActive?e.neglect.remaining():0,List.of());
     }
     private static BlockPos brazierPosition(Encounter e,int index){return e.floor.offset(-4+index*4,1,35);}
     private void tickBraziers(MinecraftServer server,Encounter e) {
@@ -101,8 +107,35 @@ public final class RunRuntime implements RunMechanicAccess {
             ServerPlayer player=server.getPlayerList().getPlayer(id);if(player!=null)mechanicAction.accept(player);
         }
         if(!result.completed().isEmpty())for(int i=0;i<e.brazier.count();i++)if(e.brazier.lit(i))e.level.setBlock(brazierPosition(e,i),Blocks.CAMPFIRE.defaultBlockState(),3);
+        tickNeglect(server,e,!result.completed().isEmpty());
         for(UUID id:result.unsynchronized()){
             ServerPlayer player=server.getPlayerList().getPlayer(id);if(player!=null)player.sendSystemMessage(Component.literal("동시 점화 시간이 맞지 않아 취소했습니다. 함께 다시 조작해 주세요."));
+        }
+    }
+    private void tickNeglect(MinecraftServer server,Encounter e,boolean success) {
+        var event=e.neglect.tick(tickCount,e.brazier.channeling(),success);
+        var online=players(server,e.runId,e.level);
+        if(event.warningStarted()||event.cleared())for(ServerPlayer player:online){
+            player.sendSystemMessage(Component.literal(event.cleared()?"화로 점화 성공: 방치 경고를 해제했습니다."
+                    :"화로 방치 경고: 10초 뒤 위험 단계, 이후 3초마다 최대 체력 15% 피해입니다. 점화에 성공해야 해제됩니다. (임시)"));
+            player.playSound(net.minecraft.sounds.SoundEvents.FIRE_EXTINGUISH,.8F,event.cleared()?1.2F:.7F);
+        }
+        if(!event.pulse())return;
+        double fraction=e.content.mechanics().brazier().maximumHealthFraction();
+        var hitOwners=new java.util.HashSet<UUID>();
+        for(ServerPlayer player:online){
+            hitOwners.add(player.getUUID());
+            bossDamage.hit(player,null,(float)BrazierNeglect.damage(
+                    kr.dalmaru.combat.CombatUnits.toRpg(player.getMaxHealth()),fraction),true);
+        }
+        long now=System.currentTimeMillis();
+        for(var entry:new ArrayList<>(lingerBodies.entrySet())){
+            State member=playerRuns.get(entry.getKey());
+            if(member==null||!member.runId.equals(e.runId)||!BrazierNeglect.targetLinger(member.connected,member.dead,
+                    RunEncounterRules.lingering(member.disconnectedAt,now),hitOwners.contains(entry.getKey())))continue;
+            if(!(e.level.getEntity(entry.getValue()) instanceof Mob body)||!body.isAlive())continue;
+            lingerDamage.hit(entry.getKey(),body,null,(float)BrazierNeglect.damage(
+                    kr.dalmaru.combat.CombatUnits.toRpg(body.getMaxHealth()),fraction),true);
         }
     }
     public void contributionInput(ServerPlayer player){State state=playerRuns.get(player.getUUID());if(state!=null&&state.connected&&!state.dead&&!player.isSpectator())state.contribution.input(tickCount);}
@@ -660,7 +693,7 @@ public final class RunRuntime implements RunMechanicAccess {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
-        private long revision=1; private final BrazierMechanic brazier; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
-        private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize); }
+        private long revision=1; private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
+        private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize);this.neglect=content.mechanics()==null?null:new BrazierNeglect(content.mechanics().brazier()); }
     }
 }
