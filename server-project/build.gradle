@@ -266,12 +266,6 @@ tasks.register('verifyBeaconTowerTerrain', JavaExec) {
 	mainClass = 'kr.dalmaru.BeaconTowerTerrainCheck'
 }
 
-tasks.register('verifyManualPlayRegression', JavaExec) {
-	group = 'verification'
-	classpath = sourceSets.test.runtimeClasspath
-	mainClass = 'kr.dalmaru.ManualPlayRegressionCheck'
-}
-
 tasks.register('verifyPremergeDatabase', JavaExec) {
     group = 'verification'
     classpath = sourceSets.test.runtimeClasspath
@@ -283,12 +277,6 @@ tasks.register('verifyPremergeRuntime', JavaExec) {
     mainClass = 'kr.dalmaru.PremergeRuntimeCheck'
 }
 
-tasks.register('verifyReviewRegression', JavaExec) {
-    group = 'verification'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'kr.dalmaru.ReviewRegressionCheck'
-    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
-}
 tasks.register('verifyReviewDatabase', JavaExec) {
     group = 'verification'
     classpath = sourceSets.test.runtimeClasspath
@@ -445,3 +433,7 @@ tasks.register('verifyRunKickVote', JavaExec) { group = 'verification'; classpat
 tasks.register('verifyBossPartyScaling', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossPartyScalingCheck' }
 
 tasks.register('verifyBossPosture', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossPostureCheck' }
+
+tasks.register('verifyBossTelegraph', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossTelegraphCheck' }
+tasks.register('verifyRunMemberExit', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunMemberExitCheck' }
+tasks.register('verifyRunReconnectWindow', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunReconnectWindowCheck' }

@@ -10,6 +10,11 @@ public final class RunEncounterRules {
     public static final long DISCONNECT_LINGER_MS=10_000L;
     public static boolean clickRevive(long elapsedTicks){return elapsedTicks>=100;}
     public static boolean autoRevive(long elapsedTicks){return elapsedTicks>=300;}
+    public static final long RECONNECT_WINDOW_MS=180_000L;
+    /** A disconnected member may come back while now <= disconnectAt+180s; zero means connected. */
+    public static boolean reconnectAllowed(long disconnectedAt,long now){return disconnectedAt==0||now-disconnectedAt<=RECONNECT_WINDOW_MS;}
+    /** Whole-run pause is capped at the same 180 seconds; the individual window and run limits still take precedence. */
+    public static boolean pauseExpired(long pausedAt,long now){return pausedAt!=0&&now-pausedAt>RECONNECT_WINDOW_MS;}
     public static boolean lingering(long disconnectedAt,long now){return disconnectedAt!=0&&now-disconnectedAt<DISCONNECT_LINGER_MS;}
     public static boolean countsAsSurvivor(boolean connected,boolean dead,long disconnectedAt,long now){return !dead&&(connected||lingering(disconnectedAt,now));}
 
