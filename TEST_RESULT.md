@@ -1085,3 +1085,12 @@
 - 첫 전체 실패는 역참 원본이벤트 추출 대역의 recordIncomingHit 누락이었으며 1줄 보완. 관련2 PASS29초 후 공유잠금 단일 전체43 모두 PASS/exit0/247.53초. assemble·임시35565 RunRespawnMixin PASS. 앱 재시작 뒤 로그/timing으로 회수했으며 중복회귀 없음.
 - OscarP3DB 사후 accounts0/requests0/schema35. V035 적용, 새 패킷·화면·protocol 변경 없음. 기존 지급/finish 계약 보존.
 - 상세 MDF_P3_S12_OSCAR.md/.log/_timing.json; 최초실패 _initial.log/_timing.json 보존. 인게임 미실행, 크리드 독립검토/god 통합승인 대기.
+
+## P3 S11 강화 +6~15 구현 (2026-10-18)
+- 기존 enhance/잠금/UUID/전용credit/물리재료/실지출원장 Java는 그대로 재사용. pilot.json에 +6~15 임시비용과 성공률100% 추가. +1~5 비용·확률·실패보정 보존. bundle/run 버전은 계약에 맞춰 pilot-p3-4. 강화 표시명·설명에 임시 명시.
+- 전54/81/122/183/275/413/620/930/1395/2093, 연철석3/5/8/12/18/27/41/62/93/140. 신규 verifyEnhancementTail은 최악난수99에서도 전구간성공/재화부족/중복UUID/동시UUID/confirm rollback/재생/최대15/실제원장 검증.
+- 초기 focused는 재료조회 fixture가 연철석 조건 없이 다른 지급재료까지 읽어서 실패. 연철석 조건 명시 후 focused5 모두 PASS27초(신규tail/기존replay/catalog/snapshot/rules). 전체44는 공유잠금 아래 다음 실행.
+
+## P3 S11 전체 회귀 통과 (2026-10-18)
+- focused5 PASS27초 뒤 공유잠금 단일 전체44 모두 PASS/exit0/243.38초. assemble·임시35565 RunRespawnMixin PASS, 잠금해제 확인. OscarP3DB 사후계정0/요청0/schema35.
+- 제품 Java 변경 없음. JSON 의미변경은 bundle/run 버전과 강화뿐임을 비교 확인, 첫5단계 비용·확률 동일. 상세 research/MDF_P3_S11_OSCAR.md/.log/_timing.json. 인게임·push·배포 미실행, Creed 독립검토/god 최종승인 대기.

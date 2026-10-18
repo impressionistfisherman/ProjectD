@@ -71,8 +71,9 @@ public final class PremergeDatabaseCheck {
         require(equipment.list(character).getFirst().binding()==EquipmentBinding.ACCOUNT,"O15 material binding did not propagate");
         require(number("SELECT count(*) FROM dalmaru.character_currency_ledger WHERE character_id=?",character)==2,"O04 ledger missing or duplicated");
         sql("UPDATE dalmaru.character_equipment SET enhancement=5 WHERE equipment_id=?",weapon);
+        sql("UPDATE dalmaru.character_materials SET quantity=2 WHERE character_id=?",character);
         reject(()->equipment.enhance(account,generation,32,weapon));
-        require(number("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==80,"O04 undefined price consumed assets");
+        require(number("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==80,"O04 insufficient tail material consumed assets");
         pass("O04");
         equipment.move(account,generation,40,weapon,true);
         UUID replacement=item(character,"pilot.weapon.two_handed_sword.15",15,"WARRIOR");
