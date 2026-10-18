@@ -468,6 +468,63 @@
 - verifyStoryInvestigationLink + verifyQuestStages + compileClientJava targeted PASS16초. 전체35개 실제PASS exit0/102.72초. 임시35565기동·RunRespawnMixin PASS. 검사는 localhost15432/oscar_p2_fixture만 사용. 운영·플레이DB/PID14160/배포/push 미변경.
 - 이전 S07 무증거confirm 결함은 f71ccb0 변경과 이번 위조차단 검사에서 재현되지 않음. 최종 통합 승인은 Creed 재검토 및 Pam 통합 검토 후 god가 선언하며 Oscar는 승인하지 않음. 실제 사람플레이는 미실행, 마을/조사 좌표는 설정 자리표시.
 
+## P3 회귀 DB 가드 (2026-10-15)
+- Java 테스트8개 및 회귀/스모크 도구는 oscar_p3_fixture만 허용. TrialGrowth JDBC 포함. 단독 커밋21e5efc, 무접속 Java5/PowerShell8건 PASS. 당시 전체회귀 미실행.
+
+## Active Spec P3-S07 (2026-10-15)
+- oscar/mdf-p3/base099aa30, P2 branch 보존. oscar_p3_fixture15432/V001~31/계정0·요청0. P3 branch 검사 도구는 P3 DB만 허용하며 P1/P2는 사람플레이로 접근금지.
+- 기존 equipment move UUID·계정/행 잠금/소유권 경로를 재사용. 주칸0/보조칸1, 방패·단검·부적 보조, 양손은 두 칸 점유(한 장비행+서버 충돌규칙). 쌍도끼는 두 장비UUID/강화별 공격력 합산. 클라 슬롯 확정 불신, 새패킷/마이그레이션 없음/protocol32.
+- 콘텐츠 스냅샷 내 장착 metadata를 읽고 이전 metadata 없는 스냅샷은 기존 판정 유지. 기존 합산 쌍도끼 공격값을 각 칸 50%씩 계산해 양쪽 +0 합계 보존. 보조품 기본 공격/방어/능력치 수치 추가 없음, 방패 실착 방어 판정과 S08 고유효과는 별도. 품목 이름/무기별 규칙은 content 데이터.
+- 완료조건 verifyWeaponSlots(서버교체/재생/동시/잘못된배치/실패롤백/공격합산/스냅샷) + 전체 P3회귀/로컬커밋/실제표 god보고. 상대 소유 신규 파일/실서버/운영DB/던전/push 미변경.
+
+## P3-S07 구현 보존 / PARTIAL (2026-10-16)
+- 주칸/보조칸/양손 교체, 쌍도끼 각UUID 강화합산, 장착UUID 재생/확정롤백/구스냅샷 보존 구현. 신규보조9개, 쌍도끼 각50%, 기본공격합계 보존. 실제방패 실착 판정, 클라칸표시.
+- 전용4검사(WeaponSlots,ContentCatalog,RunContentSnapshot,EquipmentMoveJournal) PASS22초. 컴파일 서버/클라이언트 PASS12초. TrialGrowth 단독 재검사 PASS19초.
+- 전체회귀: 1차34PASS/2FAIL(DB 연결 timeout), 2차35PASS/1FAIL(TrialGrowth 상세 미보존), 3차31PASS/5FAIL(모두 PostgreSQL 연결 timeout). 1차 exit1/137.60초 / 2차 exit1/146.90초 / 3차 exit1/243.06초. 전체36PASS 조건 미충족. 임시35565 서버 스모크는3회PASS, protocol32 유지.
+- 실패 증거 research/MDF_P3_S07_flaky. 두 번째 상세 예외는 기존 도구의 finally 삭제로 확보 못함. 도구는 이후 실패 stdout/stderr를 마스킹 출력하도록 개선. 인프라/시간제한 변경 없음.
+- 사후 P3 DB accounts1/requests2/schema32 관측(공유 테스트 DB, 출처 미확정 행 임의 삭제 안함). P1/P2 DB 접속 없음.
+- 전체 통과 전 완료 선언 안함. god/Jim 시간초과 분류 뒤 조건 갖춰 재검증, 독립검토 요청은 god 경유. S10은 S03 shop API 뒤, 다음S08→S09→S12.
+
+# S08 Active Spec
+- 기존 생성자9/10인자와 ContentCatalog.Item API/protocol32 유지. EquipmentRecord.refinementGrade 추가(0..5), DB읽기11열 및 강화 결과에 보존.
+- ContentCatalog에 optional refinementGrades6행(없으면구스냅샷0효과), 0/2/3/5/8/10% 데이터와 이름/임시표시. 현재버전pilot-p3-2.
+- 무기: 강화후공격에만효과, 쌍도끼는각UUID등급/강화별합산. 보조/방어구: 기본직업주능력치*등급율을합산. 방어/체력/기력은불변.
+- 기존primary선택을CombatCalculator로옮겨공통사용.
+- verifyRefinementGrade: 모든등급/잘못된등급/무기와방어단일효과/독립쌍도끼/구생성자와구스냅샷/DB목록·장착·강화응답등급보존. 전용게이트+필요한회귀, 전체회귀.
+- S07동일커밋재회귀를먼저완료하고제품수정시작.
+
+## S07 격리 후 검증 통과 (2026-10-16)
+- Grok DB전환 확인 후 Oscar DB 다른연결0 및 잔여계정1/요청2를 단일트랜잭션으로 정리(사후0/0). S08 stash로 보관한 clean HEAD695a7d5에서 전체36개 한 번의 실행 모두PASS, exit0/229.44초. 임시서버RunRespawnMixin PASS.
+- JDBC timeout 변경없음. 사후oscar_p3_fixture accounts0/requests0/schema32. 이전실패로그 보존. 원인확정은god/Jim 판단, 이번검사는DB분리후재현없음을보임. Pam독립검토 god요청,최종승인대기.
+
+## P3-S08 구현/검증 완료 (2026-10-16)
+- refinementGrade DB읽기/강화응답 보존, 기존9/10인자 생성자와ItemAPI/protocol32 유지. 등급표0/2/3/5/8/10%와기존등급명·임시표시를스냅샷에보관. 구스냅샷은효과0으로기존계산보존.
+- 무기는강화후공격에만,비무기는캐릭터기본직업주능력치에만효과. 각쌍도끼UUID별등급/강화계산. 체력/기력/방어에는등급효과없음. 직업주능력치선택을CombatCalculator로공통화.
+- 컴파일3종PASS27초. 전용5검사PASS49초. 전체37개단일실행PASS exit0/234.78초,assemble/임시35565RunRespawnMixinPASS. 사후OscarP3DB accounts0/requests0/schema32.
+- 외형모델은미구현(결정범위밖),새패킷없음. 사람인게임검증미실행. 운영/플레이DB/실서버/push/배포미변경. Pam독립검토와최종god승인대기.
+
+# S09 Active Spec draft
+- 기존 refine_item 봉투/API/UUID저널/계정→요청→장비→지갑→재료잠금순서를보존. 장비ID계열 whitelist는content지정,현재grade→grade+1만. item_id/강화/UUID는보존하고grade필드로상위등급표현. 미정의starter는새시도거절,옛UUID재생은path검사보다먼저복구.
+- 기존실제시도비용10/20/30/40/50전은content임시데이터로이동. 유지비율10/15/20/25/30%. 실제 enhance_item 저널의copperSpent/ironstoneSpent누적에각각적용해올림. 증거없는legacy비용은만들지않음.
+- 지갑+재료행FOR UPDATE와충분량검사를성공판정전에수행해transaction내예약. 시도비만항상차감,성공하면유지전/재료차감,실패하면유지비0/재료불변. 사용재료귀속은성공시merge. 유지비는강화원가아닌refine_item 별도필드로저장.
+- existingrefine저널행/ledger계약보존,confirm예외면예약/시도비/등급/재료/귀속/원장모두롤백. 동시UUID한번만/다른UUID잔액경합/재접속재생/잘못된경로/잔액부족선거절검사.
+- 테스트결정적성공실패를위해package-private SecureRandom생성자인자,public기본생성자보존. test에서constructor reflection으로고정roll사용(실서버생성자는보안난수유지).
+- S08커밋/37회귀후착수,새DBmigration/신규패킷없음.
+
+- 원가금액이 없는 옛 강화 시도는 추정 청구 없이 새 재련을 거절하며, 기존 재련 UUID 재생은 보존합니다.
+
+- god6a707b 변경: 원가 없는 옛 +1~5는 고정표1..n합을 사용하고 source=table 기록. 표밖단계만 거절. 기존 거절 계획보다 이 지시가 우선합니다.
+
+## P3-S09 구현/검증 완료 (2026-10-16)
+- content허용계열의같은품목다음등급1단계만재련. UUID/강화단계보존. 기존시도비10/20/30/40/50전은임시데이터로이동,유지율10/15/20/25/30%.
+- 실제강화지출원가에유지율적용후종류별올림. 지갑/재료행잠금+충분량검사로판정전예약,실패면시도비만차감/유지비해제,성공하면유지전·재료차감/강한귀속merge. 유지비별도원장필드.
+- 완전한강화원장있으면source=journal,없거나옛금액없는+1~5는고정표1..n합(source=table);표밖은거절(god6a707b). 기존재련UUID재생은경로/비용재검사없이원결과보존.
+- focused5검사PASS44초. 첫전체36PASS/2FAIL: Waypoint연결timeout1+새정책메타가남은구스냅샷fixture1. 구스냅샷1줄수정(godff6d3f승인),관련2검사PASS27초.
+- 공유파일잠금확보뒤전체38단일실행PASS exit0/204.01초,assemble/임시35565RunRespawnMixinPASS,잠금해제확인. 사후OscarP3DB0계정/0요청/schema32. JDBCtimeout변경없음.
+- 신규패킷/마이그레이션/공개플레이호출추가없음,인게임미실행. 운영/플레이DB/실서버/push/배포미변경. 크리드독립검토및god최종승인대기.
+
+## Grok P3 S01/S02/S03 통합 추가 기록 (00bf7b7)
+
 - 2026-10-15 P3-S01: 시작·전직·조사 지급 물품과 캐릭터 귀속은 창고·거래·우편으로 옮기지 못한다. 판정은 호출자 트랜잭션 안에서 `SupplyStay.refuseMove`가 하고, `StarterSupply.tradable`은 호출만 한다. 클라 확정은 받지 않는다. 통신 32. 인게임 미실행, 전체 PARTIAL. oscar_p3_fixture 통지 전이라 전체 회귀는 아직이다.
 
 - 2026-10-15 P3-S02: 계정 금고는 전과 재료를 캐릭터와 따로 둔다. 다른 캐릭터로 바꿔도 계정 분이 남는다. 입출금은 요청 저널이고, 재료는 SupplyStay를 먼저 본다. 지급 물품과 캐릭터 귀속은 들어가지 못한다. V032 account_holdings. 통신 패킷은 없다. 인게임 미실행, 전체 PARTIAL. 회귀 FAIL 8개 파일은 고치지 않았다.
@@ -482,6 +539,50 @@
 
 - 2026-10-15 P3-S03: NPC 상점. 가격은 content/shop.json 임시값. ShopCatalog.buyPrice는 없는 물품이면 예외. 판매가는 구매가의 25%를 소수점 이하 버림. 마을 구역 안에서만, 잔액·귀속은 서버가 판정. 클라 좌표는 읽지 않음. 지급 회복품과 캐릭터 귀속은 판매 거절. 통신 패킷 없음. verifyNpcShop PASS. 공식 회귀는 exit 1이고 FAIL은 verifyStoryQuestCurve 하나. 그 검사는 직후 단독 PASS. 인게임 미실행.
 
+## P3 S01/S02/S03 통합 준비 (2026-10-16)
+- god af7fe1/7cc626 승인: 00bf7b7 --no-ff 머지. Grok 제품 4클래스/가격데이터/V032 원본 보존. Grok 신규2검사는 DBguard1줄만공용화. 기존검사DB고정제거,FixtureDatabase Oscar/Grok P3만허용,회귀/스모크도env와같은허용목록사용.
+- 기존8개충돌은DBguard차이뿐임을문자열정규화로확인. 양쪽PROGRESS/TEST_RESULT기록보존. 통합전체회귀는아직미실행,다음잠금후41항목검증.
+
+## P3 S01/S02/S03 통합 검증 통과 (2026-10-16)
+- clean merge4e454a9에서공유잠금아래41항목모두실행PASS,exit0/222.08초. Grok잠금대기후확보/종료해제확인. assemble·임시35565RunRespawnMixinPASS/protocol32.
+- V032 account_holdings 이미설치확인후재적용안함. 사후OscarP3DB계정0/요청0/schema32. 양쪽P3공용guard,그록제품원본유지/새검사guard만승인범위수정.
+- 상세전체표/로그는hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json. 사람플레이/운영/플레이DB/push/배포미실행. 최종통합승인god소유.
+
+# S10 Active Spec draft
+- 선행S07/S09완료,S03API통합4e454a9(전체41PASS). helper ShopCatalog.buyPrice(material.ironstone)=16. 그록제품코드변경없음.
+- target/source실제정의부위와레벨metadata일치,아이템접미레벨제거한동일계열,대상level>=원본level검증. 15→20허용/역행·다른계열·다른부위거절.
+- 원본실지출EnhancementSpend(sourcejournal/table)활용. god1e8413: floor(copperSpent*7/10)+floor(ironSpent*buyPrice*7/10). 예시+3 38전+철2*16에서26+22=48전. BigInteger정수연산,최종int잔액상한선거절. 소스기존credit잔액은원가에서제외/소모시소멸. target기존잔액은보존가산.
+- 기존binding.merge/같은transaction/UUID저널/owner/account→request→target→source행잠금유지. source소모는성공때만,confirm실패시원상복구. 옛inheritance원장/JSON재생결과지급금액변경안함.
+- enhance의전비용에서inheritance_credit우선차감,남은cash만wallet/ledger차감. 물리철은별도소모. journal copperSpent=actualcash,ironstoneSpent=actualqty,inheritanceSpent=creditused. 기존+1~5확률/비용/결과/UUID재생유지.
+- verifyInheritanceShare: 같은계열15→20/48전/기존credit재환급0/경로·소유권·상한거절/독립귀속합성/실제지출/재사용credit부문재환급금지/0cashledger/동시uuid/confirmrollback+legacy원장불변. 기존InheritanceJournalCheck금액fixture는새공식결과(48/53/141)로갱신,WireReceipt의독립임의값fixture는유지.
+- 시작전통합41PASS. 제품수정후focused와잠금전체42PASS→단위커밋→god실제표+Creed검토. 마이그레이션/새패킷없음.
+
+## P3 S10 계승 지분 완료 (2026-10-16)
+- 같은 계열·부위의 15→20 계승 허용. 실제 전/연철석 원가를 종류별 70% 내림 후 합산(+3 표 기준48전), 원본 미사용 credit 제외. 장비 전용 credit은 강화 전 비용에 우선 사용하며 실제 현금 지출만 후속 원가에 포함. 물리 재료는 별도 소모.
+- UUID 재생·귀속·동시성·confirm rollback 및 옛 원장 금액 보존. 공개 시그니처/protocol32 유지, Grok 제품 미수정.
+- focused4 PASS41초, compile3종 PASS18초. 공유잠금 전체42 PASS/exit0/289.76초, assemble/임시35565 RunRespawnMixin PASS. 사후 OscarP3DB accounts0/requests0/schema32. 상세 research/MDF_P3_S10_OSCAR.md/.log/_timing.json.
+- 인게임·운영/플레이DB·배포·push 미실행. Creed 독립검토/god 통합승인 대기.
+
+## P3 S12 유효 행동 자격 구현 (2026-10-16)
+- V035 run_contributions: 입장명단 복합FK/개인 유니크, 최초행동과 취소 상태 보존. RunRewardRepository의 기존 grant 계약을 유지하며 유효자만 개인 보상·XP·첫보상을 지급. 취소자는 주간 횟수도 제외.
+- 서버 적중/실제 보호·정화/화로 완료를 기록. 피격은 최근10초 공격·방어·회피 입력 또는 현재 이동입력 필요. 부활 무적만으로 자격을 주지 않으며 클리어 이후 신규 자격을 차단. 유효행동 후 사망/접속종료 자격 유지.
+- 최초행동 비동기 저장과 별개로 불변 snapshot을 finish overload에서 보상과 같은 transaction에 반영. 마지막 보스 적중을 완료 호출 전에 기록. 기존 finish 시그니처/protocol32 유지.
+- compile3종 PASS22초, focused4 PASS39초. 최초 compile은 후속 편집 스크립트의 작업경로 오류로 미완료 State 필드를 검사하여 실패했으며 경로 수정 후 통과. 전체43 회귀는 다음 공유잠금 실행 예정.
+- 실제 회복 스킬은 현재 코드에 없으므로 추가하지 않음. 기존 자진이탈은 런 전체 실패/종료이며 보상 없음. 개별 정상추방 경로는 아직 없고 서버 revokeContribution 함수로 취소를 지원. 실제 플레이/통신 추가 없음.
+
+## P3 S12 전체 회귀 통과 (2026-10-18 증거 회수)
+- 첫 전체 실패는 역참 원본이벤트 추출 대역의 recordIncomingHit 누락이었으며 1줄 보완. 관련2 PASS29초 후 공유잠금 단일 전체43 모두 PASS/exit0/247.53초. assemble·임시35565 RunRespawnMixin PASS. 앱 재시작 뒤 로그/timing으로 회수했으며 중복회귀 없음.
+- OscarP3DB 사후 accounts0/requests0/schema35. V035 적용, 새 패킷·화면·protocol 변경 없음. 기존 지급/finish 계약 보존.
+- 상세 MDF_P3_S12_OSCAR.md/.log/_timing.json; 최초실패 _initial.log/_timing.json 보존. 인게임 미실행, 크리드 독립검토/god 통합승인 대기.
+
+## P3 S11 강화 +6~15 구현 (2026-10-18)
+- 기존 enhance/잠금/UUID/전용credit/물리재료/실지출원장 Java는 그대로 재사용. pilot.json에 +6~15 임시비용과 성공률100% 추가. +1~5 비용·확률·실패보정 보존. bundle/run 버전은 계약에 맞춰 pilot-p3-4. 강화 표시명·설명에 임시 명시.
+- 전54/81/122/183/275/413/620/930/1395/2093, 연철석3/5/8/12/18/27/41/62/93/140. 신규 verifyEnhancementTail은 최악난수99에서도 전구간성공/재화부족/중복UUID/동시UUID/confirm rollback/재생/최대15/실제원장 검증.
+- 초기 focused는 재료조회 fixture가 연철석 조건 없이 다른 지급재료까지 읽어서 실패. 연철석 조건 명시 후 focused5 모두 PASS27초(신규tail/기존replay/catalog/snapshot/rules). 전체44는 공유잠금 아래 다음 실행.
+
+## P3 S11 전체 회귀 통과 (2026-10-18)
+- focused5 PASS27초 뒤 공유잠금 단일 전체44 모두 PASS/exit0/243.38초. assemble·임시35565 RunRespawnMixin PASS, 잠금해제 확인. OscarP3DB 사후계정0/요청0/schema35.
+- 제품 Java 변경 없음. JSON 의미변경은 bundle/run 버전과 강화뿐임을 비교 확인, 첫5단계 비용·확률 동일. 상세 research/MDF_P3_S11_OSCAR.md/.log/_timing.json. 인게임·push·배포 미실행, Creed 독립검토/god 최종승인 대기.
 - 2026-10-15 S03 재회귀: 잔여 연결 0, 계정 0 확인 뒤 grok_p3_fixture 공식 회귀 1회 exit 0. 00bf7b7. 인게임 미실행.
 - 2026-10-15 P3-S05: 개인 채집. content/gathering.json 임시 지점. 계정 대기시간은 재접속 뒤에도 남고, 생활 경험치는 캐릭터별. 바닐라 캐기는 이 경로가 아니다. V034. verifyGatherNode PASS. 그 뒤 공식 회귀는 exit 1. 보존한 본문은 CharacterProfession의 접속 실패이고 StoryQuestCurve는 그 회차에서 PASS. 인게임 미실행.
 
@@ -493,3 +594,12 @@
 - 2026-10-16 S04 수정: 확인은 제안 버전에 묶인다. 내용이 바뀌면 버전이 오르고 양쪽 확인은 풀린다. 줄이 없으면 확인은 거절. 완료·취소·만료 줄은 남긴다. 전도 맡길 수 있고 원장 사유는 trade.in, trade.out. V037. verifyDirectTrade PASS. 이 수정의 전체 회귀는 아직. 인게임 미실행.
 - 2026-10-18 S04 83fa4d2 잠금 회귀: grok_p3_fixture, exit 0. 인게임 미실행.
 - 2026-10-18 P3 플레이 접근: protocol 33. F7 임시 화면에서 금고·상점·채집·제작·직접 거래. 좌표는 서버 위치. 재련·계승 없음. 기존 서버 함수는 그대로. 잠금 회귀 exit 0. 인게임 미실행.
+
+## P3 S04/S05/S06 통합 (2026-10-18)
+- 승인된 83fa4d2 병합: Grok 제품·마이그레이션 원본 보존, 양쪽 문서·회귀 태스크 합집합. 신규 검사 3개는 기존 공용 P3 DB guard 사용.
+- 회귀 스크립트 내부 공유 잠금 단독 사용. 외부 잠금 runner 중첩 실행 금지. Oscar/UTC/commit/dirty/token 기록 및 소유 token 확인 후 해제. 전체 회귀 결과 대기.
+
+## P3 S04/S05/S06 통합 전체 회귀 결과 (2026-10-18)
+- 검증 커밋 8e18c501e2b007a6119fb14a5595f260ffec56c3, clean. 공유 잠금 단일 전체47 PASS/exit0/257.05초(잠금 대기 포함). 신규 직접거래·제작·채집 검사 포함, assemble/임시35565 RunRespawnMixin PASS.
+- OscarP3DB accounts0/operation_requests0/schema37, V033/34/35/37 및 신규4테이블·거래version 양수제약 확인. 자기token 확인 후 잠금 해제 확인.
+- Grok 제품11개 원본보존, 검사guard 추가수정 불필요. 상세 hive/research/MDF_P3_GROK_INTEGRATION_OSCAR.md/.log/_timing.json. Pam 독립통합검토 요청, S13 PASS 전 S14 구현보류. push/배포/실제플레이 미실행.

@@ -731,6 +731,200 @@
 | `verifyStoryInvestigationLink` | 예 | PASS |
 | `p1_integration_smoke.ps1` | 예 | PASS |
 
+## P3 DB 가드 단독 검증 (2026-10-15)
+
+| 검사 | 결과 |
+|---|---|
+| Java P3 허용 및 빈값/P1/P2/postgres 거부 5건 | PASS |
+| PowerShell 두 도구 빈값/P1/P2/postgres 거부 8건 | PASS |
+| 당시 P3 전체 회귀 | 미실행 |
+- DB 접속 없음. S07 작업본 컴파일 PASS12초는 guard 단독 검증과 구분.
+
+## P3-S07 실제 검사 (2026-10-16)
+- 전용4검사(WeaponSlots,ContentCatalog,RunContentSnapshot,EquipmentMoveJournal) PASS22초. 컴파일 서버/클라이언트 PASS12초. TrialGrowth 단독 재검사 PASS19초.
+- 전체회귀: 1차34PASS/2FAIL(DB 연결 timeout), 2차35PASS/1FAIL(TrialGrowth 상세 미보존), 3차31PASS/5FAIL(모두 PostgreSQL 연결 timeout). 1차 exit1/137.60초 / 2차 exit1/146.90초 / 3차 exit1/243.06초. 전체36PASS 조건 미충족. 임시35565 서버 스모크는3회PASS, protocol32 유지.
+- 실패 증거 research/MDF_P3_S07_flaky. 두 번째 상세 예외는 기존 도구의 finally 삭제로 확보 못함. 도구는 이후 실패 stdout/stderr를 마스킹 출력하도록 개선. 인프라/시간제한 변경 없음.
+- 사후 P3 DB accounts1/requests2/schema32 관측(공유 테스트 DB, 출처 미확정 행 임의 삭제 안함). P1/P2 DB 접속 없음.
+
+| 검사 | 1차 | 2차 | 3차 |
+|---|---|---|---|
+| `verifyStarterSupply` | PASS | PASS | PASS |
+| `verifyGrowthRewardGrant` | PASS | PASS | PASS |
+| `verifyCharacterDeletion` | PASS | PASS | PASS |
+| `verifyPaidStatReset` | PASS | PASS | PASS |
+| `verifyVillageRoutes` | PASS | PASS | PASS |
+| `verifyQuestStages` | PASS | PASS | PASS |
+| `verifyCharacterExperience` | PASS | PASS | PASS |
+| `verifyCharacterProfession` | PASS | PASS | PASS |
+| `verifyCharacterSkill` | PASS | PASS | PASS |
+| `verifyRunJournal` | PASS | PASS | PASS |
+| `verifyClientScreenBounds` | PASS | PASS | PASS |
+| `verifyRunAutoRespawnSafety` | PASS | PASS | PASS |
+| `verifyClientReplyRecovery` | PASS | PASS | PASS |
+| `verifyEnhancementReplay` | PASS | PASS | PASS |
+| `verifyRequestJournal` | PASS | PASS | PASS |
+| `verifyClientRequestEnvelope` | PASS | PASS | PASS |
+| `verifyRequestJournalResult` | PASS | PASS | PASS |
+| `verifySkillJournal` | PASS | PASS | PASS |
+| `verifyStatJournal` | PASS | PASS | PASS |
+| `verifyResetJournal` | PASS | PASS | PASS |
+| `verifyProfessionJournal` | PASS | PASS | PASS |
+| `verifyLoadoutJournal` | PASS | PASS | FAIL |
+| `verifyEquipmentMoveJournal` | PASS | PASS | PASS |
+| `verifyRefinementJournal` | PASS | PASS | PASS |
+| `verifyInheritanceJournal` | PASS | PASS | FAIL |
+| `verifyQuestAcceptanceJournal` | PASS | PASS | FAIL |
+| `verifyQuestAcceptanceWire` | PASS | PASS | PASS |
+| `verifyQuestKillJournal` | PASS | PASS | PASS |
+| `verifyProtocolVersion` | PASS | PASS | PASS |
+| `verifyTrialGrowth` | PASS | FAIL | FAIL |
+| `verifyProfessionGate` | FAIL | PASS | FAIL |
+| `verifyWaypointReturn` | PASS | PASS | PASS |
+| `verifyStoryQuestCurve` | FAIL | PASS | PASS |
+| `verifyStoryInvestigationLink` | PASS | PASS | PASS |
+| `verifyWeaponSlots` | PASS | PASS | PASS |
+| `p1_integration_smoke.ps1` | PASS | PASS | PASS |
+
+## S07 격리 후 검증 통과 (2026-10-16)
+- Grok DB전환 확인 후 Oscar DB 다른연결0 및 잔여계정1/요청2를 단일트랜잭션으로 정리(사후0/0). S08 stash로 보관한 clean HEAD695a7d5에서 전체36개 한 번의 실행 모두PASS, exit0/229.44초. 임시서버RunRespawnMixin PASS.
+- JDBC timeout 변경없음. 사후oscar_p3_fixture accounts0/requests0/schema32. 이전실패로그 보존. 원인확정은god/Jim 판단, 이번검사는DB분리후재현없음을보임. Pam독립검토 god요청,최종승인대기.
+
+| 검사 | 결과 |
+|---|---|
+| `verifyStarterSupply` | PASS |
+| `verifyGrowthRewardGrant` | PASS |
+| `verifyCharacterDeletion` | PASS |
+| `verifyPaidStatReset` | PASS |
+| `verifyVillageRoutes` | PASS |
+| `verifyQuestStages` | PASS |
+| `verifyCharacterExperience` | PASS |
+| `verifyCharacterProfession` | PASS |
+| `verifyCharacterSkill` | PASS |
+| `verifyRunJournal` | PASS |
+| `verifyClientScreenBounds` | PASS |
+| `verifyRunAutoRespawnSafety` | PASS |
+| `verifyClientReplyRecovery` | PASS |
+| `verifyEnhancementReplay` | PASS |
+| `verifyRequestJournal` | PASS |
+| `verifyClientRequestEnvelope` | PASS |
+| `verifyRequestJournalResult` | PASS |
+| `verifySkillJournal` | PASS |
+| `verifyStatJournal` | PASS |
+| `verifyResetJournal` | PASS |
+| `verifyProfessionJournal` | PASS |
+| `verifyLoadoutJournal` | PASS |
+| `verifyEquipmentMoveJournal` | PASS |
+| `verifyRefinementJournal` | PASS |
+| `verifyInheritanceJournal` | PASS |
+| `verifyQuestAcceptanceJournal` | PASS |
+| `verifyQuestAcceptanceWire` | PASS |
+| `verifyQuestKillJournal` | PASS |
+| `verifyProtocolVersion` | PASS |
+| `verifyTrialGrowth` | PASS |
+| `verifyProfessionGate` | PASS |
+| `verifyWaypointReturn` | PASS |
+| `verifyStoryQuestCurve` | PASS |
+| `verifyStoryInvestigationLink` | PASS |
+| `verifyWeaponSlots` | PASS |
+| `p1_integration_smoke.ps1` | PASS |
+
+## P3-S08 실제 검사 (2026-10-16)
+- refinementGrade DB읽기/강화응답 보존, 기존9/10인자 생성자와ItemAPI/protocol32 유지. 등급표0/2/3/5/8/10%와기존등급명·임시표시를스냅샷에보관. 구스냅샷은효과0으로기존계산보존.
+- 무기는강화후공격에만,비무기는캐릭터기본직업주능력치에만효과. 각쌍도끼UUID별등급/강화계산. 체력/기력/방어에는등급효과없음. 직업주능력치선택을CombatCalculator로공통화.
+- 컴파일3종PASS27초. 전용5검사PASS49초. 전체37개단일실행PASS exit0/234.78초,assemble/임시35565RunRespawnMixinPASS. 사후OscarP3DB accounts0/requests0/schema32.
+- 외형모델은미구현(결정범위밖),새패킷없음. 사람인게임검증미실행. 운영/플레이DB/실서버/push/배포미변경. Pam독립검토와최종god승인대기.
+
+| 검사 | 결과 |
+|---|---|
+| `verifyStarterSupply` | PASS |
+| `verifyGrowthRewardGrant` | PASS |
+| `verifyCharacterDeletion` | PASS |
+| `verifyPaidStatReset` | PASS |
+| `verifyVillageRoutes` | PASS |
+| `verifyQuestStages` | PASS |
+| `verifyCharacterExperience` | PASS |
+| `verifyCharacterProfession` | PASS |
+| `verifyCharacterSkill` | PASS |
+| `verifyRunJournal` | PASS |
+| `verifyClientScreenBounds` | PASS |
+| `verifyRunAutoRespawnSafety` | PASS |
+| `verifyClientReplyRecovery` | PASS |
+| `verifyEnhancementReplay` | PASS |
+| `verifyRequestJournal` | PASS |
+| `verifyClientRequestEnvelope` | PASS |
+| `verifyRequestJournalResult` | PASS |
+| `verifySkillJournal` | PASS |
+| `verifyStatJournal` | PASS |
+| `verifyResetJournal` | PASS |
+| `verifyProfessionJournal` | PASS |
+| `verifyLoadoutJournal` | PASS |
+| `verifyEquipmentMoveJournal` | PASS |
+| `verifyRefinementJournal` | PASS |
+| `verifyInheritanceJournal` | PASS |
+| `verifyQuestAcceptanceJournal` | PASS |
+| `verifyQuestAcceptanceWire` | PASS |
+| `verifyQuestKillJournal` | PASS |
+| `verifyProtocolVersion` | PASS |
+| `verifyTrialGrowth` | PASS |
+| `verifyProfessionGate` | PASS |
+| `verifyWaypointReturn` | PASS |
+| `verifyStoryQuestCurve` | PASS |
+| `verifyStoryInvestigationLink` | PASS |
+| `verifyWeaponSlots` | PASS |
+| `verifyRefinementGrade` | PASS |
+| `p1_integration_smoke.ps1` | PASS |
+
+## P3-S09 실제 검사 (2026-10-16)
+- content허용계열의같은품목다음등급1단계만재련. UUID/강화단계보존. 기존시도비10/20/30/40/50전은임시데이터로이동,유지율10/15/20/25/30%.
+- 실제강화지출원가에유지율적용후종류별올림. 지갑/재료행잠금+충분량검사로판정전예약,실패면시도비만차감/유지비해제,성공하면유지전·재료차감/강한귀속merge. 유지비별도원장필드.
+- 완전한강화원장있으면source=journal,없거나옛금액없는+1~5는고정표1..n합(source=table);표밖은거절(god6a707b). 기존재련UUID재생은경로/비용재검사없이원결과보존.
+- focused5검사PASS44초. 첫전체36PASS/2FAIL: Waypoint연결timeout1+새정책메타가남은구스냅샷fixture1. 구스냅샷1줄수정(godff6d3f승인),관련2검사PASS27초.
+- 공유파일잠금확보뒤전체38단일실행PASS exit0/204.01초,assemble/임시35565RunRespawnMixinPASS,잠금해제확인. 사후OscarP3DB0계정/0요청/schema32. JDBCtimeout변경없음.
+- 신규패킷/마이그레이션/공개플레이호출추가없음,인게임미실행. 운영/플레이DB/실서버/push/배포미변경. 크리드독립검토및god최종승인대기.
+
+| 검사 | 잠금 후 결과 |
+|---|---|
+| `verifyStarterSupply` | PASS |
+| `verifyGrowthRewardGrant` | PASS |
+| `verifyCharacterDeletion` | PASS |
+| `verifyPaidStatReset` | PASS |
+| `verifyVillageRoutes` | PASS |
+| `verifyQuestStages` | PASS |
+| `verifyCharacterExperience` | PASS |
+| `verifyCharacterProfession` | PASS |
+| `verifyCharacterSkill` | PASS |
+| `verifyRunJournal` | PASS |
+| `verifyClientScreenBounds` | PASS |
+| `verifyRunAutoRespawnSafety` | PASS |
+| `verifyClientReplyRecovery` | PASS |
+| `verifyEnhancementReplay` | PASS |
+| `verifyRequestJournal` | PASS |
+| `verifyClientRequestEnvelope` | PASS |
+| `verifyRequestJournalResult` | PASS |
+| `verifySkillJournal` | PASS |
+| `verifyStatJournal` | PASS |
+| `verifyResetJournal` | PASS |
+| `verifyProfessionJournal` | PASS |
+| `verifyLoadoutJournal` | PASS |
+| `verifyEquipmentMoveJournal` | PASS |
+| `verifyRefinementJournal` | PASS |
+| `verifyInheritanceJournal` | PASS |
+| `verifyQuestAcceptanceJournal` | PASS |
+| `verifyQuestAcceptanceWire` | PASS |
+| `verifyQuestKillJournal` | PASS |
+| `verifyProtocolVersion` | PASS |
+| `verifyTrialGrowth` | PASS |
+| `verifyProfessionGate` | PASS |
+| `verifyWaypointReturn` | PASS |
+| `verifyStoryQuestCurve` | PASS |
+| `verifyStoryInvestigationLink` | PASS |
+| `verifyWeaponSlots` | PASS |
+| `verifyRefinementGrade` | PASS |
+| `verifyRefinementKeep` | PASS |
+| `p1_integration_smoke.ps1` | PASS |
+
+## Grok P3 S01/S02/S03 통합 추가 기록 (00bf7b7)
+
 - 2026-10-15 P3-S01: PASS verifySupplyStay. 수련 장비, 회복 물품, 10·15레벨 키트, 캐릭터 귀속은 이동 거절. 자유·계정 연철석은 통과. 자동 커밋 연결과 null 연결은 거절. tools/p1_regression.ps1 exit 1, DALMARU_DB_NAME=oscar_p3_fixture. verifySupplyStay PASS. 아래 FAIL 8개는 oscar_p2_fixture 이름만 받는 검사 7개와 smoke다. 인게임 미실행.
 | 검사 | 실제 실행 | 결과 |
 |---|---|---|
@@ -865,6 +1059,41 @@
 
 - 2026-10-15 P3-S03: PASS verifyNpcShop. DALMARU_DB_NAME=grok_p3_fixture. 구매가 회복 8, 연철석 16, 판매가 4. 없는 물품은 예외. 마을 밖 구매는 잔액 불변. 회복 1회 구매와 재생. 봉투 x=999는 무시. 회복 판매와 캐릭터 귀속 판매는 거절. 전 부족 구매는 거절. 공식 회귀 exit 1, FAIL은 verifyStoryQuestCurve. 직후 단독 재실행 PASS. 인게임 미실행.
 
+## P3 S01/S02/S03 통합 준비 (2026-10-16)
+- god af7fe1/7cc626 승인: 00bf7b7 --no-ff 머지. Grok 제품 4클래스/가격데이터/V032 원본 보존. Grok 신규2검사는 DBguard1줄만공용화. 기존검사DB고정제거,FixtureDatabase Oscar/Grok P3만허용,회귀/스모크도env와같은허용목록사용.
+- 기존8개충돌은DBguard차이뿐임을문자열정규화로확인. 양쪽PROGRESS/TEST_RESULT기록보존. 통합전체회귀는아직미실행,다음잠금후41항목검증.
+
+## P3 S01/S02/S03 통합 검증 통과 (2026-10-16)
+- clean merge4e454a9에서공유잠금아래41항목모두실행PASS,exit0/222.08초. Grok잠금대기후확보/종료해제확인. assemble·임시35565RunRespawnMixinPASS/protocol32.
+- V032 account_holdings 이미설치확인후재적용안함. 사후OscarP3DB계정0/요청0/schema32. 양쪽P3공용guard,그록제품원본유지/새검사guard만승인범위수정.
+- 상세전체표/로그는hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json. 사람플레이/운영/플레이DB/push/배포미실행. 최종통합승인god소유.
+
+## P3 S10 계승 지분 완료 (2026-10-16)
+- 같은 계열·부위의 15→20 계승 허용. 실제 전/연철석 원가를 종류별 70% 내림 후 합산(+3 표 기준48전), 원본 미사용 credit 제외. 장비 전용 credit은 강화 전 비용에 우선 사용하며 실제 현금 지출만 후속 원가에 포함. 물리 재료는 별도 소모.
+- UUID 재생·귀속·동시성·confirm rollback 및 옛 원장 금액 보존. 공개 시그니처/protocol32 유지, Grok 제품 미수정.
+- focused4 PASS41초, compile3종 PASS18초. 공유잠금 전체42 PASS/exit0/289.76초, assemble/임시35565 RunRespawnMixin PASS. 사후 OscarP3DB accounts0/requests0/schema32. 상세 research/MDF_P3_S10_OSCAR.md/.log/_timing.json.
+- 인게임·운영/플레이DB·배포·push 미실행. Creed 독립검토/god 통합승인 대기.
+
+## P3 S12 유효 행동 자격 구현 (2026-10-16)
+- V035 run_contributions: 입장명단 복합FK/개인 유니크, 최초행동과 취소 상태 보존. RunRewardRepository의 기존 grant 계약을 유지하며 유효자만 개인 보상·XP·첫보상을 지급. 취소자는 주간 횟수도 제외.
+- 서버 적중/실제 보호·정화/화로 완료를 기록. 피격은 최근10초 공격·방어·회피 입력 또는 현재 이동입력 필요. 부활 무적만으로 자격을 주지 않으며 클리어 이후 신규 자격을 차단. 유효행동 후 사망/접속종료 자격 유지.
+- 최초행동 비동기 저장과 별개로 불변 snapshot을 finish overload에서 보상과 같은 transaction에 반영. 마지막 보스 적중을 완료 호출 전에 기록. 기존 finish 시그니처/protocol32 유지.
+- compile3종 PASS22초, focused4 PASS39초. 최초 compile은 후속 편집 스크립트의 작업경로 오류로 미완료 State 필드를 검사하여 실패했으며 경로 수정 후 통과. 전체43 회귀는 다음 공유잠금 실행 예정.
+- 실제 회복 스킬은 현재 코드에 없으므로 추가하지 않음. 기존 자진이탈은 런 전체 실패/종료이며 보상 없음. 개별 정상추방 경로는 아직 없고 서버 revokeContribution 함수로 취소를 지원. 실제 플레이/통신 추가 없음.
+
+## P3 S12 전체 회귀 통과 (2026-10-18 증거 회수)
+- 첫 전체 실패는 역참 원본이벤트 추출 대역의 recordIncomingHit 누락이었으며 1줄 보완. 관련2 PASS29초 후 공유잠금 단일 전체43 모두 PASS/exit0/247.53초. assemble·임시35565 RunRespawnMixin PASS. 앱 재시작 뒤 로그/timing으로 회수했으며 중복회귀 없음.
+- OscarP3DB 사후 accounts0/requests0/schema35. V035 적용, 새 패킷·화면·protocol 변경 없음. 기존 지급/finish 계약 보존.
+- 상세 MDF_P3_S12_OSCAR.md/.log/_timing.json; 최초실패 _initial.log/_timing.json 보존. 인게임 미실행, 크리드 독립검토/god 통합승인 대기.
+
+## P3 S11 강화 +6~15 구현 (2026-10-18)
+- 기존 enhance/잠금/UUID/전용credit/물리재료/실지출원장 Java는 그대로 재사용. pilot.json에 +6~15 임시비용과 성공률100% 추가. +1~5 비용·확률·실패보정 보존. bundle/run 버전은 계약에 맞춰 pilot-p3-4. 강화 표시명·설명에 임시 명시.
+- 전54/81/122/183/275/413/620/930/1395/2093, 연철석3/5/8/12/18/27/41/62/93/140. 신규 verifyEnhancementTail은 최악난수99에서도 전구간성공/재화부족/중복UUID/동시UUID/confirm rollback/재생/최대15/실제원장 검증.
+- 초기 focused는 재료조회 fixture가 연철석 조건 없이 다른 지급재료까지 읽어서 실패. 연철석 조건 명시 후 focused5 모두 PASS27초(신규tail/기존replay/catalog/snapshot/rules). 전체44는 공유잠금 아래 다음 실행.
+
+## P3 S11 전체 회귀 통과 (2026-10-18)
+- focused5 PASS27초 뒤 공유잠금 단일 전체44 모두 PASS/exit0/243.38초. assemble·임시35565 RunRespawnMixin PASS, 잠금해제 확인. OscarP3DB 사후계정0/요청0/schema35.
+- 제품 Java 변경 없음. JSON 의미변경은 bundle/run 버전과 강화뿐임을 비교 확인, 첫5단계 비용·확률 동일. 상세 research/MDF_P3_S11_OSCAR.md/.log/_timing.json. 인게임·push·배포 미실행, Creed 독립검토/god 최종승인 대기.
 - 2026-10-15 S03 재회귀: grok_p3_fixture, 연결 0, 계정 0, tools/p1_regression.ps1 exit 0. 표의 검사와 smoke 전부 PASS.
 - 2026-10-15 P3-S05: PASS verifyGatherNode. 공식 회귀 1회는 verifyStoryQuestCurve만 FAIL, 로그는 그 회차에 지워짐. 실패 출력을 남긴 재실행은 exit 1, FAIL은 verifyCharacterProfession. 본문: PSQLException, Driver ConnectTask.getResult, AccountRepository.openSession, CharacterProfessionCheck.main:17. 기대값/실제값 비교 전에는 접속이 끊겼다. StoryQuestCurve는 그 회차 PASS.
 
@@ -876,3 +1105,12 @@
 - 2026-10-16 S04 수정: PASS verifyDirectTrade. 상대 맡김 전 확인은 거절. 다른 버전 확인은 거절. 맡김을 바꾸면 이전 확인은 풀리고 완료되지 않음. 완료·취소·만료 뒤 줄이 남음. 전 5와 3을 바꾸면 지갑과 trade.out/trade.in이 맞음.
 - 2026-10-18 S04 83fa4d2 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. tools/p1_regression.ps1 exit 0. verifyDirectTrade 포함 40개와 p1_integration_smoke.ps1 PASS.
 - 2026-10-18 P3 플레이 접근: verifyProtocolVersion PASS. verifyClientScreenBounds PASS. 잠금 회귀 exit 0. 인게임 미실행.
+
+## P3 S04/S05/S06 통합 (2026-10-18)
+- 승인된 83fa4d2 병합: Grok 제품·마이그레이션 원본 보존, 양쪽 문서·회귀 태스크 합집합. 신규 검사 3개는 기존 공용 P3 DB guard 사용.
+- 회귀 스크립트 내부 공유 잠금 단독 사용. 외부 잠금 runner 중첩 실행 금지. Oscar/UTC/commit/dirty/token 기록 및 소유 token 확인 후 해제. 전체 회귀 결과 대기.
+
+## P3 S04/S05/S06 통합 전체 회귀 결과 (2026-10-18)
+- 검증 커밋 8e18c501e2b007a6119fb14a5595f260ffec56c3, clean. 공유 잠금 단일 전체47 PASS/exit0/257.05초(잠금 대기 포함). 신규 직접거래·제작·채집 검사 포함, assemble/임시35565 RunRespawnMixin PASS.
+- OscarP3DB accounts0/operation_requests0/schema37, V033/34/35/37 및 신규4테이블·거래version 양수제약 확인. 자기token 확인 후 잠금 해제 확인.
+- Grok 제품11개 원본보존, 검사guard 추가수정 불필요. 상세 hive/research/MDF_P3_GROK_INTEGRATION_OSCAR.md/.log/_timing.json. Pam 독립통합검토 요청, S13 PASS 전 S14 구현보류. push/배포/실제플레이 미실행.

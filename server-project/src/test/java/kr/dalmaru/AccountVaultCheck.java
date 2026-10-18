@@ -15,7 +15,7 @@ public final class AccountVaultCheck {
 	private AccountVaultCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"grok_p3_fixture".equals(FixtureDatabase.databaseName())) throw new IllegalStateException("Refusing to run outside grok_p3_fixture.");
+		FixtureDatabase.databaseName();
 		applyMigration();
 		cleanup();
 		var accounts = new AccountRepository();

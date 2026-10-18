@@ -10,7 +10,7 @@ import java.util.UUID;
 public final class RunRewardRepository {
     public List<RunReward> grant(Connection connection, UUID runId, RunDifficulty difficulty) throws SQLException {
         List<RunReward> rewards = new ArrayList<>();
-        try (var participants = connection.prepareStatement("SELECT character_id FROM dalmaru.run_participants WHERE run_id=? FOR UPDATE")) {
+        try (var participants = connection.prepareStatement("SELECT p.character_id FROM dalmaru.run_participants p JOIN dalmaru.run_contributions c USING(run_id,character_id) WHERE p.run_id=? AND c.action IS NOT NULL AND NOT c.revoked ORDER BY p.character_id FOR UPDATE OF p,c")) {
             participants.setObject(1, runId);
             try (var rows = participants.executeQuery()) {
                 while (rows.next()) rewards.add(grant(connection, runId, rows.getObject(1, UUID.class), difficulty));

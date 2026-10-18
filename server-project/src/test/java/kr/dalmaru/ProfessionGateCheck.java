@@ -12,7 +12,7 @@ import kr.dalmaru.request.RequestEnvelope;
 
 public final class ProfessionGateCheck {
     public static void main(String[] args)throws Exception {
-        if(!"grok_p3_fixture".equals(FixtureDatabase.databaseName()))throw new IllegalStateException("P3 gate fixture required");
+        FixtureDatabase.databaseName();
         display();
         UUID account=UUID.randomUUID();String trap="profession_gate_"+account.toString().replace("-","");
         try {

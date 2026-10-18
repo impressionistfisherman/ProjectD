@@ -21,7 +21,7 @@ public final class RunContentSnapshotCheck {
             var repository=new RunRepository();
             var run=repository.enter(account,session.connectionGeneration(),3,RunDifficulty.FIRST_STEP,List.of(character));ownedRuns.add(run.runId());
             var frozen=repository.frozenContent(run.runId());
-            check(frozen.version().equals("pilot-j02-2")&&frozen.items().equals(ContentCatalog.current().items()),"New snapshot differs");
+            check(frozen.version().equals("pilot-p3-4")&&frozen.items().equals(ContentCatalog.current().items()),"New snapshot differs");
             var replay=repository.enter(account,session.connectionGeneration(),3,RunDifficulty.FIRST_STEP,List.of(character));
             check(replay.replayed()&&replay.runId().equals(run.runId())&&repository.frozenContent(run.runId()).snapshot().equals(frozen.snapshot()),"Replay changed content");
             execute("UPDATE dalmaru.run_instances SET state='PAUSED' WHERE run_id=?",run.runId());

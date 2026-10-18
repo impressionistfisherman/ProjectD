@@ -38,7 +38,7 @@ final class WaypointApplicationCheck {
             static class ConnectionState{AccountSession accountSession=new AccountSession(UUID.randomUUID(),UUID.randomUUID(),1);String accountFailure;}
             static class Repo{boolean fail,applied;int calls;void finish(UUID a,long g,UUID c,UUID r,boolean ok)throws java.sql.SQLException{calls++;if(fail)throw new java.sql.SQLException("ACK");applied=ok;}}
             static class Run{UUID id;UUID runId(ServerPlayer p){return id;}}
-            static class Combat{int remaining;int starts;int hits;int remainingCombatTicks(UUID p,long tick){return remaining;}void attackStarted(ServerPlayer p){starts++;}void recordValidHit(ServerPlayer p,long tick){hits++;}}
+            static class Combat{int remaining;int starts;int hits;int remainingCombatTicks(UUID p,long tick){return remaining;}void attackStarted(ServerPlayer p){starts++;}void recordValidHit(ServerPlayer p,long tick){hits++;}void recordIncomingHit(ServerPlayer p,long tick){hits++;}}
             static class Source{Object getEntity(){return null;}}
             static class Logger{void warn(String s,Object...args){}void error(String s,Object...args){}}
             static Level level=new Level();static Server server=new Server();static Repo WAYPOINTS=new Repo();static Run RUN_RUNTIME=new Run();static Combat COMBAT=new Combat();static Logger LOGGER=new Logger();

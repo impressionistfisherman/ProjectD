@@ -15,7 +15,7 @@ public final class StarterSupplyCheck {
 	private StarterSupplyCheck() { }
 
 	public static void main(String[] args) throws Exception {
-		if (!"grok_p3_fixture".equals(System.getenv("DALMARU_DB_NAME"))) throw new IllegalStateException("Refusing to run outside grok_p3_fixture.");
+		FixtureDatabase.databaseName();
 		if (ContentCatalog.current().version() == null) throw new IllegalStateException("Pilot content did not load.");
 		applyMigration();
 		cleanup();

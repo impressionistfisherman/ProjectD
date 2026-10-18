@@ -38,5 +38,5 @@ final class DalmaruEquipmentScreen extends Screen {
         var next=addRenderableWidget(Button.builder(Component.literal("다음"),ignored->{page++;rebuild();}).bounds(left+half+10,height-48,half,20).build());next.active=page<pages-1;
         addRenderableWidget(Button.builder(Component.literal("닫기"), ignored -> onClose()).bounds(left,height-24,contentWidth,20).build());
     }
-    private static Component message(DalmaruPayloads.EquipmentData item) { return Component.literal((item.slotId()<0 ? "가방 [장착]" : "슬롯 " + (item.slotId()+1) + " [해제]") + " · " + kr.dalmaru.content.ContentCatalog.current().display(item.itemId()).name() + "  +" + item.enhancement() + "  (실패 " + item.consecutiveFailures() + ")"); }
+    private static Component message(DalmaruPayloads.EquipmentData item) { return Component.literal((item.slotId()<0 ? "가방 [장착]" : (item.slotId()==0 ? "주칸" : item.slotId()==1 ? "보조칸" : "슬롯 " + (item.slotId()+1)) + " [해제]") + " · " + kr.dalmaru.content.ContentCatalog.current().display(item.itemId()).name() + "  +" + item.enhancement() + "  (실패 " + item.consecutiveFailures() + ")"); }
 }

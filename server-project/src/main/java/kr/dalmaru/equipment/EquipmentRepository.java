@@ -1,6 +1,7 @@
 package kr.dalmaru.equipment;
 
 import java.security.SecureRandom;
+import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -15,7 +16,9 @@ public final class EquipmentRepository {
     private final String url = "jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/" + System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
     private final String username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
     private final String password = System.getenv("DALMARU_DB_PASSWORD");
-    private final SecureRandom random = new SecureRandom();
+    private final SecureRandom random;
+    public EquipmentRepository() { this(new SecureRandom()); }
+    EquipmentRepository(SecureRandom random) { this.random=java.util.Objects.requireNonNull(random); }
 
     public EnhancementResult enhance(UUID accountId, long generation, long requestId, UUID equipmentId) throws SQLException {
         return enhance(accountId,generation,requestId,equipmentId,null);
@@ -47,9 +50,12 @@ public final class EquipmentRepository {
                 if (equipment.enhancement() >= 15) throw new IllegalArgumentException("Equipment is already at maximum enhancement.");
                 validateRequirements(connection, equipment);
                 EnhancementRules.Cost cost=EnhancementRules.cost(equipment.enhancement()+1);
+                int credit;try(var query=connection.prepareStatement("SELECT inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=?")){query.setObject(1,equipmentId);try(var row=query.executeQuery()){row.next();credit=row.getInt(1);}}
+                int creditUsed=Math.min(credit,cost.copper()),cashSpent=cost.copper()-creditUsed;
+                if(creditUsed>0)try(var update=connection.prepareStatement("UPDATE dalmaru.character_equipment SET inheritance_credit=inheritance_credit-? WHERE equipment_id=?")){update.setInt(1,creditUsed);update.setObject(2,equipmentId);update.executeUpdate();}
                 EquipmentBinding binding=equipment.binding();
                 try(var wallet=connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) {
-                    wallet.setInt(1,cost.copper());wallet.setObject(2,characterId);wallet.setInt(3,cost.copper());
+                    wallet.setInt(1,cashSpent);wallet.setObject(2,characterId);wallet.setInt(3,cashSpent);
                     if(wallet.executeUpdate()!=1)throw new IllegalArgumentException("Insufficient copper.");
                 }
                 if(cost.ironstone()>0) {
@@ -67,20 +73,23 @@ public final class EquipmentRepository {
                     bind.setString(1,binding.name());bind.setBoolean(2,binding!=EquipmentBinding.FREE);bind.setObject(3,equipmentId);bind.executeUpdate();
                 }
                 try(var ledger=connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id,character_id,source_run_id,reason,copper_delta) VALUES(?,?,NULL,?,?)")) {
-                    ledger.setObject(1,UUID.randomUUID());ledger.setObject(2,characterId);ledger.setString(3,"enhancement:"+generation+":"+requestId);ledger.setInt(4,-cost.copper());ledger.executeUpdate();
+                    ledger.setObject(1,UUID.randomUUID());ledger.setObject(2,characterId);ledger.setString(3,"enhancement:"+generation+":"+requestId);ledger.setInt(4,-cashSpent);ledger.executeUpdate();
                 }
                 boolean success = random.nextInt(100) < EnhancementRules.chance(equipment.enhancement(), equipment.consecutiveFailures());
                 int enhancement = success ? equipment.enhancement() + 1 : equipment.enhancement(); int failures = success ? 0 : equipment.consecutiveFailures() + 1;
                 try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET enhancement=?, consecutive_failures=? WHERE equipment_id=?")) { update.setInt(1, enhancement); update.setInt(2, failures); update.setObject(3, equipmentId); update.executeUpdate(); }
                 try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_enhancement_requests VALUES (?,?,?,?,?,?,?)")) { insert.setObject(1, accountId); insert.setLong(2, generation); insert.setLong(3, requestId); insert.setObject(4, equipmentId); insert.setInt(5, enhancement); insert.setInt(6, failures); insert.setBoolean(7, success); insert.executeUpdate(); }
-                var outcome=confirmEnhancement(connection,stored,new EnhancementResult(new EquipmentRecord(equipmentId, characterId, equipment.slotId(), equipment.itemId(), equipment.requiredLevel(), equipment.profession(), enhancement, failures, binding!=EquipmentBinding.FREE, binding), success, false),cost);connection.commit();return outcome;
+                var outcome=confirmEnhancement(connection,stored,new EnhancementResult(new EquipmentRecord(equipmentId, characterId, equipment.slotId(), equipment.itemId(), equipment.requiredLevel(), equipment.profession(), enhancement, failures, binding!=EquipmentBinding.FREE, binding, equipment.refinementGrade()), success, false),cost,cashSpent);connection.commit();return outcome;
             } catch (Exception exception) { connection.rollback(); throw exception; }
         }
     }
 
     private static EnhancementResult confirmEnhancement(Connection c,RequestJournal.Stored stored,EnhancementResult result,EnhancementRules.Cost cost)throws SQLException{
+        return confirmEnhancement(c,stored,result,cost,cost==null?0:cost.copper());
+    }
+    private static EnhancementResult confirmEnhancement(Connection c,RequestJournal.Stored stored,EnhancementResult result,EnhancementRules.Cost cost,int cashSpent)throws SQLException{
         var outcome=new JsonObject();outcome.addProperty("equipmentId",result.equipment().equipmentId().toString());outcome.addProperty("success",result.success());outcome.addProperty("enhancement",result.resultEnhancement());outcome.addProperty("consecutiveFailures",result.resultFailures());
-        if(cost!=null){outcome.addProperty("copperSpent",cost.copper());outcome.addProperty("ironstoneSpent",cost.ironstone());}else outcome.addProperty("legacyResult",true);
+        if(cost!=null){outcome.addProperty("copperSpent",cashSpent);outcome.addProperty("ironstoneSpent",cost.ironstone());outcome.addProperty("inheritanceSpent",cost.copper()-cashSpent);}else outcome.addProperty("legacyResult",true);
         var receipt=RequestJournal.confirm(c,stored,outcome);
         return new EnhancementResult(result.equipment(),result.success(),result.replayed(),result.resultEnhancement(),result.resultFailures(),receipt);
     }
@@ -116,19 +125,20 @@ public final class EquipmentRepository {
                 try(var replay=connection.prepareStatement("SELECT equipment_id,slot_id FROM dalmaru.character_equipment_move_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) {
                     replay.setObject(1,accountId);replay.setLong(2,generation);replay.setLong(3,requestId);
                     try(var row=replay.executeQuery()){if(row.next()){
-                        if(!equipmentId.equals(row.getObject(1,UUID.class))||slot!=row.getInt(2))throw new IllegalArgumentException("Move request ID reused.");
+                        if(!equipmentId.equals(row.getObject(1,UUID.class))||equip!=(row.getInt(2)>=0))throw new IllegalArgumentException("Move request ID reused.");
                         int originalSlot=row.getInt(2);var receipt=RequestJournal.confirm(connection,stored,movementOutcome(equipmentId,originalSlot));var current=list(connection,characterId);connection.commit();return new MovementResult(current,equipmentId,originalSlot,true,receipt);
                     }}
                 }
                 if(!editable)throw new IllegalArgumentException("Equipment cannot be changed in the current world state.");
+                var worn=new ArrayList<EquipmentRecord>();
+                try(var locked=connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding, refinement_grade FROM dalmaru.character_equipment WHERE character_id=? AND location='EQUIPPED' ORDER BY equipment_id FOR UPDATE")){locked.setObject(1,characterId);try(var rows=locked.executeQuery()){while(rows.next())worn.add(record(rows));}}
                 if(equip){
                     validateRequirements(connection,item);
                     var profile=kr.dalmaru.account.CharacterRepository.profileForUpdate(connection,characterId);
                     PilotEquipment.requireEquippable(profile,item);
-                    try(var displaced=connection.prepareStatement("UPDATE dalmaru.character_equipment SET location='INVENTORY',slot_id=NULL WHERE character_id=? AND slot_id=? AND location='EQUIPPED'")) {
-                        displaced.setObject(1,characterId);displaced.setInt(2,slot);displaced.executeUpdate();
-                    }
+                    slot=PilotEquipment.destination(item,worn);
                 }
+                for(var other:worn)if(PilotEquipment.displaced(other,item,slot,equip))try(var displaced=connection.prepareStatement("UPDATE dalmaru.character_equipment SET location='INVENTORY',slot_id=NULL WHERE equipment_id=?")){displaced.setObject(1,other.equipmentId());displaced.executeUpdate();}
                 try(var update=connection.prepareStatement("UPDATE dalmaru.character_equipment SET location=?,slot_id=?,binding=?,bound=? WHERE equipment_id=?")) {
                     EquipmentBinding binding=equip?EquipmentBinding.CHARACTER:item.binding();
                     update.setString(1,equip?"EQUIPPED":"INVENTORY");if(equip)update.setInt(2,slot);else update.setNull(2,java.sql.Types.SMALLINT);
@@ -147,12 +157,12 @@ public final class EquipmentRepository {
         try(var connection=DriverManager.getConnection(url,username,password)){return list(connection,characterId);}
     }
     private static List<EquipmentRecord> list(Connection connection,UUID characterId)throws SQLException {
-        try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE character_id=? ORDER BY slot_id")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { List<EquipmentRecord> equipment = new ArrayList<>(); while (result.next()) equipment.add(record(result)); return equipment; } }
+        try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding, refinement_grade FROM dalmaru.character_equipment WHERE character_id=? ORDER BY slot_id")) { statement.setObject(1, characterId); try (var result = statement.executeQuery()) { List<EquipmentRecord> equipment = new ArrayList<>(); while (result.next()) equipment.add(record(result)); return equipment; } }
     }
     public List<EquipmentRecord> equipped(UUID characterId) throws SQLException {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
         try (var connection = DriverManager.getConnection(url, username, password);
-             var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE character_id=? AND location='EQUIPPED' ORDER BY slot_id")) {
+             var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding, refinement_grade FROM dalmaru.character_equipment WHERE character_id=? AND location='EQUIPPED' ORDER BY slot_id")) {
             statement.setObject(1, characterId);
             try (var rows = statement.executeQuery()) {
                 List<EquipmentRecord> result = new ArrayList<>();
@@ -176,19 +186,44 @@ public final class EquipmentRepository {
             var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
             if(stored.result()!=null){var original=stored.result();var result=latestRefinement(connection,characterId,new RefinementResult(equipmentId,original.get("grade").getAsInt(),original.get("failures").getAsInt(),original.get("success").getAsBoolean(),true),stored.receipt());connection.commit();return result;}
             try (var replay = connection.prepareStatement("SELECT equipment_id, grade, failures, success FROM dalmaru.character_refinement_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!equipmentId.equals(rows.getObject(1, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); var original=new RefinementResult(equipmentId,rows.getInt(2),rows.getInt(3),rows.getBoolean(4),true);var result=confirmRefinement(connection,stored,characterId,original);connection.commit();return result; } } }
-            int grade; int failures; try (var equipment = connection.prepareStatement("SELECT refinement_grade, refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? FOR UPDATE")) { equipment.setObject(1, equipmentId); equipment.setObject(2, characterId); try (var rows = equipment.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Equipment not owned by active character."); grade = rows.getInt(1); failures = rows.getInt(2); } }
-            if (grade >= 5) throw new IllegalArgumentException("Equipment has maximum refinement.");
-            int copper = (grade + 1) * 10; try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) { wallet.setInt(1, copper); wallet.setObject(2, characterId); wallet.setInt(3, copper); if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper."); }
-            boolean success = random.nextInt(100) < RefinementRules.chance(grade, failures); int nextGrade = success ? grade + 1 : grade; int nextFailures = success ? 0 : failures + 1;
-            try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET refinement_grade=?, refinement_failures=? WHERE equipment_id=?")) { update.setInt(1, nextGrade); update.setInt(2, nextFailures); update.setObject(3, equipmentId); update.executeUpdate(); }
+            EquipmentRecord item=readForUpdate(connection,equipmentId);
+            if(!characterId.equals(item.characterId()))throw new IllegalArgumentException("Equipment not owned by active character.");
+            int grade=item.refinementGrade();var content=kr.dalmaru.content.ContentCatalog.current();content.requireRefinementPath(item.itemId(),grade);
+            int failures;try(var query=connection.prepareStatement("SELECT refinement_failures FROM dalmaru.character_equipment WHERE equipment_id=?")){query.setObject(1,equipmentId);try(var row=query.executeQuery()){row.next();failures=row.getInt(1);}}
+            var policy=content.refinementPolicy();int copper=policy.attemptCopper().get(grade),percent=policy.keepPercent().get(grade);
+            var spend=enhancementSpend(connection,item);long keepCopper=Math.ceilDiv(Math.multiplyExact(spend.copper(),percent),100);int keepIronstone=Math.toIntExact(Math.ceilDiv(Math.multiplyExact(spend.ironstone(),percent),100));
+            long reserved=Math.addExact(copper,keepCopper);
+            try(var wallet=connection.prepareStatement("SELECT copper FROM dalmaru.character_wallet WHERE character_id=? FOR UPDATE")){wallet.setObject(1,characterId);try(var row=wallet.executeQuery()){if(!row.next()||row.getLong(1)<reserved)throw new IllegalArgumentException("Insufficient copper for refinement and upkeep reservation.");}}
+            EquipmentBinding binding=item.binding();
+            if(keepIronstone>0)try(var material=connection.prepareStatement("SELECT quantity,binding FROM dalmaru.character_materials WHERE character_id=? AND material_id='material.ironstone' FOR UPDATE")){material.setObject(1,characterId);try(var row=material.executeQuery()){if(!row.next()||row.getInt(1)<keepIronstone)throw new IllegalArgumentException("Insufficient ironstone for upkeep reservation.");binding=binding.merge(EquipmentBinding.valueOf(row.getString(2)));}}
+            boolean success=random.nextInt(100)<RefinementRules.chance(grade,failures);int nextGrade=success?grade+1:grade,nextFailures=success?0:failures+1;
+            long charged=Math.addExact(copper,success?keepCopper:0);
+            try(var wallet=connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=?")){wallet.setLong(1,charged);wallet.setObject(2,characterId);wallet.executeUpdate();}
+            if(success&&keepIronstone>0)try(var material=connection.prepareStatement("UPDATE dalmaru.character_materials SET quantity=quantity-? WHERE character_id=? AND material_id='material.ironstone'")){material.setInt(1,keepIronstone);material.setObject(2,characterId);material.executeUpdate();}
+            if(!success)binding=item.binding();
+            try(var update=connection.prepareStatement("UPDATE dalmaru.character_equipment SET refinement_grade=?,refinement_failures=?,binding=?,bound=? WHERE equipment_id=?")){update.setInt(1,nextGrade);update.setInt(2,nextFailures);update.setString(3,binding.name());update.setBoolean(4,binding!=EquipmentBinding.FREE);update.setObject(5,equipmentId);update.executeUpdate();}
             try (var request = connection.prepareStatement("INSERT INTO dalmaru.character_refinement_requests VALUES (?, ?, ?, ?, ?, ?, ?)")) { request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId); request.setObject(4, equipmentId); request.setInt(5, nextGrade); request.setInt(6, nextFailures); request.setBoolean(7, success); request.executeUpdate(); }
-            try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, NULL, 'refinement', ?)")) { ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setInt(3, -copper); ledger.executeUpdate(); }
-            var result=confirmRefinement(connection,stored,characterId,new RefinementResult(equipmentId,nextGrade,nextFailures,success,false));connection.commit();return result;
+            try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger (event_id, character_id, source_run_id, reason, copper_delta) VALUES (?, ?, NULL, 'refinement', ?)")) { ledger.setObject(1, stored.receipt().eventId()); ledger.setObject(2, characterId); ledger.setLong(3, -charged); ledger.executeUpdate(); }
+            var cost=new JsonObject();cost.addProperty("source",spend.source());cost.addProperty("attemptCopperSpent",copper);cost.addProperty("keepCopperReserved",keepCopper);cost.addProperty("keepIronstoneReserved",keepIronstone);cost.addProperty("keepCopperSpent",success?keepCopper:0);cost.addProperty("keepIronstoneSpent",success?keepIronstone:0);
+            var result=confirmRefinement(connection,stored,characterId,new RefinementResult(equipmentId,nextGrade,nextFailures,success,false),cost);connection.commit();return result;
         } catch (Exception exception) { connection.rollback(); throw exception; } }
     }
     private static RefinementOutcome confirmRefinement(Connection connection,RequestJournal.Stored stored,UUID character,RefinementResult original)throws SQLException {
+        return confirmRefinement(connection,stored,character,original,null);
+    }
+    private static RefinementOutcome confirmRefinement(Connection connection,RequestJournal.Stored stored,UUID character,RefinementResult original,JsonObject costs)throws SQLException {
         var outcome=new JsonObject();outcome.addProperty("equipmentId",original.equipmentId().toString());outcome.addProperty("grade",original.grade());outcome.addProperty("failures",original.failures());outcome.addProperty("success",original.success());
+        if(costs!=null)for(var entry:costs.entrySet())outcome.add(entry.getKey(),entry.getValue());
         return latestRefinement(connection,character,original,RequestJournal.confirm(connection,stored,outcome));
+    }
+    private record EnhancementSpend(long copper,long ironstone,String source) {}
+    private static EnhancementSpend enhancementSpend(Connection connection,EquipmentRecord item)throws SQLException {
+        String complete="o.result->>'equipmentId'=e.equipment_id::text AND jsonb_typeof(o.result->'copperSpent')='number' AND jsonb_typeof(o.result->'ironstoneSpent')='number'";
+        String sql="SELECT count(*),count(CASE WHEN "+complete+" THEN 1 END),COALESCE(sum(CASE WHEN "+complete+" THEN (o.result->>'copperSpent')::bigint ELSE 0 END),0),COALESCE(sum(CASE WHEN "+complete+" THEN (o.result->>'ironstoneSpent')::bigint ELSE 0 END),0) FROM dalmaru.character_enhancement_requests e LEFT JOIN dalmaru.operation_requests o ON o.account_id=e.account_id AND o.connection_generation=e.connection_generation AND o.legacy_request_id=e.request_id AND o.operation='enhance_item' WHERE e.equipment_id=?";
+        try(var query=connection.prepareStatement(sql)){query.setObject(1,item.equipmentId());try(var row=query.executeQuery()){row.next();if(row.getLong(1)>0&&row.getLong(1)==row.getLong(2))return new EnhancementSpend(row.getLong(3),row.getLong(4),"journal");}}
+        if(item.enhancement()<0||item.enhancement()>5)throw new IllegalArgumentException("Legacy enhancement cost is outside the fixed table.");
+        long copper=0,ironstone=0;for(int level=1;level<=item.enhancement();level++){var cost=EnhancementRules.cost(level);copper=Math.addExact(copper,cost.copper());ironstone=Math.addExact(ironstone,cost.ironstone());}
+        return new EnhancementSpend(copper,ironstone,"table");
     }
     public record RefinementState(UUID equipmentId,int grade,int failures) {}
     public RefinementState refinementState(UUID account,long generation,UUID equipment)throws SQLException {
@@ -229,20 +264,30 @@ public final class EquipmentRepository {
             var stored=RequestJournal.begin(connection,accountId,requestId,envelope);requestId=stored.legacyRequestId();
             if(stored.result()!=null){var original=stored.result();var result=latestInheritance(connection,characterId,sourceId,new InheritanceResult(targetId,original.get("credit").getAsInt(),true),stored.receipt());connection.commit();return result;}
             try (var replay = connection.prepareStatement("SELECT target_equipment_id, source_equipment_id, credit FROM dalmaru.character_inheritance_requests WHERE account_id=? AND connection_generation=? AND request_id=?")) { replay.setObject(1, accountId); replay.setLong(2, generation); replay.setLong(3, requestId); try (var rows = replay.executeQuery()) { if (rows.next()) { if (!targetId.equals(rows.getObject(1, UUID.class)) || !sourceId.equals(rows.getObject(2, UUID.class))) throw new IllegalArgumentException("Request ID was reused."); if(!characterId.equals(read(connection,targetId).characterId()))throw new IllegalArgumentException("Legacy inheritance target is not owned by active character.");var original=new InheritanceResult(targetId,rows.getInt(3),true);var result=confirmInheritance(connection,stored,characterId,sourceId,original);connection.commit();return result; } } }
-            String targetItem; int targetLevel; try (var target = connection.prepareStatement("SELECT item_id, required_level FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? AND location='EQUIPPED' FOR UPDATE")) { target.setObject(1, targetId); target.setObject(2, characterId); try (var rows = target.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Target must be equipped by active character."); targetItem = rows.getString(1); targetLevel = rows.getInt(2); } }
-            String sourceItem; int sourceLevel; int enhancement; int credit; try (var source = connection.prepareStatement("SELECT item_id, required_level, enhancement, inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? AND location='INVENTORY' FOR UPDATE")) { source.setObject(1, sourceId); source.setObject(2, characterId); try (var rows = source.executeQuery()) { if (!rows.next()) throw new IllegalArgumentException("Source must be inventory equipment owned by active character."); sourceItem = rows.getString(1); sourceLevel = rows.getInt(2); enhancement = rows.getInt(3); credit = rows.getInt(4); } }
-            if (!targetItem.equals(sourceItem) || targetLevel < sourceLevel) throw new IllegalArgumentException("Equipment family or level does not allow inheritance.");
-            int gained = (credit + enhancement * 10) * 70 / 100;
+            String targetItem;int targetLevel,targetCredit;try(var target=connection.prepareStatement("SELECT item_id,required_level,inheritance_credit FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? AND location='EQUIPPED' FOR UPDATE")){target.setObject(1,targetId);target.setObject(2,characterId);try(var row=target.executeQuery()){if(!row.next())throw new IllegalArgumentException("Target must be equipped by active character.");targetItem=row.getString(1);targetLevel=row.getInt(2);targetCredit=row.getInt(3);}}
+            String sourceItem;int sourceLevel;try(var source=connection.prepareStatement("SELECT item_id,required_level FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? AND location='INVENTORY' FOR UPDATE")){source.setObject(1,sourceId);source.setObject(2,characterId);try(var row=source.executeQuery()){if(!row.next())throw new IllegalArgumentException("Source must be inventory equipment owned by active character.");sourceItem=row.getString(1);sourceLevel=row.getInt(2);}}
+            var definitions=kr.dalmaru.content.ContentCatalog.current().items();var targetDefinition=definitions.get(targetItem);var sourceDefinition=definitions.get(sourceItem);
+            if(targetDefinition==null||sourceDefinition==null||!targetDefinition.enabled()||!sourceDefinition.enabled()||targetDefinition.slot()!=sourceDefinition.slot()||targetDefinition.level()!=targetLevel||sourceDefinition.level()!=sourceLevel||targetLevel<sourceLevel||!targetItem.substring(0,targetItem.lastIndexOf('.')).equals(sourceItem.substring(0,sourceItem.lastIndexOf('.'))))throw new IllegalArgumentException("Equipment family, part or level does not allow inheritance.");
+            var spend=enhancementSpend(connection,read(connection,sourceId));int unitPrice=kr.dalmaru.shop.ShopCatalog.buyPrice("material.ironstone");
+            if(spend.copper()<0||spend.ironstone()<0)throw new IllegalArgumentException("Negative enhancement spending history.");
+            var copperShare=BigInteger.valueOf(spend.copper()).multiply(BigInteger.valueOf(7)).divide(BigInteger.TEN);
+            var ironstoneShare=BigInteger.valueOf(spend.ironstone()).multiply(BigInteger.valueOf(unitPrice)).multiply(BigInteger.valueOf(7)).divide(BigInteger.TEN);
+            var calculated=copperShare.add(ironstoneShare);if(calculated.compareTo(BigInteger.valueOf(Integer.MAX_VALUE-targetCredit))>0)throw new IllegalArgumentException("Inheritance credit limit exceeded.");int gained=calculated.intValueExact();
             try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET inheritance_credit=inheritance_credit+? WHERE equipment_id=?")) { update.setInt(1, gained); update.setObject(2, targetId); update.executeUpdate(); }
             EquipmentBinding inherited=read(connection,targetId).binding().merge(read(connection,sourceId).binding());
             try(var binding=connection.prepareStatement("UPDATE dalmaru.character_equipment SET binding=?,bound=? WHERE equipment_id=?")){binding.setString(1,inherited.name());binding.setBoolean(2,inherited!=EquipmentBinding.FREE);binding.setObject(3,targetId);binding.executeUpdate();}
             try (var delete = connection.prepareStatement("DELETE FROM dalmaru.character_equipment WHERE equipment_id=?")) { delete.setObject(1, sourceId); delete.executeUpdate(); }
             try (var request = connection.prepareStatement("INSERT INTO dalmaru.character_inheritance_requests VALUES (?, ?, ?, ?, ?, ?)")) { request.setObject(1, accountId); request.setLong(2, generation); request.setLong(3, requestId); request.setObject(4, targetId); request.setObject(5, sourceId); request.setInt(6, gained); request.executeUpdate(); }
-            var result=confirmInheritance(connection,stored,characterId,sourceId,new InheritanceResult(targetId,gained,false));connection.commit();return result;
+            var costs=new JsonObject();costs.addProperty("source",spend.source());costs.addProperty("sourceCopperSpent",spend.copper());costs.addProperty("sourceIronstoneSpent",spend.ironstone());costs.addProperty("ironstoneUnitPrice",unitPrice);
+            var result=confirmInheritance(connection,stored,characterId,sourceId,new InheritanceResult(targetId,gained,false),costs);connection.commit();return result;
         } catch (Exception exception) { connection.rollback(); throw exception; } }
     }
     private static InheritanceOutcome confirmInheritance(Connection connection,RequestJournal.Stored stored,UUID character,UUID source,InheritanceResult original)throws SQLException {
+        return confirmInheritance(connection,stored,character,source,original,null);
+    }
+    private static InheritanceOutcome confirmInheritance(Connection connection,RequestJournal.Stored stored,UUID character,UUID source,InheritanceResult original,JsonObject costs)throws SQLException {
         var outcome=new JsonObject();outcome.addProperty("targetEquipmentId",original.targetEquipmentId().toString());outcome.addProperty("sourceEquipmentId",source.toString());outcome.addProperty("credit",original.credit());
+        if(costs!=null)for(var entry:costs.entrySet())outcome.add(entry.getKey(),entry.getValue());
         return latestInheritance(connection,character,source,original,RequestJournal.confirm(connection,stored,outcome));
     }
     private static InheritanceOutcome latestInheritance(Connection connection,UUID character,UUID source,InheritanceResult original,RequestJournal.Receipt receipt)throws SQLException {
@@ -256,8 +301,8 @@ public final class EquipmentRepository {
         try (var connection = DriverManager.getConnection(url, username, password)) { connection.setAutoCommit(false); try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_equipment (equipment_id, character_id, slot_id, item_id, required_level, bound) VALUES (?, ?, ?, ?, 1, TRUE) ON CONFLICT (character_id, slot_id) DO NOTHING")) { for (int slot = 0; slot < 9; slot++) { insert.setObject(1, UUID.randomUUID()); insert.setObject(2, characterId); insert.setInt(3, slot); insert.setString(4, "starter.slot." + slot); insert.addBatch(); } insert.executeBatch(); } connection.commit(); }
         return list(characterId);
     }
-    private EquipmentRecord read(Connection connection, UUID id) throws SQLException { try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE equipment_id=?")) { statement.setObject(1, id); try (var result = statement.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Equipment was not found."); return record(result); } } }
+    private EquipmentRecord read(Connection connection, UUID id) throws SQLException { try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding, refinement_grade FROM dalmaru.character_equipment WHERE equipment_id=?")) { statement.setObject(1, id); try (var result = statement.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Equipment was not found."); return record(result); } } }
     private void validateRequirements(Connection connection, EquipmentRecord equipment) throws SQLException { try (var statement = connection.prepareStatement("SELECT p.level, COALESCE(j.base_job,'') FROM dalmaru.character_profiles p LEFT JOIN dalmaru.character_professions j ON j.character_id=p.character_id WHERE p.character_id=?")) { statement.setObject(1, equipment.characterId()); try (var result = statement.executeQuery()) { if (!result.next() || result.getInt(1) < equipment.requiredLevel() || (!equipment.profession().isBlank() && !equipment.profession().equals(result.getString(2)))) throw new IllegalArgumentException("Character does not meet equipment requirements."); } } }
-    private EquipmentRecord readForUpdate(Connection connection, UUID id) throws SQLException { try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding FROM dalmaru.character_equipment WHERE equipment_id=? FOR UPDATE")) { statement.setObject(1, id); try (var result = statement.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Equipment was not found."); return record(result); } } }
-    private static EquipmentRecord record(java.sql.ResultSet result) throws SQLException { return new EquipmentRecord(result.getObject(1, UUID.class), result.getObject(2, UUID.class), (result.getObject(3)==null ? -1 : result.getInt(3)), result.getString(4), result.getInt(5), result.getString(6), result.getInt(7), result.getInt(8), result.getBoolean(9), EquipmentBinding.valueOf(result.getBoolean(9) && "FREE".equals(result.getString(10)) ? "CHARACTER" : result.getString(10))); }
+    private EquipmentRecord readForUpdate(Connection connection, UUID id) throws SQLException { try (var statement = connection.prepareStatement("SELECT equipment_id, character_id, slot_id, item_id, required_level, COALESCE(profession,''), enhancement, consecutive_failures, bound, binding, refinement_grade FROM dalmaru.character_equipment WHERE equipment_id=? FOR UPDATE")) { statement.setObject(1, id); try (var result = statement.executeQuery()) { if (!result.next()) throw new IllegalArgumentException("Equipment was not found."); return record(result); } } }
+    private static EquipmentRecord record(java.sql.ResultSet result) throws SQLException { return new EquipmentRecord(result.getObject(1, UUID.class), result.getObject(2, UUID.class), (result.getObject(3)==null ? -1 : result.getInt(3)), result.getString(4), result.getInt(5), result.getString(6), result.getInt(7), result.getInt(8), result.getBoolean(9), EquipmentBinding.valueOf(result.getBoolean(9) && "FREE".equals(result.getString(10)) ? "CHARACTER" : result.getString(10)), result.getInt(11)); }
 }

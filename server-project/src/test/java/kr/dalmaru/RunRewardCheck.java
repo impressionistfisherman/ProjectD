@@ -19,6 +19,7 @@ public final class RunRewardCheck {
             characters.selectActive(ACCOUNT, session.connectionGeneration(), 1401, character.characterId()); characters.grantExperience(character.characterId(), 8000);
             var first = runs.enter(ACCOUNT, session.connectionGeneration(), 1402, RunDifficulty.FIRST_STEP, List.of(character.characterId()));
             int beforeReward = count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character.characterId());
+            runs.recordContribution(first.runId(),character.characterId(),kr.dalmaru.run.RunContribution.Action.EFFECT);
             runs.finish(ACCOUNT, session.connectionGeneration(), 1403, first.runId(), true);
             var reward = runs.rewards(first.runId()).getFirst();
             if (reward.copper() != 70 || reward.ironstone() != 3 || reward.beaconToken() != 1 || !"equipment_box.level_15".equals(reward.equipmentBox())) throw new IllegalStateException("First-step reward is incorrect.");
@@ -26,6 +27,7 @@ public final class RunRewardCheck {
             if (count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character.characterId()) != beforeReward + 70) throw new IllegalStateException("Reward replay changed wallet.");
             if (count("SELECT COUNT(*) FROM dalmaru.character_currency_ledger WHERE character_id=?", character.characterId()) != 1) throw new IllegalStateException("Reward replay changed currency ledger.");
             var training = runs.enter(ACCOUNT, session.connectionGeneration(), 1404, RunDifficulty.TRAINING, List.of(character.characterId()));
+            runs.recordContribution(training.runId(),character.characterId(),kr.dalmaru.run.RunContribution.Action.EFFECT);
             runs.finish(ACCOUNT, session.connectionGeneration(), 1405, training.runId(), true);
             var trainingReward = runs.rewards(training.runId()).getFirst();
             if (trainingReward.copper() != 100 || trainingReward.ironstone() != 5 || trainingReward.beaconToken() != 2 || !"equipment_box.level_20".equals(trainingReward.equipmentBox())) throw new IllegalStateException("Training reward is incorrect.");

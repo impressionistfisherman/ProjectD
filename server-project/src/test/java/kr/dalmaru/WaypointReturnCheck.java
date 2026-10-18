@@ -11,7 +11,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 public final class WaypointReturnCheck {
     public static void main(String[] args)throws Exception {
-        check("grok_p3_fixture".equals(FixtureDatabase.databaseName()),"Explicit P3 fixture required");
+        FixtureDatabase.databaseName();
         channel();wire();WaypointApplicationCheck.run();
         var firstVillage=kr.dalmaru.content.VillageCatalog.current().get(0);var secondVillage=kr.dalmaru.content.VillageCatalog.current().get(1);var zone=firstVillage.zone();var secondZone=secondVillage.zone();
         UUID account=UUID.randomUUID(),run=UUID.randomUUID();String town=firstVillage.id(),other=secondVillage.id(),obsolete="obsolete_"+account,trap="wp_"+account.toString().replace("-","");

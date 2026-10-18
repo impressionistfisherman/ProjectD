@@ -36,6 +36,21 @@ public final class RunRuntime {
     private final Map<UUID, Encounter> encounters = new HashMap<>();
     private final java.util.concurrent.ConcurrentMap<UUID,RunLifecycle> lifecycles=new java.util.concurrent.ConcurrentHashMap<>();
     private long tickCount;
+    private java.util.function.Consumer<ServerPlayer> mechanicAction=player->{};
+    public void mechanicAction(java.util.function.Consumer<ServerPlayer> listener){mechanicAction=java.util.Objects.requireNonNull(listener);}
+    public void contributionInput(ServerPlayer player){State state=playerRuns.get(player.getUUID());if(state!=null&&state.connected&&!state.dead&&!player.isSpectator())state.contribution.input(tickCount);}
+    public boolean recordContribution(ServerPlayer player,UUID characterId,RunContribution.Action action){
+        State state=playerRuns.get(player.getUUID());if(state==null||state.dead||!state.connected||player.isSpectator())return false;
+        Encounter encounter=encounters.get(state.runId);if(encounter==null||encounter.failed||encounter.pausedAt!=0||encounter.stage==Stage.COMPLETED||!inside(player,encounter))return false;
+        if(!player.getLastClientInput().equals(net.minecraft.world.entity.player.Input.EMPTY))state.contribution.input(tickCount);
+        if(!state.contribution.record(action,tickCount))return false;
+        state.characterId=java.util.Objects.requireNonNull(characterId);return true;
+    }
+    public java.util.Map<UUID,RunContribution.Action> contributions(UUID runId){
+        var result=new java.util.HashMap<UUID,RunContribution.Action>();
+        for(State state:playerRuns.values())if(state.runId.equals(runId)&&state.characterId!=null&&state.contribution.action()!=null)result.put(state.characterId,state.contribution.action());
+        return java.util.Map.copyOf(result);
+    }
     private static final net.minecraft.server.level.TicketType RUN_CHUNKS=new net.minecraft.server.level.TicketType(net.minecraft.server.level.TicketType.NO_TIMEOUT,net.minecraft.server.level.TicketType.FLAG_LOADING|net.minecraft.server.level.TicketType.FLAG_SIMULATION|net.minecraft.server.level.TicketType.FLAG_KEEP_DIMENSION_ACTIVE);
     private static void keepRegionLoaded(Encounter encounter,boolean keep){
         for(int x=Math.floorDiv(encounter.floor.getX()-9,16);x<=Math.floorDiv(encounter.floor.getX()+9,16);x++)for(int z=Math.floorDiv(encounter.floor.getZ()-6,16);z<=Math.floorDiv(encounter.floor.getZ()+74,16);z++){
@@ -196,6 +211,7 @@ public final class RunRuntime {
 
     public void tick(MinecraftServer server) {
         tickCount++;
+        for(ServerPlayer player:server.getPlayerList().getPlayers())if(!player.getLastClientInput().equals(net.minecraft.world.entity.player.Input.EMPTY))contributionInput(player);
         for(ServerPlayer player:server.getPlayerList().getPlayers())if(runId(player)==null&&region(player)!=null)player.connection.disconnect(Component.literal("다른 공략 구역에는 입장할 수 없습니다."));
         long now=System.currentTimeMillis();
         expireLinger(server,now);
@@ -216,7 +232,7 @@ public final class RunRuntime {
             if (encounter == null || encounter.failed || encounter.pausedAt!=0 || entry.getValue().dead || !entry.getValue().connected || encounter.stage != Stage.BRAZIER) continue;
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null) continue;
-            if (encounter.mobs.isEmpty() && nearBrazier(player, encounter.floor, encounter.partySize)) encounter.brazierTicks.merge(entry.getKey(), 1, Integer::sum);
+            if (encounter.mobs.isEmpty() && nearBrazier(player, encounter.floor, encounter.partySize)) {int ticks=encounter.brazierTicks.merge(entry.getKey(),1,Integer::sum);if(ticks>=80)mechanicAction.accept(player);}
             else encounter.brazierTicks.remove(entry.getKey());
         }
         for (Encounter encounter : new ArrayList<>(encounters.values())) {
@@ -230,6 +246,7 @@ public final class RunRuntime {
     public void leave(ServerPlayer player) { State state=playerRuns.get(player.getUUID());if(state!=null)close(((ServerLevel)player.level()).getServer(),state.runId); }
     public void disconnect(ServerPlayer player) {
         State state=playerRuns.get(player.getUUID());if(state==null)return;
+        state.contribution.disconnect();
         state.connected=false;state.disconnectedAt=System.currentTimeMillis();
         spawnLinger(player);
         pauseIfQuiet(encounters.get(state.runId),state.disconnectedAt);
@@ -562,7 +579,7 @@ public final class RunRuntime {
     public record DeathResult(UUID runId, boolean canRespawn, boolean partyDefeated) { }
     public record ReviveStatus(int remainingRevives,int clickTicks,int autoTicks,boolean failed) { }
     private enum Stage { GATEKEEPER, BRAZIER, APPROACH, BEACON, COMPLETED }
-    private static final class State { private final UUID runId; private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt,deathTick; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
+    private static final class State { private final UUID runId; private UUID characterId; private final RunContribution contribution=new RunContribution(); private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt,deathTick; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
     private static final class Encounter {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;

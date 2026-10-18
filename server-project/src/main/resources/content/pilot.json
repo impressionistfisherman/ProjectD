@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "contentVersion": "pilot-j02-2",
+  "contentVersion": "pilot-p3-4",
   "enabled": true,
   "skills": [
     {
@@ -850,6 +850,61 @@
       "armor": 0.45,
       "accessories": 0.25
     },
+    "refinement": {"temporary": true, "families": ["pilot.weapon.two_handed_sword", "pilot.weapon.sword_shield", "pilot.weapon.bow", "pilot.weapon.crossbow", "pilot.weapon.fan", "pilot.weapon.ritual_sword", "pilot.weapon.dual_axes", "pilot.weapon.pirate_sword", "pilot.armor.heavy.head", "pilot.armor.heavy.body", "pilot.armor.heavy.arms", "pilot.armor.heavy.feet", "pilot.armor.light.head", "pilot.armor.light.body", "pilot.armor.light.arms", "pilot.armor.light.feet", "pilot.armor.cloth.head", "pilot.armor.cloth.body", "pilot.armor.cloth.arms", "pilot.armor.cloth.feet", "pilot.accessory.neck", "pilot.accessory.ring", "pilot.accessory.charm", "pilot.offhand.shield", "pilot.offhand.dagger", "pilot.offhand.talisman"], "attemptCopper": [10, 20, 30, 40, 50], "keepPercent": [10, 15, 20, 25, 30]},
+    "refinementGrades": [{"grade": 0, "name": "없음 (임시)", "bonus": 0}, {"grade": 1, "name": "양품 (임시)", "bonus": 0.02}, {"grade": 2, "name": "상품 (임시)", "bonus": 0.03}, {"grade": 3, "name": "명품 (임시)", "bonus": 0.05}, {"grade": 4, "name": "일품 (임시)", "bonus": 0.08}, {"grade": 5, "name": "신품 (임시)", "bonus": 0.1}],
+    "weaponSlots": {
+      "two_handed_sword": {
+        "hands": "TWO",
+        "offhands": [],
+        "share": 1
+      },
+      "sword_shield": {
+        "hands": "ONE",
+        "offhands": [
+          "shield"
+        ],
+        "share": 1
+      },
+      "bow": {
+        "hands": "TWO",
+        "offhands": [],
+        "share": 1
+      },
+      "crossbow": {
+        "hands": "TWO",
+        "offhands": [],
+        "share": 1
+      },
+      "fan": {
+        "hands": "ONE",
+        "offhands": [
+          "talisman"
+        ],
+        "share": 1
+      },
+      "ritual_sword": {
+        "hands": "ONE",
+        "offhands": [
+          "talisman"
+        ],
+        "share": 1
+      },
+      "dual_axes": {
+        "hands": "DUAL",
+        "offhands": [
+          "dual_axes"
+        ],
+        "share": 0.5
+      },
+      "pirate_sword": {
+        "hands": "ONE",
+        "offhands": [
+          "dagger"
+        ],
+        "share": 1
+      }
+    },
+    "offhands": [{"id":"shield","name":"방패"},{"id":"dagger","name":"단검"},{"id":"talisman","name":"부적"}],
     "weapons": [
       {
         "id": "two_handed_sword",
@@ -1189,16 +1244,16 @@
       90,
       85,
       80,
-      70,
-      60,
-      50,
-      40,
-      30,
-      25,
-      20,
-      15,
-      10,
-      5
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100,
+      100
     ],
     "costs": [
       {
@@ -1225,21 +1280,72 @@
         "target": 5,
         "copper": 36,
         "ironstone": 2
+      },
+      {
+        "target": 6,
+        "copper": 54,
+        "ironstone": 3
+      },
+      {
+        "target": 7,
+        "copper": 81,
+        "ironstone": 5
+      },
+      {
+        "target": 8,
+        "copper": 122,
+        "ironstone": 8
+      },
+      {
+        "target": 9,
+        "copper": 183,
+        "ironstone": 12
+      },
+      {
+        "target": 10,
+        "copper": 275,
+        "ironstone": 18
+      },
+      {
+        "target": 11,
+        "copper": 413,
+        "ironstone": 27
+      },
+      {
+        "target": 12,
+        "copper": 620,
+        "ironstone": 41
+      },
+      {
+        "target": 13,
+        "copper": 930,
+        "ironstone": 62
+      },
+      {
+        "target": 14,
+        "copper": 1395,
+        "ironstone": 93
+      },
+      {
+        "target": 15,
+        "copper": 2093,
+        "ironstone": 140
       }
     ],
     "id": "enhancement.pilot",
     "schemaVersion": 1,
-    "contentVersion": "pilot-1",
+    "contentVersion": "pilot-p3-4",
     "enabled": true,
     "display": {
-      "name": "시험 강화",
-      "description": "목표 단계별 비용·성공률·실패 보정"
-    }
+      "name": "시험 강화 (임시)",
+      "description": "+1~5 기존 확률·비용 유지, +6~15 임시 비용·확정 성공"
+    },
+    "temporary": true
   },
   "runs": [
     {
       "id": "run.bongsudae",
-      "version": "pilot-j02-2",
+      "version": "pilot-p3-4",
       "minPlayers": 1,
       "maxPlayers": 4,
       "enabled": true,
@@ -1247,7 +1353,7 @@
       "itemRefs": [],
       "skillRefs": [],
       "schemaVersion": 1,
-      "contentVersion": "pilot-j02-2",
+      "contentVersion": "pilot-p3-4",
       "display": {
         "name": "폐봉수대",
         "description": "1~4인 파티 공략"

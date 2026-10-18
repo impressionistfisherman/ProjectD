@@ -408,3 +408,15 @@ tasks.register('verifyProfessionGate', JavaExec) { group = 'verification'; class
 tasks.register('verifyWaypointReturn', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.WaypointReturnCheck' }
 tasks.register('verifyStoryQuestCurve', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.StoryQuestCurveCheck' }
 tasks.register('verifyStoryInvestigationLink', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.StoryInvestigationLinkCheck' }
+
+tasks.register('verifyWeaponSlots', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.WeaponSlotsCheck' }
+
+tasks.register('verifyRefinementGrade', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementGradeCheck' }
+
+tasks.register('verifyRefinementKeep', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RefinementKeepCheck' }
+
+tasks.register('verifyInheritanceShare', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.InheritanceShareCheck' }
+
+tasks.register('verifyRewardEligibility', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RewardEligibilityCheck' }
+
+tasks.register('verifyEnhancementTail', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.EnhancementTailCheck' }

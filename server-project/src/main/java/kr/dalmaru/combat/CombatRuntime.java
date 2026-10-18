@@ -31,14 +31,17 @@ public final class CombatRuntime {
     private static final Identifier EVASIVE_SPEED=Identifier.fromNamespaceAndPath("dalmaru","evasive_speed");
     private java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> contentSource=player->kr.dalmaru.content.ContentCatalog.current();
     public void contentSource(java.util.function.Function<UUID,kr.dalmaru.content.ContentCatalog> source){contentSource=java.util.Objects.requireNonNull(source);}
+    private java.util.function.BiConsumer<ServerPlayer,kr.dalmaru.run.RunContribution.Action> contribution=(player,action)->{};
+    private java.util.function.Consumer<ServerPlayer> playerInput=player->{};
+    public void contributions(java.util.function.BiConsumer<ServerPlayer,kr.dalmaru.run.RunContribution.Action> listener,java.util.function.Consumer<ServerPlayer> input){contribution=java.util.Objects.requireNonNull(listener);playerInput=java.util.Objects.requireNonNull(input);}
     public kr.dalmaru.content.ContentCatalog content(UUID player){return contentSource.apply(player);}
     public kr.dalmaru.content.ContentCatalog.Skill skill(UUID player,String id){return content(player).skill(id);}
     public DefenseState defenseState(UUID player){return defenseStates.computeIfAbsent(player,id->new DefenseState());}
-    public boolean hasShield(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&snapshot.records.stream().anyMatch(item->item.itemId().contains(".sword_shield."));}
-    public boolean canGuard(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&snapshot.records.stream().anyMatch(item->item.itemId().contains(".sword_shield.")||item.itemId().contains(".two_handed_sword."));}
-    public void guard(ServerPlayer player,boolean enabled,long tick){defenseState(player.getUUID()).guard(enabled&&canGuard(player.getUUID()),tick);movementEffects(player,tick);}
-    public boolean dodge(ServerPlayer player,long tick){return managed(player)&&defenseState(player.getUUID()).dodge(tick,player.onGround()&&player.isAlive()&&!player.isSpectator());}
-    public void attackStarted(ServerPlayer player){defenseState(player.getUUID()).attack();}
+    public boolean hasShield(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&PilotEquipment.hasShield(snapshot.records,content(player));}
+    public boolean canGuard(UUID player){var snapshot=equipment.get(player);return snapshot!=null&&PilotEquipment.canGuard(snapshot.records,content(player));}
+    public void guard(ServerPlayer player,boolean enabled,long tick){if(enabled)playerInput.accept(player);defenseState(player.getUUID()).guard(enabled&&canGuard(player.getUUID()),tick);movementEffects(player,tick);}
+    public boolean dodge(ServerPlayer player,long tick){boolean used=managed(player)&&defenseState(player.getUUID()).dodge(tick,player.onGround()&&player.isAlive()&&!player.isSpectator());if(used)playerInput.accept(player);return used;}
+    public void attackStarted(ServerPlayer player){playerInput.accept(player);defenseState(player.getUUID()).attack();}
     public void revived(ServerPlayer player,double staminaRatio,boolean combat,long tick){
         RuntimeState state=states.get(player.getUUID());if(state!=null){state.stamina=state.maximumStamina*staminaRatio;if(!combat)state.lastCombatTick=Long.MIN_VALUE;}
         effects.clear(player.getUUID());if(combat)defenseState(player.getUUID()).revive(tick);
@@ -58,7 +61,7 @@ public final class CombatRuntime {
         double cost=damage>=180?60:damage>=130?40:damage>=100?20:10;
         double reduced=defense.reduce(damage,tick,blockable,front,hasShield(player.getUUID()),cost,resistsStagger(player.getUUID(),tick));
         reduced=effects.absorb(player.getUUID(),reduced,tick);
-        if(validCombat&&damage>0&&reduced<damage){recordValidHit(player,tick);if(source.getEntity() instanceof ServerPlayer attacker)recordValidHit(attacker,tick);}
+        if(validCombat&&damage>0&&reduced<damage){if(!defense.immune(tick)||defense.dodgeImmune(tick))recordValidHit(player,tick);if(source.getEntity() instanceof ServerPlayer attacker)recordValidHit(attacker,tick);}
         movementEffects(player,tick);return reduced;
     }
     public void ranks(UUID player,Map<String,Integer> ranks){skillRanks.put(player,Map.copyOf(ranks));}
@@ -97,7 +100,7 @@ public final class CombatRuntime {
     public boolean cleanse(ServerPlayer player,long tick){
         boolean removed=effects.cleanseOne(player.getUUID(),tick);
         if(!removed)removed=player.removeEffect(net.minecraft.world.effect.MobEffects.SLOWNESS);
-        updateControl(player,tick);return removed;
+        updateControl(player,tick);if(removed)contribution.accept(player,kr.dalmaru.run.RunContribution.Action.EFFECT);return removed;
     }
     public void battleResistance(ServerPlayer player,int rank,long tick){staggerResistance.put(player.getUUID(),tick+(long)skill(player.getUUID(),"skill.warrior.battle_cry").parameter("resistanceTicks",rank));}
     public boolean resistsStagger(UUID player,long tick){return staggerResistance.getOrDefault(player,0L)>tick;}
@@ -107,7 +110,7 @@ public final class CombatRuntime {
         double mastery=skill(player.getUUID(),"skill.mage.talisman_mastery").parameter("damageBonus",rank(player.getUUID(),"skill.mage.talisman_mastery"));
         double amount=(skill(player.getUUID(),"skill.mage.protective_talisman").parameter("shieldBase",rank)+attack*skill(player.getUUID(),"skill.mage.protective_talisman").parameter("shieldAttackMultiplier",rank))*state.strengthMultiplier*(1+mastery);
         double change=effects.shield(player.getUUID(),"protective_talisman:"+player.getUUID(),amount,CombatUnits.toRpg(player.getMaxHealth()),tick,(long)skill(player.getUUID(),"skill.mage.protective_talisman").parameter("shieldTicks",rank));
-        if(change>0&&stamina(player.getUUID(),tick).inCombat())recordValidHit(player,tick);
+        if(change>0){if(stamina(player.getUUID(),tick).inCombat())recordValidHit(player,tick);else contribution.accept(player,kr.dalmaru.run.RunContribution.Action.EFFECT);}
     }
     public double absorb(ServerPlayer player,double damage,long tick){return effects.absorb(player.getUUID(),damage,tick);}
     public int targetedAttack(ServerPlayer player,LivingEntity target,double multiplier,int defense,boolean basic,long tick){
@@ -152,7 +155,7 @@ public final class CombatRuntime {
 		CharacterProfile effective = new CharacterProfile(profile.characterId(), profile.level(), profile.experience(), profile.unspentStatPoints(),
 			profile.strength(), profile.dexterity(), profile.arcana(), profile.vitality() + gear.vitality(), profile.spirit() + gear.spirit(),
 			profile.freeResetAvailable(), profile.unspentSkillPoints(), profile.profession());
-		CombatStats base = CombatCalculator.derive(effective, primaryStat(profile) + gear.primary());
+		CombatStats base = CombatCalculator.derive(effective, CombatCalculator.primaryStat(profile) + gear.primary());
         CombatStats stats=new CombatStats(base.maximumHealth()+(int)skill(player.getUUID(),"skill.warrior.body_training").parameter("maximumHealth",rank(player.getUUID(),"skill.warrior.body_training")),base.maximumStamina(),
             base.staminaRegenerationPerSecond()+skill(player.getUUID(),"skill.mage.breath_meditation").parameter("staminaRegeneration",rank(player.getUUID(),"skill.mage.breath_meditation")),base.strengthMultiplier());
 		var attackDamage = player.getAttribute(Attributes.ATTACK_DAMAGE);
@@ -219,8 +222,12 @@ public final class CombatRuntime {
 
 	public void recordValidHit(ServerPlayer player, long tick) {
 		RuntimeState state = states.get(player.getUUID());
-		if (state != null) state.lastCombatTick = tick;
+		if (state != null) {state.lastCombatTick = tick;contribution.accept(player,kr.dalmaru.run.RunContribution.Action.EFFECT);}
 	}
+    public void recordIncomingHit(ServerPlayer player,long tick){
+        RuntimeState state=states.get(player.getUUID());
+        if(state!=null){state.lastCombatTick=tick;contribution.accept(player,kr.dalmaru.run.RunContribution.Action.RECEIVED_HIT);}
+    }
 	public SweepResult useSweep(UUID playerId, long tick) {
         var definition=skill(playerId,"skill.warrior.sweep");
 		RuntimeState state = states.get(playerId);
@@ -434,15 +441,6 @@ public final class CombatRuntime {
 		return state == null ? null : new StaminaState(state.stamina, state.maximumStamina, state.lastCombatTick != Long.MIN_VALUE && tick - state.lastCombatTick < COMBAT_TIMEOUT_TICKS);
 	}
 
-	private static int primaryStat(CharacterProfile profile) {
-		return switch (profile.profession()) {
-			case "WARRIOR" -> profile.strength();
-			case "ARCHER" -> profile.dexterity();
-			case "MAGE" -> profile.arcana();
-			case "ROGUE" -> Math.max(profile.strength(), profile.dexterity());
-			default -> Math.max(profile.strength(), Math.max(profile.dexterity(), profile.arcana()));
-		};
-	}
 
 	private static final class RuntimeState {
 		private final int maximumStamina;
