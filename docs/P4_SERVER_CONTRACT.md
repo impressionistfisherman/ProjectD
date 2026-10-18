@@ -37,4 +37,8 @@ protocol 34·codec·네트워크 수신·HUD·파티 서비스·V040/V041은 Gro
 
 ## 검사와 종료 조건
 
+S02 서버 바인딩: `RunRuntime implements RunMechanicAccess`. 화로 snapshot과 단계 revision이 제공됩니다. 보스 snapshot은 S04, 방치 snapshot은 S03에서 연결하므로 현재 bosses는 빈 목록/방치는 IDLE·0입니다. Grok은 미연결 필드를 완성된 동작으로 표시하면 안 됩니다. 실제 우클릭/취소 요청과 기술 성공·실제 HP/보호막 피해 콜백은 Grok Networking 연결이 필요합니다. 죽음·단절·차원 변경·이동 취소는 RunRuntime에 직접 연결했습니다.
+
+A02 경계는 완료 시각 차이 20틱 이하인 채널 그룹으로 구현했습니다. 각 채널은 80틱을 모두 수행하며, 먼저 완료한 채널은 최대 20틱 동안 조작을 유지해야 합니다. 협동 상대가 끝나지 않으면 취소 메시지 후 재시도합니다. 잔여 화로가 한 개면 한 명으로 완료합니다. 실제 성공 때만 기존 S12 MECHANIC 콜백을 한 번 호출하며 P3 이하 런의 기존 근접 체류 경로는 유지합니다.
+
 `verifyP4ContentContracts`: 승인 수치, 잘못된 데이터 거절, frozen 값 독립성, P3 보존, 불변 snapshot. 기존 `verifyContentCatalog`, `verifyRunContentSnapshot`, `verifyProtocolVersion`과 공유 잠금 단일 전체 회귀를 실행합니다. S01 서버 계약 커밋 후 god를 통해 Grok에 전달하고 Pam/공유 계약 Creed 검토를 요청합니다. 사람 플레이 7항목은 별도 대기입니다.

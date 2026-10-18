@@ -431,3 +431,5 @@ tasks.register('verifyAuctionSettlement', JavaExec) { group = 'verification'; cl
 tasks.register('verifyMailboxAuctionIntegration', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.MailboxAuctionIntegrationCheck' }
 
 tasks.register('verifyP4ContentContracts', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P4ContentContractsCheck' }
+
+tasks.register('verifyBrazierChannel', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BrazierChannelCheck' }
