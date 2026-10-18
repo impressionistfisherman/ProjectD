@@ -601,3 +601,9 @@
 - 검증 커밋 8e18c501e2b007a6119fb14a5595f260ffec56c3, clean. 공유 잠금 단일 전체47 PASS/exit0/257.05초(잠금 대기 포함). 신규 직접거래·제작·채집 검사 포함, assemble/임시35565 RunRespawnMixin PASS.
 - OscarP3DB accounts0/operation_requests0/schema37, V033/34/35/37 및 신규4테이블·거래version 양수제약 확인. 자기token 확인 후 잠금 해제 확인.
 - Grok 제품11개 원본보존, 검사guard 추가수정 불필요. 상세 hive/research/MDF_P3_GROK_INTEGRATION_OSCAR.md/.log/_timing.json. Pam 독립통합검토 요청, S13 PASS 전 S14 구현보류. push/배포/실제플레이 미실행.
+
+## P3 S14 경매·분배 구현 (2026-10-18)
+- god908e80: S13 대기 철회/Pam 통합 PASS 뒤 2f77fbf에서 구현. V038·auction.json·AuctionCatalog/Repository, 완료 트랜잭션 생성/기존 expiry 정산, 저널 입찰·이탈 API. Grok 수령·패킷·화면 미수정.
+- 자격0미생성/1직접/2+경매, 최초상자 별도/매완료 특별품ACCOUNT. 임시40전·60초·마감+10/최대120·5%올림 최소증분/동가후속거절. wallet 잠금예약·교체환급·불변결과재생, 우편정산원자성.
+- goddb93c8/ef903b: INTEGER 우편, 기존event_id 재사용/이벤트별 UNIQUE확장. 상한부분환급+초과우편/금액분할/이벤트재생. 기존7일캐릭터삭제 호환FK, 미정산최고가보호.
+- compile 최초 private helper 접근 오류 수정. 첫focused3 PASS44초. 추가fixture생성timeout2회(경매전)와상한fixture초기화순서실패 보존; JDBC제한미변경/실패준비cleanup보완. 격리focused3 PASS35.71초. 삭제호환신규검사 포함 잠금전체48 검증 예정.

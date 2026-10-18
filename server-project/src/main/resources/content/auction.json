@@ -1,0 +1,11 @@
+{
+  "displayName": "폐봉수대 특별 경매 (임시)",
+  "itemId": "pilot.special.beacon_core",
+  "binding": "ACCOUNT",
+  "saleCopper": 40,
+  "initialSeconds": 60,
+  "extensionWindowSeconds": 10,
+  "extensionSeconds": 10,
+  "maximumSeconds": 120,
+  "incrementPercent": 5
+}

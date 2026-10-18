@@ -98,6 +98,7 @@ public final class RunRepository {
             if (success) {
                 for(var entry:contributions.entrySet())writeContribution(connection,runId,entry.getKey(),entry.getValue(),false);
                 rewards.grant(connection, runId, run.difficulty());
+                AuctionRepository.create(connection, runId);
                 try (var increment = connection.prepareStatement("UPDATE dalmaru.character_run_weekly_clears SET clear_count=clear_count+1 WHERE character_id IN (SELECT p.character_id FROM dalmaru.run_participants p WHERE p.run_id=? AND NOT EXISTS(SELECT 1 FROM dalmaru.run_contributions c WHERE c.run_id=p.run_id AND c.character_id=p.character_id AND c.revoked)) AND content_id=? AND difficulty=? AND week_id=(SELECT week_id FROM dalmaru.run_instances WHERE run_id=?)")) { increment.setObject(1, runId); increment.setString(2, CONTENT); increment.setString(3, run.difficulty().name()); increment.setObject(4, runId); increment.executeUpdate(); }
             }
             String state = success ? "COMPLETED" : "FAILED"; try (var update = connection.prepareStatement("UPDATE dalmaru.run_instances SET state=?, finished_at=CURRENT_TIMESTAMP WHERE run_id=?")) { update.setString(1, state); update.setObject(2, runId); update.executeUpdate(); }
@@ -181,6 +182,7 @@ public final class RunRepository {
     }
     public int expireTimedOut() throws SQLException {
         if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        new AuctionRepository().settleExpired();
         try (var connection = DriverManager.getConnection(url, username, password); var update = connection.prepareStatement("UPDATE dalmaru.run_instances SET state='FAILED', finished_at=CURRENT_TIMESTAMP WHERE state IN ('ACTIVE', 'PAUSED') AND (deadline_at<=CURRENT_TIMESTAMP OR pause_expires_at<=CURRENT_TIMESTAMP)")) { return update.executeUpdate(); }
     }
     public List<RunReward> rewards(UUID runId) throws SQLException {
