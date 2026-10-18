@@ -516,7 +516,7 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
                     }
-                case "vault_move","shop_trade","gather_node","craft_recipe","direct_trade","claim_mail"->playAccess(context,payload.correlationId(),envelope);
+                case "vault_move","shop_trade","gather_node","craft_recipe","direct_trade","claim_mail","view_auction","bid_auction","leave_auction"->playAccess(context,payload.correlationId(),envelope);
                     default->throw new IllegalArgumentException("Unsupported operation");
                 }
             }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){rejectOperation(context.player(),payload.correlationId(),payload.requestId());}

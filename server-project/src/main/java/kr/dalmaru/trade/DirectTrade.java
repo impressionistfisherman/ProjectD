@@ -22,6 +22,15 @@ public final class DirectTrade {
 
 	public record Journaled(JsonObject result, RequestJournal.Receipt receipt, boolean replayed) { }
 
+	public JsonObject pending(UUID accountId) throws SQLException {
+		if (accountId == null) throw new IllegalArgumentException("Invalid trade offer.");
+		try (var connection = connect(); var query = connection.prepareStatement("SELECT offer_id, version FROM dalmaru.trade_offers WHERE state='reserved' AND expires_at > clock_timestamp() AND (opener_account_id=? OR partner_account_id=?) ORDER BY expires_at DESC LIMIT 1")) {
+			query.setObject(1, accountId);
+			query.setObject(2, accountId);
+			try (var row = query.executeQuery()) { return row.next() ? outcome(row.getObject(1, UUID.class), "reserved", row.getInt(2)) : null; }
+		}
+	}
+
 	public Journaled actJournaled(UUID accountId, long generation, long requestId, UUID characterId, String action, UUID offerId, UUID partnerAccountId, String itemId, int quantity, int version, RequestEnvelope envelope) throws SQLException {
 		if (generation < 1 || requestId < 1 || envelope == null || !characterId.equals(envelope.activeCharacterId())) throw new IllegalArgumentException("Invalid trade request.");
 		if ("open".equals(action) && (partnerAccountId == null || partnerAccountId.equals(accountId))) throw new IllegalArgumentException("Invalid trade offer.");

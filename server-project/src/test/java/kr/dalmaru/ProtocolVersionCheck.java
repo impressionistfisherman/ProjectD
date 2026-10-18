@@ -43,13 +43,16 @@ public final class ProtocolVersionCheck {
         String client = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));
         require(client.contains("new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION)"), "Client Hello does not use PROTOCOL_VERSION");
         require(server.contains("\"delete_character\"") && server.contains("\"restore_character\"") && server.contains("\"list_villages\"") && server.contains("\"open_village\"") && server.contains("\"quest_stage\""), "P2 packet operations missing");
-        require(server.contains("\"vault_move\"") && server.contains("\"shop_trade\"") && server.contains("\"gather_node\"") && server.contains("\"craft_recipe\"") && server.contains("\"direct_trade\"") && server.contains("\"claim_mail\""), "P3 play operations missing");
+        require(server.contains("\"vault_move\"") && server.contains("\"shop_trade\"") && server.contains("\"gather_node\"") && server.contains("\"craft_recipe\"") && server.contains("\"direct_trade\"") && server.contains("\"claim_mail\"") && server.contains("\"view_auction\"") && server.contains("\"bid_auction\"") && server.contains("\"leave_auction\""), "P3 play operations missing");
         int play = server.indexOf("private static void playAccess");
         int position = server.indexOf("player.blockPosition()", play);
         int async = server.indexOf("supplyAsync", play);
         require(play > 0 && position > play && async > position, "Play access must read the server position before the async call");
         String access = Files.readString(Path.of("src/main/java/kr/dalmaru/play/PlayAccess.java"));
+        require(access.contains("forRun") && access.contains("bidJournaled") && access.contains("leaveJournaled") && access.contains("pending"), "Play access does not call the trade and auction reads");
         require(!access.contains("text(body, \"x\")") && !access.contains("text(body, \"dimension\")"), "Play access reads client coordinates");
+        String screen = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPlayScreen.java"));
+        require(screen.contains("임시 거래 받기") && screen.contains("임시 경매 입찰") && screen.contains("minimumBid()"), "Play screen does not send the server minimum bid");
         require(client.contains("requestCharacterLife") && client.contains("requestVillage") && client.contains("requestPlay") && Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruProfileScreen.java")).contains("전"), "P2 client screens missing");
         require(Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPlayScreen.java")).contains("임시"), "Play screen is missing the temporary label");
         String state = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientConnectionState.java"));

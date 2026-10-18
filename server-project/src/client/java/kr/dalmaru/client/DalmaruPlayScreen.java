@@ -19,7 +19,7 @@ final class DalmaruPlayScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int rows = 18;
+		int rows = 22;
 		int left = Math.max(8, (width - 300) / 2);
 		int buttonWidth = Math.min(300, width - 16);
 		int step = Math.max(12, Math.min(20, (height - 16) / rows));
@@ -48,6 +48,10 @@ final class DalmaruPlayScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.literal("임시 우편 수령"), button -> { var body = new JsonObject(); body.addProperty("eventId", mail.getValue().trim()); send("claim_mail", body); }).bounds(left, top + 15 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("임시 재련"), button -> { var items = ClientEquipmentState.equipment(); if (!items.isEmpty()) DalmaruClient.requestRefinement(items.getFirst().equipmentId()); }).bounds(left, top + 16 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("임시 계승"), button -> { var items = ClientEquipmentState.equipment(); if (items.size() > 1) DalmaruClient.requestInheritance(items.getFirst().equipmentId(), items.get(1).equipmentId()); }).bounds(left, top + 17 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 거래 받기"), button -> { var body = new JsonObject(); body.addProperty("action", "pending"); send("direct_trade", body); }).bounds(left, top + 18 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 경매 보기"), button -> { var run = ClientRunState.preparationId(); if (run == null) return; var body = new JsonObject(); body.addProperty("runId", run.toString()); send("view_auction", body); }).bounds(left, top + 19 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 경매 입찰"), button -> { var auction = ClientPlayAccessState.auctionId(); int copper = ClientPlayAccessState.minimumBid(); if (auction == null || copper < 1) return; var body = new JsonObject(); body.addProperty("auctionId", auction); body.addProperty("copper", copper); send("bid_auction", body); }).bounds(left, top + 20 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 경매 이탈"), button -> { var auction = ClientPlayAccessState.auctionId(); if (auction == null) return; var body = new JsonObject(); body.addProperty("auctionId", auction); send("leave_auction", body); }).bounds(left, top + 21 * step, buttonWidth, buttonHeight).build());
 	}
 
 	private static JsonObject vault(String direction) {

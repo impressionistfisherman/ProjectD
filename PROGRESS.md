@@ -629,3 +629,4 @@
 - 필수시나리오: 같은런금전우편3행 독립수령, 2행수령후지갑상한/남은행보존, 재요청무중복, 잔액사용후후속수령 PASS. godad0c3a 승인 V039/최소event전달 예외만 Grok코드수정, V038불변.
 - 사후OscarDB accounts0/operation_requests0/run_auctions0/schema39. V028~V038순서/V036비움 유지, V039추가. non-mail기존부분UNIQUE/mail.claim별eventUNIQUE 확인. 전체 및 사후확인 모두 자기잠금해제.
 - 상세 hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json/_postconditions.log, V039이전증거 MDF_P3_V039_MIGRATION_OSCAR.log, 집중실패/수정후로그 보존. V039 Creed 별도검토/god통합승인 대기, push/mainmerge/실제인게임 미실행.
+- 2026-10-18 플레이 빈칸: c02368a 위로 빨리 감기한 뒤, 거래 상대는 `임시 거래 받기`로 제안 번호와 version을 읽고 맡기기·확인을 보낸다. 경매는 `forRun`·`bidJournaled`·`leaveJournaled`만 호출한다. 입찰액은 서버가 준 최소액이다. protocol 33. 경매 서버 함수와 마이그레이션은 안 바꿈.

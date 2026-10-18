@@ -37,12 +37,16 @@ public final class DirectTradeCheck {
 			var opened = act(trade, OPENER, openerGeneration, 3, opener, "open", null, PARTNER, "material.ironstone", 2, 0);
 			var replay = act(trade, OPENER, openerGeneration, 3, opener, "open", null, PARTNER, "material.ironstone", 2, 0);
 			UUID offer = UUID.fromString(opened.result().get("offerId").getAsString());
+			var seen = trade.pending(PARTNER);
+			require(seen != null && offer.equals(UUID.fromString(seen.get("offerId").getAsString())) && seen.get("version").getAsInt() == 1 && trade.pending(UUID.randomUUID()) == null, "Partner did not see the offer.");
 			require(!opened.replayed() && replay.replayed() && material(opener, "material.ironstone") == 1 && "reserved".equals(state(offer)), "Offer did not reserve the stack once.");
 			reject(() -> act(trade, OPENER, openerGeneration, 12, opener, "confirm", offer, null, "", 0, 1));
 			require("reserved".equals(state(offer)) && !flag(offer, "opener_confirmed"), "Confirm stuck before the partner deposited.");
 			sql("INSERT INTO dalmaru.character_materials(character_id, material_id, quantity, binding) VALUES(?, 'material.iron_ingot', 1, 'FREE')", partner);
 			var deposited = act(trade, PARTNER, partnerGeneration, 4, partner, "deposit", offer, null, "material.iron_ingot", 1, 0);
 			require(deposited.result().get("version").getAsInt() == 2 && !flag(offer, "opener_confirmed"), "Deposit did not clear the previous confirm.");
+			var refreshed = trade.pending(OPENER);
+			require(refreshed != null && offer.equals(UUID.fromString(refreshed.get("offerId").getAsString())) && refreshed.get("version").getAsInt() == 2, "Opener did not see the new version.");
 			reject(() -> act(trade, OPENER, openerGeneration, 13, opener, "confirm", offer, null, "", 0, 1));
 			var waiting = act(trade, OPENER, openerGeneration, 5, opener, "confirm", offer, null, "", 0, 2);
 			require("reserved".equals(waiting.result().get("state").getAsString()) && material(opener, "material.iron_ingot") == 0, "One confirm completed the trade.");
