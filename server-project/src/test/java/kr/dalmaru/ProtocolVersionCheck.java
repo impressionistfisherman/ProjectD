@@ -8,19 +8,23 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import kr.dalmaru.network.DalmaruNetworking;
 import kr.dalmaru.network.DalmaruPayloads;
 
-/** Protocol 32 gate: constant, handshake codecs, and the mismatch-reject path on both sides. */
+/** Protocol 33 gate: constant, handshake codecs, and the mismatch-reject path on both sides. */
 public final class ProtocolVersionCheck {
     public static void main(String[] args) throws Exception {
-        require(DalmaruNetworking.PROTOCOL_VERSION == 32, "PROTOCOL_VERSION is not 32");
+        require(DalmaruNetworking.PROTOCOL_VERSION == 33, "PROTOCOL_VERSION is not 33");
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         try {
-            for (int version : new int[]{31, 32}) {
+            for (int version : new int[]{32, 33}) {
                 DalmaruPayloads.Hello.CODEC.encode(buffer, new DalmaruPayloads.Hello(version));
                 require(DalmaruPayloads.Hello.CODEC.decode(buffer).protocolVersion() == version, "Hello roundtrip changed");
                 DalmaruPayloads.Welcome.CODEC.encode(buffer, new DalmaruPayloads.Welcome(version));
                 require(DalmaruPayloads.Welcome.CODEC.decode(buffer).protocolVersion() == version, "Welcome roundtrip changed");
                 buffer.clear();
             }
+            var play = new DalmaruPayloads.OperationRequest(1, java.util.UUID.randomUUID(), 1, java.util.UUID.randomUUID(), "vault_move", "{\"assetId\":\"copper\",\"quantity\":1,\"direction\":\"deposit\"}");
+            DalmaruPayloads.OperationRequest.CODEC.encode(buffer, play);
+            require(play.equals(DalmaruPayloads.OperationRequest.CODEC.decode(buffer)), "Play access envelope roundtrip changed");
+            buffer.clear();
         } finally { buffer.release(); }
 
         // Server: a mismatched Hello is disconnected before the connection is marked compatible or Welcome is sent.
@@ -39,13 +43,21 @@ public final class ProtocolVersionCheck {
         String client = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));
         require(client.contains("new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION)"), "Client Hello does not use PROTOCOL_VERSION");
         require(server.contains("\"delete_character\"") && server.contains("\"restore_character\"") && server.contains("\"list_villages\"") && server.contains("\"open_village\"") && server.contains("\"quest_stage\""), "P2 packet operations missing");
-        require(client.contains("requestCharacterLife") && client.contains("requestVillage") && Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruProfileScreen.java")).contains("전"), "P2 client screens missing");
+        require(server.contains("\"vault_move\"") && server.contains("\"shop_trade\"") && server.contains("\"gather_node\"") && server.contains("\"craft_recipe\"") && server.contains("\"direct_trade\""), "P3 play operations missing");
+        int play = server.indexOf("private static void playAccess");
+        int position = server.indexOf("player.blockPosition()", play);
+        int async = server.indexOf("supplyAsync", play);
+        require(play > 0 && position > play && async > position, "Play access must read the server position before the async call");
+        String access = Files.readString(Path.of("src/main/java/kr/dalmaru/play/PlayAccess.java"));
+        require(!access.contains("text(body, \"x\")") && !access.contains("text(body, \"dimension\")"), "Play access reads client coordinates");
+        require(client.contains("requestCharacterLife") && client.contains("requestVillage") && client.contains("requestPlay") && Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruProfileScreen.java")).contains("전"), "P2 client screens missing");
+        require(Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPlayScreen.java")).contains("임시"), "Play screen is missing the temporary label");
         String state = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientConnectionState.java"));
         int accept = state.indexOf("acceptWelcome(int protocolVersion)");
         int equal = state.indexOf("protocolVersion == DalmaruNetworking.PROTOCOL_VERSION", accept);
         int set = state.indexOf("compatible = true;", accept);
         require(accept >= 0 && equal > accept && set > equal, "Client accepts Welcome without version equality");
-        System.out.println("Protocol 32 constant/handshake/mismatch-reject PASS");
+        System.out.println("Protocol 33 constant/handshake/mismatch-reject PASS");
     }
 
     private static void require(boolean ok, String message) { if (!ok) throw new AssertionError(message); }

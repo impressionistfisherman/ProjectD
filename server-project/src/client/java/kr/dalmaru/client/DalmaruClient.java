@@ -27,6 +27,7 @@ public final class DalmaruClient implements ClientModInitializer {
 		"key.dalmaru.open_quests", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_U, CATEGORY));
 	private static final KeyMapping OPEN_EQUIPMENT = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_equipment", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_E, CATEGORY));
 	private static final KeyMapping OPEN_RUN = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_run", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F6, CATEGORY));
+	private static final KeyMapping OPEN_PLAY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_play", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, CATEGORY));
 	private static boolean guardKeyDown;
     private static final KeyMapping DODGE=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.dodge",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_LEFT_ALT,CATEGORY));
     private static final KeyMapping TOGGLE_MODE=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.toggle_mode",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_GRAVE_ACCENT,CATEGORY));
@@ -134,6 +135,9 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 			if (client.screen == null && OPEN_RUN.consumeClick()) {
 				client.setScreen(new DalmaruRunScreen());
 			}
+			if (client.screen == null && OPEN_PLAY.consumeClick()) {
+				client.setScreen(new DalmaruPlayScreen(null));
+			}
             if(client.screen==null&&TOGGLE_MODE.consumeClick())ClientPlayNetworking.send(new DalmaruPayloads.CombatModeRequest(ClientCombatState.current()==null||!ClientCombatState.current().combatMode()));
 			if(client.player!=null){
                 if(client.screen==null&&DODGE.consumeClick()&&ClientCombatState.current()!=null&&ClientCombatState.current().combatMode()){
@@ -208,6 +212,11 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     public static void requestQuestStage(String stage, String action) {
         var body=new com.google.gson.JsonObject();body.addProperty("questId",kr.dalmaru.quest.QuestStageRepository.QUEST_ID);body.addProperty("stage",stage);body.addProperty("action",action);
         var request=ClientRequestState.begin(ClientQuestStageState.nextId(),"quest_stage",body);
+        if(request!=null)ClientPlayNetworking.send(request);
+    }
+
+    public static void requestPlay(String operation, com.google.gson.JsonObject body) {
+        var request=ClientRequestState.begin(ClientPlayAccessState.nextId(),operation,body);
         if(request!=null)ClientPlayNetworking.send(request);
     }
 
@@ -387,6 +396,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("delete_character".equals(request.operation())||"restore_character".equals(request.operation())){acceptLifeOperation(request,receipt);return;}
         if("list_villages".equals(request.operation())||"open_village".equals(request.operation())){ClientVillageState.accept(request.operation(),receipt.result(),"rejected".equals(receipt.state()));return;}
         if("quest_stage".equals(request.operation())){ClientQuestStageState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
+        if(java.util.Set.of("vault_move","shop_trade","gather_node","craft_recipe","direct_trade").contains(request.operation())){ClientPlayAccessState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;
