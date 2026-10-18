@@ -521,6 +521,18 @@ public record CharacterCreateRequest(long requestId, int slot, String displayNam
 		@Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 	}
 
+	public record P4BrazierHud(long revision, int litCount, int total, int remainingTicks, String result) implements CustomPacketPayload {
+		public static final Type<P4BrazierHud> TYPE = DalmaruPayloads.type("p4_brazier_hud");
+		public static final StreamCodec<RegistryFriendlyByteBuf, P4BrazierHud> CODEC = StreamCodec.composite(
+			ByteBufCodecs.VAR_LONG, P4BrazierHud::revision,
+			ByteBufCodecs.VAR_INT, P4BrazierHud::litCount,
+			ByteBufCodecs.VAR_INT, P4BrazierHud::total,
+			ByteBufCodecs.VAR_INT, P4BrazierHud::remainingTicks,
+			ByteBufCodecs.stringUtf8(32), P4BrazierHud::result,
+			P4BrazierHud::new);
+		@Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+	}
+
 	public record P4State(long requestId, String status, int rosterRevision, int stageRevision, String reason) implements CustomPacketPayload {
 		public static final Type<P4State> TYPE = DalmaruPayloads.type("p4_state");
 		public static final StreamCodec<RegistryFriendlyByteBuf, P4State> CODEC = StreamCodec.composite(

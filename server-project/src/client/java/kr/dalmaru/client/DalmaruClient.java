@@ -29,6 +29,7 @@ public final class DalmaruClient implements ClientModInitializer {
 	private static final KeyMapping OPEN_RUN = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_run", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F6, CATEGORY));
 	private static final KeyMapping OPEN_PLAY = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.open_play", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F7, CATEGORY));
 	private static boolean guardKeyDown;
+	private static boolean brazierShift;
     private static final KeyMapping DODGE=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.dodge",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_LEFT_ALT,CATEGORY));
     private static final KeyMapping TOGGLE_MODE=KeyMappingHelper.registerKeyMapping(new KeyMapping("key.dalmaru.toggle_mode",InputConstants.Type.KEYSYM,GLFW.GLFW_KEY_GRAVE_ACCENT,CATEGORY));
 	private static boolean profileKeyDown;
@@ -36,6 +37,7 @@ public final class DalmaruClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		DalmaruStaminaHud.register();
+		DalmaruBrazierHud.register();
         ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.StoryStateResponse.TYPE,(payload,context)->ClientStoryState.accept(payload));
         ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointResponse.TYPE,(payload,context)->{
             if(context.client().screen instanceof DalmaruWaypointScreen screen)screen.accept(payload);
@@ -49,8 +51,8 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 		ClientSkillState.resetForConnection();
 		ClientEquipmentState.resetForConnection();
-		ClientRunState.resetForConnection();ClientLoadoutState.reset();ClientPartyState.resetForConnection();runReviveState=null;ClientRequestState.reset();
-			profileKeyDown = false;guardKeyDown=false;
+		ClientRunState.resetForConnection();ClientLoadoutState.reset();ClientPartyState.resetForConnection();ClientBrazierState.resetForConnection();runReviveState=null;ClientRequestState.reset();
+			profileKeyDown = false;guardKeyDown=false;brazierShift=false;
 			ClientPlayNetworking.send(new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION));
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
@@ -62,14 +64,16 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 			ClientSkillState.resetForConnection();
 			ClientEquipmentState.resetForConnection();
-			ClientRunState.resetForConnection();ClientLoadoutState.reset();ClientPartyState.resetForConnection();runReviveState=null;ClientRequestState.reset();
-			profileKeyDown = false;guardKeyDown=false;
+			ClientRunState.resetForConnection();ClientLoadoutState.reset();ClientPartyState.resetForConnection();ClientBrazierState.resetForConnection();runReviveState=null;ClientRequestState.reset();
+			profileKeyDown = false;guardKeyDown=false;brazierShift=false;
 		});
 
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Welcome.TYPE,
 			(payload, context) -> ClientConnectionState.acceptWelcome(payload.protocolVersion()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4State.TYPE,
 			(payload, context) -> ClientPartyState.accept(payload));
+		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4BrazierHud.TYPE,
+			(payload, context) -> ClientBrazierState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.ProbeResponse.TYPE,
 			(payload, context) -> ClientConnectionState.acceptProbeResponse(payload.requestId(), payload.rateLimited()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterSelectionReady.TYPE, (payload, context) -> {
@@ -146,6 +150,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
                     int direction=client.options.keyDown.isDown()?1:client.options.keyLeft.isDown()?2:client.options.keyRight.isDown()?3:0;ClientPlayNetworking.send(new DalmaruPayloads.DodgeRequest(direction));
                 }
                 boolean guard=client.screen==null&&client.options.keyUse.isDown();if(guard!=guardKeyDown){guardKeyDown=guard;ClientPlayNetworking.send(new DalmaruPayloads.GuardRequest(guard));}
+                boolean shift=client.options.keyShift.isDown();if(shift&&!brazierShift&&ClientBrazierState.channeling()&&ClientConnectionState.isCompatible())ClientPlayNetworking.send(new DalmaruPayloads.P4Request(ClientBrazierState.nextId(),"cancel_brazier","{}"));brazierShift=shift;
             }
             boolean profilePressed = InputConstants.isKeyDown(client.getWindow(), GLFW.GLFW_KEY_J);
 			if (profilePressed && !profileKeyDown && client.screen == null) {

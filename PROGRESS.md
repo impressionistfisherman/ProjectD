@@ -645,3 +645,6 @@
 - 집중3 PASS17초(79/80틱, 중복/소유, 정확0.5 수직이동 포함, 취소/단절, 1/2/3/4인, 20/21틱 협동/잔여수). clean 제품 단일전체54 PASS/exit0/231.99초(잠금대기 포함), assemble·임시35565 RunRespawnMixin PASS. 자기잠금해제 기록 확인 후 Grok이 다른 token으로 잠금 확보, 타인 잠금 미변경.
 - 증거 hive/research/MDF_P4_S02_OSCAR.md/.log/_timing.json. Grok 입력/기술 성공/실제HP·보호막 피격 콜백/HUD 통합 대기. bosses=[]/neglect=IDLE,0은 S04/S03 미연결 필드. 화면 슬라이스 전체 완료나 사람7항목 PASS가 아님. 다음 S03→S04→S05→S07→S10.
 - 결과기록의 PowerShell→Python 입력 인코딩 손상을 복구. 제품·검사 소스는 회귀 검증 커밋과 동일하므로 반복 회귀하지 않음. Pam/공유계약 Creed 및 S02 계획상 Creed 독립 검토를 god에 요청.
+
+## P4-S02 화면 (2026-10-18)
+- 화로 위치 우클릭만 `startBrazier`로 보내고, 그 외 보호 구역은 기존 거절을 유지한다. 취소 요청은 `cancelBrazier`. HUD는 점화 수와 남은 틱만 보여 준다. bosses와 neglect는 그리지 않는다. 기술·피격 연결은 오스카 S03 커밋을 기다린다. protocol 34. push 없음. 인게임 미실행.

@@ -40,8 +40,12 @@ public final class ProtocolVersionCheck {
             DalmaruPayloads.P4State.CODEC.encode(buffer, statePayload);
             require(statePayload.equals(DalmaruPayloads.P4State.CODEC.decode(buffer)), "P4 state roundtrip changed");
             buffer.clear();
+            var hudPayload = new DalmaruPayloads.P4BrazierHud(3, 1, 2, 40, "STARTED");
+            DalmaruPayloads.P4BrazierHud.CODEC.encode(buffer, hudPayload);
+            require(hudPayload.equals(DalmaruPayloads.P4BrazierHud.CODEC.decode(buffer)), "Brazier HUD roundtrip changed");
+            buffer.clear();
         } finally { buffer.release(); }
-        for (String action : new String[]{"party_menu", "start_brazier", "cancel_brazier", "skill_used", "hit", "boss_snapshot", "participant_removed", "return_ack", "s12_cancel", "invite"}) {
+        for (String action : new String[]{"party_menu", "skill_used", "hit", "boss_snapshot", "participant_removed", "return_ack", "s12_cancel", "invite"}) {
             var judged = P4Contract.judge(action);
             require("REJECT".equals(judged.status()) && judged.reason().startsWith("거절"), "P4 action was treated as success: " + action);
         }
@@ -89,6 +93,14 @@ public final class ProtocolVersionCheck {
         require(run.contains("임시 파티") && run.contains("openParty()") && run.contains("ClientRunState.status()"), "F6 party entry missing");
         require(party.contains("임시 파티") && party.contains("로딩") && party.contains("requestParty(\"party_menu\")"), "Party frame does not show loading");
         require(!party.contains("성공"), "Party frame shows success");
+        int use = server.indexOf("UseBlockCallback.EVENT.register");
+        int brazier = server.indexOf("startBrazier", use);
+        int protect = server.indexOf("protectedBlock", brazier);
+        require(use > 0 && brazier > use && protect > brazier && server.contains("cancelBrazier"), "Brazier click must reach the server before the protected-block reject");
+        String hud = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruBrazierHud.java"));
+        String brazierState = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientBrazierState.java"));
+        require(hud.contains("ClientBrazierState.line()") && brazierState.contains("임시 화로") && brazierState.contains("남은 "), "Brazier HUD missing progress");
+        require(client.contains("cancel_brazier") && brazierState.contains("채널 진행") && !hud.contains("neglect") && !hud.contains("bosses") && !hud.contains("성공") && !brazierState.contains("성공"), "Brazier HUD shows an unfinished field or success");
         System.out.println("Protocol 34 constant/handshake/P3-mismatch-reject PASS");
     }
 

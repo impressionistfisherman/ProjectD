@@ -1153,3 +1153,6 @@
 - clean 제품9887bdfe8d2d62e4536301545a896491b7832d72 단일전체54 PASS/exit0/231.99초(잠금대기 포함). assemble·임시35565 RunRespawnMixin PASS. 자기 token 잠금해제 기록 확인; 이후 Grok이 다른 token으로 확보한 잠금은 미변경. 실제54표 hive/research/MDF_P4_S02_OSCAR.md 및 .log/_timing.json.
 - 우클릭/취소요청·HUD 및 실제HP/보호막 피격·기술 성공 콜백은 Grok Networking 통합 대기. 실제 던전 입장/화면 조작/사람 플레이7항목/배포/운영DB/push/mainmerge 미실행. S02 전체 화면 통합 완료로 보고하지 않음.
 - 한국어 결과 기록 인코딩 복구는 문서만 변경. 검증 제품·검사 동일성 확인 후 중복 회귀 생략.
+
+## P4-S02 화면 (2026-10-18)
+- compileJava compileClientJava, verifyProtocolVersion, verifyClientScreenBounds PASS. 화로 HUD 문구와 우클릭이 보호 거절보다 앞인지만 확인했다. 잠금 전체 회귀는 이 기록 시점에 아직이다. 인게임 미실행.

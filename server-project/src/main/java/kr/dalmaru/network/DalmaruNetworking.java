@@ -102,6 +102,7 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.Welcome.TYPE, DalmaruPayloads.Welcome.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.P4Request.TYPE, DalmaruPayloads.P4Request.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.P4State.TYPE, DalmaruPayloads.P4State.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.P4BrazierHud.TYPE, DalmaruPayloads.P4BrazierHud.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProbeRequest.TYPE, DalmaruPayloads.ProbeRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.ProbeResponse.TYPE, DalmaruPayloads.ProbeResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.CharacterSelectionReady.TYPE, DalmaruPayloads.CharacterSelectionReady.CODEC);
@@ -174,7 +175,17 @@ public final class DalmaruNetworking {
             try{RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot cancel unfinished runs on shutdown.",error);}
         });
         net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((world,player,pos,block,entity)-> !(world instanceof ServerLevel level)||!RUN_RUNTIME.protectedBlock(level,pos));
-        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player,world,hand,hit)-> world instanceof ServerLevel level && RUN_RUNTIME.protectedBlock(level,hit.getBlockPos()) ? net.minecraft.world.InteractionResult.FAIL : net.minecraft.world.InteractionResult.PASS);
+        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player,world,hand,hit)-> {
+            if(!(player instanceof ServerPlayer serverPlayer)||!(world instanceof ServerLevel level))return net.minecraft.world.InteractionResult.PASS;
+            var snapshot=RUN_RUNTIME.mechanicSnapshot(serverPlayer);
+            net.minecraft.core.BlockPos pos=hit.getBlockPos();
+            boolean brazier=snapshot!=null&&snapshot.braziers().stream().anyMatch(view->view.position().equals(pos));
+            if(brazier){
+                if(hand==InteractionHand.MAIN_HAND)sendBrazierHud(serverPlayer,RUN_RUNTIME.startBrazier(serverPlayer,snapshot.runId(),snapshot.revision(),pos).name());
+                return net.minecraft.world.InteractionResult.CONSUME;
+            }
+            return RUN_RUNTIME.protectedBlock(level,pos)?net.minecraft.world.InteractionResult.FAIL:net.minecraft.world.InteractionResult.PASS;
+        });
 
         ServerPlayConnectionEvents.JOIN.register((handler,sender,server)->{
             ServerPlayer joinedPlayer=handler.getPlayer();UUID playerId=joinedPlayer.getUUID();
@@ -234,7 +245,7 @@ public final class DalmaruNetworking {
 			COMBAT.restoreAfterRespawn(oldPlayer,newPlayer);
             if(!alive){boolean dungeon=RUN_RUNTIME.runId(newPlayer)!=null;RUN_RUNTIME.afterRespawn(oldPlayer,newPlayer);if(dungeon){if(!newPlayer.isSpectator())COMBAT.revived(newPlayer,.25,true,currentTick);}else fieldRespawn(newPlayer);sendRunReviveState(newPlayer);}
 		});
-		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
+		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); sendBrazierHuds(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
             if(entity instanceof ServerPlayer player&&baseDamageTaken>0)interruptWaypoint(player,"피격으로 귀환이 취소되었습니다.");
 			if (damageTaken > 0) {
@@ -295,6 +306,7 @@ public final class DalmaruNetworking {
 				disconnect(context, "달마루 호환성 확인 전에 요청할 수 없습니다.");
 				return;
 			}
+			if("start_brazier".equals(payload.action())||"cancel_brazier".equals(payload.action())){brazierRequest(context.player(),payload);return;}
 			var judged = kr.dalmaru.party.P4Contract.judge(payload.action());
 			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.P4State(payload.requestId(), judged.status(), 0, 0, judged.reason()));
 		});
@@ -1442,6 +1454,50 @@ public final class DalmaruNetworking {
 		});
 	}
 
+	private static void brazierRequest(ServerPlayer player, DalmaruPayloads.P4Request payload) {
+		var snapshot = RUN_RUNTIME.mechanicSnapshot(player);
+		if (snapshot == null) { sendBrazierHud(player, "UNAVAILABLE"); return; }
+		if ("cancel_brazier".equals(payload.action())) {
+			sendBrazierHud(player, RUN_RUNTIME.cancelBrazier(player, snapshot.runId(), snapshot.revision()).name());
+			return;
+		}
+		net.minecraft.core.BlockPos pos = brazierPos(payload.body());
+		if (pos == null) { sendBrazierHud(player, "MISSING"); return; }
+		sendBrazierHud(player, RUN_RUNTIME.startBrazier(player, snapshot.runId(), snapshot.revision(), pos).name());
+	}
+
+	private static net.minecraft.core.BlockPos brazierPos(String body) {
+		try {
+			var json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+			if (!json.has("x") || !json.has("y") || !json.has("z")) return null;
+			return new net.minecraft.core.BlockPos(json.get("x").getAsInt(), json.get("y").getAsInt(), json.get("z").getAsInt());
+		} catch (RuntimeException invalid) { return null; }
+	}
+
+	private static void sendBrazierHuds(MinecraftServer server) {
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) sendBrazierHud(player, "");
+	}
+
+	private static void sendBrazierHud(ServerPlayer player, String result) {
+		ConnectionState state = CONNECTIONS.get(player.getUUID());
+		if (state == null || !state.compatible) return;
+		var snapshot = RUN_RUNTIME.mechanicSnapshot(player);
+		boolean active = snapshot != null && snapshot.phase() == kr.dalmaru.run.RunMechanicAccess.Phase.BRAZIER && !snapshot.braziers().isEmpty();
+		if (!active) {
+			if (!state.brazierHud && result.isEmpty()) return;
+			state.brazierHud = false;
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(0, 0, 0, 0, result));
+			return;
+		}
+		int lit = 0, remaining = 0;
+		for (var brazier : snapshot.braziers()) {
+			if (brazier.lit()) lit++;
+			if (player.getUUID().equals(brazier.channelPlayerId())) remaining = brazier.remainingTicks();
+		}
+		state.brazierHud = true;
+		ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(snapshot.revision(), lit, snapshot.braziers().size(), remaining, result));
+	}
+
 	private static void disconnect(ServerPlayNetworking.Context context, String message) {
 		context.player().connection.disconnect(Component.literal(message));
 	}
@@ -1449,6 +1505,7 @@ public final class DalmaruNetworking {
 	private static final class ConnectionState {
 		private final long joinedTick;
 		private boolean compatible;
+		private boolean brazierHud;
 		private AccountSession accountSession;
 		private volatile AccountSession openedSession;
         private net.minecraft.server.network.ServerGamePacketListenerImpl connection;
