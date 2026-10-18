@@ -349,6 +349,7 @@ public final class RunRuntime implements RunMechanicAccess {
             if (encounter.stage == Stage.BRAZIER) {tickBraziers(server,encounter);activateFinalBoss(encounter);}
             tickBoss(server, encounter);
             tickPosture(encounter);
+            tickTelegraphs(server,encounter);
         }
     }
 
@@ -405,11 +406,15 @@ public final class RunRuntime implements RunMechanicAccess {
         return result;
     }
     private void hurtLinger(Encounter encounter,Mob attacker,float amount,double range,boolean magic){
-        double rangeSq=range*range;long now=System.currentTimeMillis();
+        double rangeSq=range*range;
+        hurtLinger(encounter,attacker,amount,body->body.distanceToSqr(attacker)<=rangeSq,magic);
+    }
+    private void hurtLinger(Encounter encounter,Mob attacker,float amount,java.util.function.Predicate<Mob> inside,boolean magic){
+        long now=System.currentTimeMillis();
         for(var entry:new ArrayList<>(lingerBodies.entrySet())){
             State state=playerRuns.get(entry.getKey());
             if(state==null||!state.runId.equals(encounter.runId)||state.dead||state.connected||!RunEncounterRules.lingering(state.disconnectedAt,now))continue;
-            if(!(encounter.level.getEntity(entry.getValue()) instanceof Mob body)||!body.isAlive()||body.distanceToSqr(attacker)>rangeSq)continue;
+            if(!(encounter.level.getEntity(entry.getValue()) instanceof Mob body)||!body.isAlive()||!inside.test(body))continue;
             lingerDamage.hit(entry.getKey(),body,attacker,amount,magic);
         }
     }
@@ -641,6 +646,11 @@ public final class RunRuntime implements RunMechanicAccess {
             float ratio = boss.getHealth() / boss.getMaxHealth();
             int every = ratio > .7F ? 70 : ratio > .35F ? 50 : 35;
             if (encounter.bossTicks % every != 0) return;
+            if (encounter.content.mechanics()!=null) {
+                Mob body=target==null?lingerMobs(encounter).get(0):null;
+                startTelegraph(encounter,boss,target==null?body.getX():target.getX(),target==null?body.getZ():target.getZ(),ratio);
+                return;
+            }
             if (ratio > .7F) {
                 if(target!=null)bossDamage.hit(target, boss, bossAttack(encounter, 130), false);
                 hurtLinger(encounter, boss, bossAttack(encounter, 130), 4, false);
@@ -655,7 +665,7 @@ public final class RunRuntime implements RunMechanicAccess {
         return List.of(new BossView(e.bossId,kr.dalmaru.combat.CombatUnits.toRpg(boss.getHealth()),kr.dalmaru.combat.CombatUnits.toRpg(boss.getMaxHealth()),e.posture.posture(),e.posture.maximum(),e.posture.state(),e.posture.remainingTicks()));
     }
     private static void beginPosture(Encounter encounter, boolean finalBoss) {
-        encounter.charge.cancel();encounter.postureHits.clear();
+        encounter.charge.cancel();encounter.postureHits.clear();encounter.telegraphs.clear();encounter.bossCycles=0;
         var mechanics=encounter.content.mechanics();
         encounter.posture=mechanics==null?null:new BossPosture(BossScaling.maximumPosture(mechanics.boss(),finalBoss,encounter.difficulty,encounter.partySize),mechanics.boss());
     }
@@ -680,6 +690,38 @@ public final class RunRuntime implements RunMechanicAccess {
             encounter.revision++;
             if(after==Posture.COLLAPSED)announceCollapse(encounter,boss);
         }
+    }
+    private void startTelegraph(Encounter encounter, Mob boss, double targetX, double targetZ, float ratio) {
+        var kind=BossTelegraph.pick(ratio,encounter.bossCycles++);
+        int minimum=encounter.content.mechanics().minimumTelegraphTicks();
+        var telegraph=new BossTelegraph.Active(kind,BossTelegraph.shape(kind,boss.getX(),boss.getZ(),targetX,targetZ),bossAttack(encounter,BossTelegraph.baseDamage(kind)),BossTelegraph.magic(kind),BossTelegraph.ticks(minimum),minimum,tickCount);
+        encounter.telegraphs.add(telegraph);
+        encounter.level.playSound(null,boss.getX(),boss.getY(),boss.getZ(),net.minecraft.sounds.SoundEvents.EVOKER_PREPARE_ATTACK,net.minecraft.sounds.SoundSource.HOSTILE,1.5F,1F);
+        showTelegraph(encounter,boss,telegraph);
+    }
+    /** Ticks running telegraphs. The hit uses exactly the displayed shape and the positions at the firing tick. */
+    private void tickTelegraphs(MinecraftServer server, Encounter encounter) {
+        if(encounter.telegraphs.isEmpty())return;
+        if(encounter.bossId==null||!(encounter.level.getEntity(encounter.bossId) instanceof Mob boss)||!boss.isAlive()){encounter.telegraphs.clear();return;}
+        List<ServerPlayer> players=players(server,encounter.runId,encounter.level);
+        for(var iterator=encounter.telegraphs.iterator();iterator.hasNext();){
+            var telegraph=iterator.next();
+            if(!telegraph.tick(tickCount)){showTelegraph(encounter,boss,telegraph);continue;}
+            iterator.remove();
+            var shape=telegraph.shape();
+            encounter.level.playSound(null,boss.getX(),boss.getY(),boss.getZ(),net.minecraft.sounds.SoundEvents.BLAZE_SHOOT,net.minecraft.sounds.SoundSource.HOSTILE,1.5F,.8F);
+            sendTelegraphPoints(encounter,boss,telegraph.kind(),shape.fill(1.0));
+            for(ServerPlayer player:players)if(shape.contains(player.getX(),player.getZ()))bossDamage.hit(player,boss,telegraph.damage(),telegraph.magic());
+            hurtLinger(encounter,boss,telegraph.damage(),body->shape.contains(body.getX(),body.getZ()),telegraph.magic());
+        }
+    }
+    private void showTelegraph(Encounter encounter, Mob boss, BossTelegraph.Active telegraph) {
+        if(telegraph.elapsed()%4==0)sendTelegraphPoints(encounter,boss,telegraph.kind(),telegraph.shape().outline(1.0));
+        if(telegraph.total()-telegraph.elapsed()<=10&&telegraph.elapsed()%5==0)sendTelegraphPoints(encounter,boss,telegraph.kind(),telegraph.shape().fill(1.5));
+    }
+    private void sendTelegraphPoints(Encounter encounter, Mob boss, BossTelegraph.Kind kind, List<double[]> points) {
+        var particle=switch(BossTelegraph.cue(kind)){case FLAME->ParticleTypes.FLAME;case SMOKE->ParticleTypes.SMOKE;case SOUL_FIRE_FLAME->ParticleTypes.SOUL_FIRE_FLAME;};
+        for(double[] point:points)encounter.level.sendParticles(particle,point[0],boss.getY()+.1,point[1],1,0,0,0,0);
     }
     private void announceCollapse(Encounter encounter, Mob boss) {
         encounter.level.sendParticles(ParticleTypes.CRIT,boss.getX(),boss.getY()+1.5,boss.getZ(),40,.8,.8,.8,.2);
@@ -760,7 +802,7 @@ public final class RunRuntime implements RunMechanicAccess {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
-        private long revision=1; private BossPosture posture; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
+        private long revision=1; private BossPosture posture; private final List<BossTelegraph.Active> telegraphs=new ArrayList<>(); private int bossCycles; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
         private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize);this.neglect=content.mechanics()==null?null:new BrazierNeglect(content.mechanics().brazier()); }
     }
 }
