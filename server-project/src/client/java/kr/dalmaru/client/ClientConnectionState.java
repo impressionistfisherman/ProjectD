@@ -25,7 +25,7 @@ final class ClientConnectionState {
 	}
 
 	static void acceptWelcome(int protocolVersion) {
-		if (protocolVersion == DalmaruNetworking.PROTOCOL_VERSION) {
+		if (DalmaruNetworking.acceptsProtocol(protocolVersion)) {
 			compatible = true;
 			status = "서버 연결 준비됨";
 		}

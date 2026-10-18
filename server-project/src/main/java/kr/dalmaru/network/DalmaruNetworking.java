@@ -54,7 +54,8 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 33;
+	public static final int PROTOCOL_VERSION = 34;
+	public static boolean acceptsProtocol(int version) { return version == PROTOCOL_VERSION; }
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
@@ -99,6 +100,8 @@ public final class DalmaruNetworking {
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.StoryStateResponse.TYPE,DalmaruPayloads.StoryStateResponse.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.WaypointResponse.TYPE,DalmaruPayloads.WaypointResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.Welcome.TYPE, DalmaruPayloads.Welcome.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.P4Request.TYPE, DalmaruPayloads.P4Request.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.P4State.TYPE, DalmaruPayloads.P4State.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProbeRequest.TYPE, DalmaruPayloads.ProbeRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.ProbeResponse.TYPE, DalmaruPayloads.ProbeResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.CharacterSelectionReady.TYPE, DalmaruPayloads.CharacterSelectionReady.CODEC);
@@ -278,13 +281,22 @@ public final class DalmaruNetworking {
             .then(literal("return").then(argument("waypoint",StringArgumentType.greedyString()).executes(command->{beginWaypoint(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"waypoint"));return 1;})))));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Hello.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.protocolVersion() != PROTOCOL_VERSION) {
+			if (!acceptsProtocol(payload.protocolVersion())) {
 				disconnect(context, "달마루 통신 버전이 맞지 않습니다.");
 				return;
 			}
 			state.compatible = true;
 			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.Welcome(PROTOCOL_VERSION));
 			sendCharacterSelectionReady(context.player(), state);
+		});
+		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4Request.TYPE, (payload, context) -> {
+			ConnectionState state = stateFor(context.player().getUUID());
+			if (!state.compatible) {
+				disconnect(context, "달마루 호환성 확인 전에 요청할 수 없습니다.");
+				return;
+			}
+			var judged = kr.dalmaru.party.P4Contract.judge(payload.action());
+			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.P4State(payload.requestId(), judged.status(), 0, 0, judged.reason()));
 		});
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointRequest.TYPE,(payload,context)->waypointRequest(context.player(),payload));

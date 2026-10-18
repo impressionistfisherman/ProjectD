@@ -49,7 +49,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 		ClientSkillState.resetForConnection();
 		ClientEquipmentState.resetForConnection();
-		ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;ClientRequestState.reset();
+		ClientRunState.resetForConnection();ClientLoadoutState.reset();ClientPartyState.resetForConnection();runReviveState=null;ClientRequestState.reset();
 			profileKeyDown = false;guardKeyDown=false;
 			ClientPlayNetworking.send(new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION));
 		});
@@ -62,12 +62,14 @@ public final class DalmaruClient implements ClientModInitializer {
 			ClientCombatState.resetForConnection();
 			ClientSkillState.resetForConnection();
 			ClientEquipmentState.resetForConnection();
-			ClientRunState.resetForConnection();ClientLoadoutState.reset();runReviveState=null;ClientRequestState.reset();
+			ClientRunState.resetForConnection();ClientLoadoutState.reset();ClientPartyState.resetForConnection();runReviveState=null;ClientRequestState.reset();
 			profileKeyDown = false;guardKeyDown=false;
 		});
 
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Welcome.TYPE,
 			(payload, context) -> ClientConnectionState.acceptWelcome(payload.protocolVersion()));
+		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4State.TYPE,
+			(payload, context) -> ClientPartyState.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.ProbeResponse.TYPE,
 			(payload, context) -> ClientConnectionState.acceptProbeResponse(payload.requestId(), payload.rateLimited()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterSelectionReady.TYPE, (payload, context) -> {
@@ -438,5 +440,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientLoadoutState.pending(correlation);ClientLoadoutState.delegateRetry();ClientPlayNetworking.send(request);
     }
     static void readyRun(){if(!ClientRunState.preparing()||ClientRunState.preparationId()==null)return;ClientPlayNetworking.send(new DalmaruPayloads.RunReadyRequest(ClientRunState.preparationId(),true));}
+	public static void openParty(){var client=net.minecraft.client.Minecraft.getInstance();if(client!=null)client.setScreen(new DalmaruPartyScreen(client.screen));}
+	public static void requestParty(String action){ClientPartyState.loading();if(!ClientConnectionState.isCompatible()){ClientPartyState.reject("거절: 서버 연결 후에 확인할 수 있습니다.");return;}ClientPlayNetworking.send(new DalmaruPayloads.P4Request(ClientPartyState.nextId(),action,"{}"));}
 
 }

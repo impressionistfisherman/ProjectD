@@ -630,3 +630,6 @@
 - 사후OscarDB accounts0/operation_requests0/run_auctions0/schema39. V028~V038순서/V036비움 유지, V039추가. non-mail기존부분UNIQUE/mail.claim별eventUNIQUE 확인. 전체 및 사후확인 모두 자기잠금해제.
 - 상세 hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json/_postconditions.log, V039이전증거 MDF_P3_V039_MIGRATION_OSCAR.log, 집중실패/수정후로그 보존. V039 Creed 별도검토/god통합승인 대기, push/mainmerge/실제인게임 미실행.
 - 2026-10-18 플레이 빈칸: c02368a 위로 빨리 감기한 뒤, 거래 상대는 `임시 거래 받기`로 제안 번호와 version을 읽고 맡기기·확인을 보낸다. 경매는 `forRun`·`bidJournaled`·`leaveJournaled`만 호출한다. 입찰액은 서버가 준 최소액이다. protocol 33. 경매 서버 함수와 마이그레이션 파일은 안 바꿈. 팁 `6062515`. grok_p3_fixture 잠금 전체 회귀 exit 0.
+
+## P4-S01 (2026-10-18)
+- protocol 34. P3(33) Hello는 "달마루 통신 버전이 맞지 않습니다."로 끊고 Welcome을 보내지 않는다. F6 `임시 파티`는 로딩 뒤 거절만 보여 준다. 파티 명단·화로·보스·반환은 성공으로 처리하지 않는다. V040/V041/V042 파일 없음. push 없음. 인게임 미실행.

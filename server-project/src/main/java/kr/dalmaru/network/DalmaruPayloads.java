@@ -511,4 +511,26 @@ public record CharacterCreateRequest(long requestId, int slot, String displayNam
     public Type<? extends CustomPacketPayload> type(){return TYPE;}
  }
 
+	public record P4Request(long requestId, String action, String body) implements CustomPacketPayload {
+		public static final Type<P4Request> TYPE = DalmaruPayloads.type("p4_request");
+		public static final StreamCodec<RegistryFriendlyByteBuf, P4Request> CODEC = StreamCodec.composite(
+			ByteBufCodecs.VAR_LONG, P4Request::requestId,
+			ByteBufCodecs.stringUtf8(64), P4Request::action,
+			ByteBufCodecs.stringUtf8(256), P4Request::body,
+			P4Request::new);
+		@Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+	}
+
+	public record P4State(long requestId, String status, int rosterRevision, int stageRevision, String reason) implements CustomPacketPayload {
+		public static final Type<P4State> TYPE = DalmaruPayloads.type("p4_state");
+		public static final StreamCodec<RegistryFriendlyByteBuf, P4State> CODEC = StreamCodec.composite(
+			ByteBufCodecs.VAR_LONG, P4State::requestId,
+			ByteBufCodecs.stringUtf8(16), P4State::status,
+			ByteBufCodecs.VAR_INT, P4State::rosterRevision,
+			ByteBufCodecs.VAR_INT, P4State::stageRevision,
+			ByteBufCodecs.stringUtf8(256), P4State::reason,
+			P4State::new);
+		@Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+	}
+
 }

@@ -1,0 +1,10 @@
+{
+  "temporary": true,
+  "protocol": 34,
+  "maxMembers": 4,
+  "recruitOnlyWhileReady": true,
+  "voteMinPresent": 3,
+  "voteExpireSeconds": 30,
+  "revoteWaitSeconds": 60,
+  "reconnectSeconds": 180
+}
