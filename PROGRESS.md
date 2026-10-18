@@ -607,3 +607,8 @@
 - 자격0미생성/1직접/2+경매, 최초상자 별도/매완료 특별품ACCOUNT. 임시40전·60초·마감+10/최대120·5%올림 최소증분/동가후속거절. wallet 잠금예약·교체환급·불변결과재생, 우편정산원자성.
 - goddb93c8/ef903b: INTEGER 우편, 기존event_id 재사용/이벤트별 UNIQUE확장. 상한부분환급+초과우편/금액분할/이벤트재생. 기존7일캐릭터삭제 호환FK, 미정산최고가보호.
 - compile 최초 private helper 접근 오류 수정. 첫focused3 PASS44초. 추가fixture생성timeout2회(경매전)와상한fixture초기화순서실패 보존; JDBC제한미변경/실패준비cleanup보완. 격리focused3 PASS35.71초. 삭제호환신규검사 포함 잠금전체48 검증 예정.
+
+## P3 S14 전체 회귀 결과 (2026-10-18)
+- clean41be420bf890640dea818517e015f78185aebfb5에서 공유 잠금 단일 전체48 PASS/exit0/207.26초. assemble·임시35565 RunRespawnMixin PASS. 상한부분/전액환급, 4.29bn 분할우편/이벤트재생, 오프라인낙찰, 교차경매잔액, 정산롤백·재시작, 종료경매캐릭터삭제/타인우편보존 포함.
+- 사후 OscarP3DB accounts0/operation_requests0/run_auctions0/schema38, mailbox.event_id UUID PK/quantity INTEGER/>0/이벤트별 UNIQUE 확인. 전체검사 및 사후조건 검사 모두 자기token 잠금 해제 확인.
+- 상세 hive/research/MDF_P3_S14_OSCAR.md/.log/_timing.json/_postconditions.log. 초기 실패 로그 별도보존. Creed 독립검토/god 최종통합 대기. Grok S13 수령·패킷·화면/프로토콜 미수정, 실제플레이·push·배포 미실행.
