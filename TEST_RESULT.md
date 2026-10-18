@@ -1138,3 +1138,4 @@
 - 필수시나리오: 같은런금전우편3행 독립수령, 2행수령후지갑상한/남은행보존, 재요청무중복, 잔액사용후후속수령 PASS. godad0c3a 승인 V039/최소event전달 예외만 Grok코드수정, V038불변.
 - 사후OscarDB accounts0/operation_requests0/run_auctions0/schema39. V028~V038순서/V036비움 유지, V039추가. non-mail기존부분UNIQUE/mail.claim별eventUNIQUE 확인. 전체 및 사후확인 모두 자기잠금해제.
 - 상세 hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json/_postconditions.log, V039이전증거 MDF_P3_V039_MIGRATION_OSCAR.log, 집중실패/수정후로그 보존. V039 Creed 별도검토/god통합승인 대기, push/mainmerge/실제인게임 미실행.
+- 2026-10-18 플레이 빈칸: `6062515`에서 grok_p3_fixture 잠금 전체 회귀 exit 0. verifyDirectTrade, verifyProtocolVersion, verifyMailboxClaim, verifyRewardEligibility, verifyAuctionSettlement, verifyMailboxAuctionIntegration, p1_integration_smoke.ps1 포함 전부 PASS. 앞의 두 회차는 같은 DB에 V038·V039가 없어 FAIL. 인게임 미실행.
