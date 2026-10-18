@@ -66,6 +66,7 @@ public final class ProtocolVersionCheck {
         require(mismatch > hello && disconnect > mismatch && compatible > disconnect && welcome > compatible,
             "Server mismatch must disconnect before compatible/Welcome");
         require(server.substring(disconnect, compatible).contains("return;"), "Server mismatch branch does not return");
+        require(server.contains("COMBAT.mechanicActions(") && server.contains("RUN_RUNTIME.skillUsed(player)") && server.contains("RUN_RUNTIME::receivedHit"), "Skill and hit channel hooks missing");
 
         // Client: sends the shared constant and trusts only an equal Welcome.
         String client = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));

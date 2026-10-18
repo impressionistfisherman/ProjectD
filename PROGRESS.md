@@ -664,3 +664,9 @@
 - F6 `임시 파티`에 `추방 투표`, `찬성`, `반대`. 화면은 서버 사유만 보여 준다.
 - `verifyRunKickVote`는 build.gradle에 없다. 잠금을 잡고 따로 PASS. 전체 회귀 표에는 없다.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 230초. 검사 53개와 스모크 PASS. 이 슬라이스는 제거가 없어 PARTIAL. push 없음. 인게임 미실행. S03 한 줄은 아직 없다.
+
+## P4-S03 입력 연결 (2026-10-18)
+- oscar/mdf-p4 @8112574를 머지했다. 오스카 파일은 머지로만 들어왔다.
+- `mechanicActions`의 기술 인자는 플레이어 UUID다. `skillUsed`는 ServerPlayer라 한 줄 메서드 참조는 컴파일되지 않는다. 서버에서 UUID로 플레이어를 찾아 `skillUsed`를 호출하고, 피격은 `receivedHit`를 그대로 연결했다.
+- 환경 피해는 적대 판정이 아니면 `receivedHit`로 들어가지 않는다. 그 판정은 오스카 전투 코드에 있다.
+- grok_p3_fixture. 잠금 대기 5회를 포함한 단일 전체 회귀 exit 0, 약 365초. 검사 56개와 스모크 PASS. verifyCombatConsistency, verifyBrazierNeglect, verifyProtocolVersion 포함. 인게임 미실행. push 없음.
