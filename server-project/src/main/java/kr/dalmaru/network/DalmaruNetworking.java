@@ -54,7 +54,8 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 33;
+	public static final int PROTOCOL_VERSION = 34;
+	public static boolean acceptsProtocol(int version) { return version == PROTOCOL_VERSION; }
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
 	private static final Map<UUID, ConnectionState> CONNECTIONS = new HashMap<>();
@@ -99,6 +100,9 @@ public final class DalmaruNetworking {
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.StoryStateResponse.TYPE,DalmaruPayloads.StoryStateResponse.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.WaypointResponse.TYPE,DalmaruPayloads.WaypointResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.Welcome.TYPE, DalmaruPayloads.Welcome.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.P4Request.TYPE, DalmaruPayloads.P4Request.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.P4State.TYPE, DalmaruPayloads.P4State.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.P4BrazierHud.TYPE, DalmaruPayloads.P4BrazierHud.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.ProbeRequest.TYPE, DalmaruPayloads.ProbeRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.ProbeResponse.TYPE, DalmaruPayloads.ProbeResponse.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.CharacterSelectionReady.TYPE, DalmaruPayloads.CharacterSelectionReady.CODEC);
@@ -171,7 +175,17 @@ public final class DalmaruNetworking {
             try{RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot cancel unfinished runs on shutdown.",error);}
         });
         net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.register((world,player,pos,block,entity)-> !(world instanceof ServerLevel level)||!RUN_RUNTIME.protectedBlock(level,pos));
-        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player,world,hand,hit)-> world instanceof ServerLevel level && RUN_RUNTIME.protectedBlock(level,hit.getBlockPos()) ? net.minecraft.world.InteractionResult.FAIL : net.minecraft.world.InteractionResult.PASS);
+        net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.register((player,world,hand,hit)-> {
+            if(!(player instanceof ServerPlayer serverPlayer)||!(world instanceof ServerLevel level))return net.minecraft.world.InteractionResult.PASS;
+            var snapshot=RUN_RUNTIME.mechanicSnapshot(serverPlayer);
+            net.minecraft.core.BlockPos pos=hit.getBlockPos();
+            boolean brazier=snapshot!=null&&snapshot.braziers().stream().anyMatch(view->view.position().equals(pos));
+            if(brazier){
+                if(hand==InteractionHand.MAIN_HAND)sendBrazierHud(serverPlayer,RUN_RUNTIME.startBrazier(serverPlayer,snapshot.runId(),snapshot.revision(),pos).name());
+                return net.minecraft.world.InteractionResult.CONSUME;
+            }
+            return RUN_RUNTIME.protectedBlock(level,pos)?net.minecraft.world.InteractionResult.FAIL:net.minecraft.world.InteractionResult.PASS;
+        });
 
         ServerPlayConnectionEvents.JOIN.register((handler,sender,server)->{
             ServerPlayer joinedPlayer=handler.getPlayer();UUID playerId=joinedPlayer.getUUID();
@@ -231,7 +245,7 @@ public final class DalmaruNetworking {
 			COMBAT.restoreAfterRespawn(oldPlayer,newPlayer);
             if(!alive){boolean dungeon=RUN_RUNTIME.runId(newPlayer)!=null;RUN_RUNTIME.afterRespawn(oldPlayer,newPlayer);if(dungeon){if(!newPlayer.isSpectator())COMBAT.revived(newPlayer,.25,true,currentTick);}else fieldRespawn(newPlayer);sendRunReviveState(newPlayer);}
 		});
-		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
+		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); sendBrazierHuds(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
             if(entity instanceof ServerPlayer player&&baseDamageTaken>0)interruptWaypoint(player,"피격으로 귀환이 취소되었습니다.");
 			if (damageTaken > 0) {
@@ -278,13 +292,24 @@ public final class DalmaruNetworking {
             .then(literal("return").then(argument("waypoint",StringArgumentType.greedyString()).executes(command->{beginWaypoint(command.getSource().getPlayerOrException(),StringArgumentType.getString(command,"waypoint"));return 1;})))));
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.Hello.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
-			if (payload.protocolVersion() != PROTOCOL_VERSION) {
+			if (!acceptsProtocol(payload.protocolVersion())) {
 				disconnect(context, "달마루 통신 버전이 맞지 않습니다.");
 				return;
 			}
 			state.compatible = true;
 			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.Welcome(PROTOCOL_VERSION));
 			sendCharacterSelectionReady(context.player(), state);
+		});
+		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4Request.TYPE, (payload, context) -> {
+			ConnectionState state = stateFor(context.player().getUUID());
+			if (!state.compatible) {
+				disconnect(context, "달마루 호환성 확인 전에 요청할 수 없습니다.");
+				return;
+			}
+			if("start_brazier".equals(payload.action())||"cancel_brazier".equals(payload.action())){brazierRequest(context.player(),payload);return;}
+			if("party_menu".equals(payload.action())||"invite".equals(payload.action())||"accept".equals(payload.action())){partyRequest(context.player(),payload);return;}
+			var judged = kr.dalmaru.party.P4Contract.judge(payload.action());
+			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.P4State(payload.requestId(), judged.status(), 0, 0, judged.reason()));
 		});
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.WaypointRequest.TYPE,(payload,context)->waypointRequest(context.player(),payload));
@@ -1430,6 +1455,88 @@ public final class DalmaruNetworking {
 		});
 	}
 
+	private static void partyRequest(ServerPlayer player, DalmaruPayloads.P4Request payload) {
+		ConnectionState state = CONNECTIONS.get(player.getUUID());
+		if (state == null || state.accountSession == null || state.accountSession.activeCharacterId() == null) {
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), "REJECT", 0, 0, "거절: 캐릭터가 없습니다."));
+			return;
+		}
+		UUID account = state.accountSession.accountId();
+		UUID character = state.accountSession.activeCharacterId();
+		UUID runId = RUN_RUNTIME.runId(player);
+		var server = serverFor(player);
+		CompletableFuture.supplyAsync(() -> {
+			try (var connection = kr.dalmaru.party.PartyRunService.connect()) {
+				connection.setAutoCommit(false);
+				try {
+					var outcome = partyOutcome(connection, payload, account, character, runId);
+					connection.commit();
+					return outcome;
+				} catch (RuntimeException | java.sql.SQLException error) { connection.rollback(); throw new IllegalStateException(error); }
+			} catch (java.sql.SQLException error) { throw new IllegalStateException(error); }
+		}, LIFECYCLE_DB).whenComplete((outcome, error) -> server.execute(() -> ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), error == null ? outcome.status() : "REJECT", 0, 0, error == null ? outcome.reason() : "거절: 파티 저장을 확인하지 못했습니다."))));
+	}
+
+	private static kr.dalmaru.party.PartyRunService.Outcome partyOutcome(java.sql.Connection connection, DalmaruPayloads.P4Request payload, UUID account, UUID character, UUID runId) throws java.sql.SQLException {
+		if ("party_menu".equals(payload.action())) return kr.dalmaru.party.PartyRunService.roster(connection, runId);
+		if ("accept".equals(payload.action())) return kr.dalmaru.party.PartyRunService.accept(connection, account, character, runId);
+		UUID target = characterId(payload.body());
+		if (target == null) return new kr.dalmaru.party.PartyRunService.Outcome("REJECT", "거절: 대상이 없습니다.");
+		return kr.dalmaru.party.PartyRunService.invite(connection, account, character, runId, target, java.time.Instant.now());
+	}
+
+	private static UUID characterId(String body) {
+		try {
+			var json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+			if (!json.has("characterId")) return null;
+			return UUID.fromString(json.get("characterId").getAsString());
+		} catch (RuntimeException invalid) { return null; }
+	}
+
+	private static void brazierRequest(ServerPlayer player, DalmaruPayloads.P4Request payload) {
+		var snapshot = RUN_RUNTIME.mechanicSnapshot(player);
+		if (snapshot == null) { sendBrazierHud(player, "UNAVAILABLE"); return; }
+		if ("cancel_brazier".equals(payload.action())) {
+			sendBrazierHud(player, RUN_RUNTIME.cancelBrazier(player, snapshot.runId(), snapshot.revision()).name());
+			return;
+		}
+		net.minecraft.core.BlockPos pos = brazierPos(payload.body());
+		if (pos == null) { sendBrazierHud(player, "MISSING"); return; }
+		sendBrazierHud(player, RUN_RUNTIME.startBrazier(player, snapshot.runId(), snapshot.revision(), pos).name());
+	}
+
+	private static net.minecraft.core.BlockPos brazierPos(String body) {
+		try {
+			var json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+			if (!json.has("x") || !json.has("y") || !json.has("z")) return null;
+			return new net.minecraft.core.BlockPos(json.get("x").getAsInt(), json.get("y").getAsInt(), json.get("z").getAsInt());
+		} catch (RuntimeException invalid) { return null; }
+	}
+
+	private static void sendBrazierHuds(MinecraftServer server) {
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) sendBrazierHud(player, "");
+	}
+
+	private static void sendBrazierHud(ServerPlayer player, String result) {
+		ConnectionState state = CONNECTIONS.get(player.getUUID());
+		if (state == null || !state.compatible) return;
+		var snapshot = RUN_RUNTIME.mechanicSnapshot(player);
+		boolean active = snapshot != null && snapshot.phase() == kr.dalmaru.run.RunMechanicAccess.Phase.BRAZIER && !snapshot.braziers().isEmpty();
+		if (!active) {
+			if (!state.brazierHud && result.isEmpty()) return;
+			state.brazierHud = false;
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(0, 0, 0, 0, result));
+			return;
+		}
+		int lit = 0, remaining = 0;
+		for (var brazier : snapshot.braziers()) {
+			if (brazier.lit()) lit++;
+			if (player.getUUID().equals(brazier.channelPlayerId())) remaining = brazier.remainingTicks();
+		}
+		state.brazierHud = true;
+		ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(snapshot.revision(), lit, snapshot.braziers().size(), remaining, result));
+	}
+
 	private static void disconnect(ServerPlayNetworking.Context context, String message) {
 		context.player().connection.disconnect(Component.literal(message));
 	}
@@ -1437,6 +1544,7 @@ public final class DalmaruNetworking {
 	private static final class ConnectionState {
 		private final long joinedTick;
 		private boolean compatible;
+		private boolean brazierHud;
 		private AccountSession accountSession;
 		private volatile AccountSession openedSession;
         private net.minecraft.server.network.ServerGamePacketListenerImpl connection;

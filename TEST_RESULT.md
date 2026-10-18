@@ -1140,6 +1140,9 @@
 - 상세 hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json/_postconditions.log, V039이전증거 MDF_P3_V039_MIGRATION_OSCAR.log, 집중실패/수정후로그 보존. V039 Creed 별도검토/god통합승인 대기, push/mainmerge/실제인게임 미실행.
 - 2026-10-18 플레이 빈칸: `6062515`에서 grok_p3_fixture 잠금 전체 회귀 exit 0. verifyDirectTrade, verifyProtocolVersion, verifyMailboxClaim, verifyRewardEligibility, verifyAuctionSettlement, verifyMailboxAuctionIntegration, p1_integration_smoke.ps1 포함 전부 PASS. 앞의 두 회차는 같은 DB에 V038·V039가 없어 FAIL. 인게임 미실행.
 
+## P4-S01 (2026-10-18)
+- grok_p3_fixture. 첫 잠금 전체 회귀는 verifyTrialGrowth만 접속 오류로 FAIL. 잠금을 푼 뒤 오스카 잠금이 끝나길 기다렸고, 다시 잡은 단일 전체 회귀는 exit 0. 검사 49개와 p1_integration_smoke.ps1 전부 PASS. verifyProtocolVersion은 protocol 34, P3(33) 거절, 파티 화면의 로딩 문구를 확인했다. verifyClientScreenBounds PASS. 인게임 미실행. 이 통과 회귀는 다시 돌리지 않음.
+
 ## P4 S01 검증 (2026-10-18)
 - 집중 --no-daemon verifyP4ContentContracts/verifyContentCatalog/verifyProtocolVersion 최종 PASS/exit0/11초. 서버·클라이언트·검사 컴파일 PASS. frozen 값 독립성, P3(schema4) 보존, 임시값 검증·잘못된 정의 거절, 불변 snapshot, protocol33 확인.
 - 초기 catalog 검사는 기존 미래 schema5 거절 기대값 때문에 실패. 미래 거절값6으로 갱신. 중간 재시도는 수정 스크립트의 작업경로 오류로 변경 미적용/동일 실패, 이후 경로 수정 후 PASS. 실패를 PASS로 계산하지 않음.
@@ -1150,3 +1153,12 @@
 - clean 제품9887bdfe8d2d62e4536301545a896491b7832d72 단일전체54 PASS/exit0/231.99초(잠금대기 포함). assemble·임시35565 RunRespawnMixin PASS. 자기 token 잠금해제 기록 확인; 이후 Grok이 다른 token으로 확보한 잠금은 미변경. 실제54표 hive/research/MDF_P4_S02_OSCAR.md 및 .log/_timing.json.
 - 우클릭/취소요청·HUD 및 실제HP/보호막 피격·기술 성공 콜백은 Grok Networking 통합 대기. 실제 던전 입장/화면 조작/사람 플레이7항목/배포/운영DB/push/mainmerge 미실행. S02 전체 화면 통합 완료로 보고하지 않음.
 - 한국어 결과 기록 인코딩 복구는 문서만 변경. 검증 제품·검사 동일성 확인 후 중복 회귀 생략.
+
+## P4-S02 화면 (2026-10-18)
+- compileJava compileClientJava, verifyProtocolVersion, verifyClientScreenBounds PASS. 화로 HUD 문구와 우클릭이 보호 거절보다 앞인지만 확인했다. 인게임 미실행.
+- 잠금 단일 전체 회귀는 S06 작업본과 함께 exit 0. 표는 P4-S06.
+
+## P4-S06 (2026-10-18)
+- grok_p3_fixture. `verifyRunPartyMembership`은 잠금을 잡고 따로 실행. `Run party membership PASS`. BUILD SUCCESSFUL. 이 검사는 전체 회귀 스크립트에 없다.
+- 그 다음 잠금 단일 전체 회귀 exit 0, 약 197초. 잠금은 끝나고 삭제. 인게임 미실행.
+- PASS: verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyMailboxClaim, verifyDirectTrade, verifyBasicCraft, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, verifyRunJournal, verifyClientScreenBounds, verifyRunAutoRespawnSafety, verifyClientReplyRecovery, verifyEnhancementReplay, verifyRequestJournal, verifyClientRequestEnvelope, verifyRequestJournalResult, verifyContentCatalog, verifyRunContentSnapshot, verifySkillJournal, verifyStatJournal, verifyResetJournal, verifyProfessionJournal, verifyLoadoutJournal, verifyEquipmentMoveJournal, verifyRefinementJournal, verifyInheritanceJournal, verifyQuestAcceptanceJournal, verifyQuestAcceptanceWire, verifyQuestKillJournal, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, verifyWeaponSlots, verifyRefinementGrade, verifyRefinementKeep, verifyInheritanceShare, verifyRewardEligibility, verifyEnhancementTail, verifyAuctionSettlement, verifyMailboxAuctionIntegration, verifyP4ContentContracts, verifyBrazierChannel, p1_integration_smoke.ps1.

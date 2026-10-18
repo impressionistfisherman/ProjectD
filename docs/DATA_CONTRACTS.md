@@ -16,7 +16,7 @@ V025의 `operation_requests`는 UUID 봉투의 서버 계산 SHA-256 본문 해�
 
 S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operation_request`/`operation_receipt`를 사용한다. 첫 적용은 강화다. 작업 이름64자·본문8192자 한도로 디코딩하고 서버가 작업·본문·세대·활성 캐릭터를 검증한다. 영수증은 원결과, 이벤트 UUID, 상태와 재생 여부를 구분한다. 클라이언트는 요청 ID·상관 ID·현재 문맥을 확인하고 100tick 뒤 같은 불변 봉투를 재전송한다. 확정 불가능한 DB 통신 오류는 `accepted` 상태로 유지해 동일 UUID로 복구하며, 확실한 검증 거부만 `rejected`다. 인벤토리는 항상 최신 조회로 갱신한다. 라이브 protocol28 배포와 실제 월드 반영 ACK는 포함하지 않는다.
 
-개발판 protocol은 33이다(P3 플레이 접근). 금고·상점·채집·제작·직접 거래는 기존 `operation_request`로 보내고, 좌표는 서버 플레이어 위치만 쓴다. 재련·계승은 이 층에 없다. 역참 요청/응답을 포함한다. protocol30 이후 추가된 `refinement_state_request`/`refinement_state_response`(S09i2) 등 신규 패킷을 포함하며, 서버·클라이언트가 `DalmaruNetworking.PROTOCOL_VERSION` 한 상수를 공유한다. Hello 버전이 다르면 서버가 접속을 끊고("달마루 통신 버전이 맞지 않습니다.") Welcome을 보내지 않으며, 클라이언트는 같은 버전의 Welcome만 호환으로 인정한다. `verifyProtocolVersion`이 상수, 핸드셰이크 코덱, 불일치 거부 순서를 검사한다. 라이브 protocol28과 운영 설정은 바꾸지 않았다.
+개발판 protocol은 34이다(P4 공략/파티 틀). P3 클라이언트(33)는 Hello에서 "달마루 통신 버전이 맞지 않습니다."로 끊기고 Welcome을 받지 못한다. 금고·상점·채집·제작·직접 거래는 기존 `operation_request`로 보내고, 좌표는 서버 플레이어 위치만 쓴다. 재련·계승은 이 층에 없다. 역참 요청/응답을 포함한다. protocol30 이후 추가된 `refinement_state_request`/`refinement_state_response`(S09i2) 등 신규 패킷을 포함하며, 서버·클라이언트가 `DalmaruNetworking.PROTOCOL_VERSION` 한 상수를 공유한다. Hello 버전이 다르면 서버가 접속을 끊고("달마루 통신 버전이 맞지 않습니다.") Welcome을 보내지 않으며, 클라이언트는 같은 버전의 Welcome만 호환으로 인정한다. `verifyProtocolVersion`이 상수, 핸드셰이크 코덱, 불일치 거부 순서를 검사한다. 라이브 protocol28과 운영 설정은 바꾸지 않았다.
 
 이 문서는 달마루의 콘텐츠 정의, 영구 저장, 서버 요청·응답이 지켜야 할 최소 계약을 정한다. 이는 Java 클래스나 DB 마이그레이션 파일이 아니라 구현이 따라야 하는 형태와 불변 조건이다. 수치 자체는 [시험 콘텐츠 명세](PILOT_CONTENT_SPEC.md), 게임 규칙은 [세부 규칙과 예외 처리](RULES_AND_OPERATIONS.md)를 따른다.
 

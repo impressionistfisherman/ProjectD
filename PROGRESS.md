@@ -631,6 +631,9 @@
 - 상세 hive/research/MDF_P3_INTEGRATION_OSCAR.md/.log/_timing.json/_postconditions.log, V039이전증거 MDF_P3_V039_MIGRATION_OSCAR.log, 집중실패/수정후로그 보존. V039 Creed 별도검토/god통합승인 대기, push/mainmerge/실제인게임 미실행.
 - 2026-10-18 플레이 빈칸: c02368a 위로 빨리 감기한 뒤, 거래 상대는 `임시 거래 받기`로 제안 번호와 version을 읽고 맡기기·확인을 보낸다. 경매는 `forRun`·`bidJournaled`·`leaveJournaled`만 호출한다. 입찰액은 서버가 준 최소액이다. protocol 33. 경매 서버 함수와 마이그레이션 파일은 안 바꿈. 팁 `6062515`. grok_p3_fixture 잠금 전체 회귀 exit 0.
 
+## P4-S01 (2026-10-18)
+- protocol 34. P3(33) Hello는 "달마루 통신 버전이 맞지 않습니다."로 끊고 Welcome을 보내지 않는다. F6 `임시 파티`는 로딩 뒤 거절만 보여 준다. 파티 명단·화로·보스·반환은 성공으로 처리하지 않는다. V040/V041/V042 파일 없음. push 없음. 인게임 미실행.
+
 ## P4 S01 서버 계약 (2026-10-18)
 - 승인 conv-c3d6bd, 기준728fe72에서 oscar/mdf-p4. Active Spec: J03~J07/J22 임시값·서버 입력/결과/상태·개인제거 Connection 어댑터 계약 우선. Grok의 통신/화면/protocol34/V040·41 소유권 유지.
 - 제품 c8a804835c4420339d2166e6962138095be6fadb: root schema5/pilot-p4-1, BeaconMechanics frozen 정의 및 엄격 검증. P3 이하 mechanics=null로 기존 스냅샷 보존. RunMechanicAccess 계약 및 docs/P4_SERVER_CONTRACT.md.
@@ -642,3 +645,15 @@
 - 집중3 PASS17초(79/80틱, 중복/소유, 정확0.5 수직이동 포함, 취소/단절, 1/2/3/4인, 20/21틱 협동/잔여수). clean 제품 단일전체54 PASS/exit0/231.99초(잠금대기 포함), assemble·임시35565 RunRespawnMixin PASS. 자기잠금해제 기록 확인 후 Grok이 다른 token으로 잠금 확보, 타인 잠금 미변경.
 - 증거 hive/research/MDF_P4_S02_OSCAR.md/.log/_timing.json. Grok 입력/기술 성공/실제HP·보호막 피격 콜백/HUD 통합 대기. bosses=[]/neglect=IDLE,0은 S04/S03 미연결 필드. 화면 슬라이스 전체 완료나 사람7항목 PASS가 아님. 다음 S03→S04→S05→S07→S10.
 - 결과기록의 PowerShell→Python 입력 인코딩 손상을 복구. 제품·검사 소스는 회귀 검증 커밋과 동일하므로 반복 회귀하지 않음. Pam/공유계약 Creed 및 S02 계획상 Creed 독립 검토를 god에 요청.
+
+## P4-S02 화면 (2026-10-18)
+- 화로 위치 우클릭만 `startBrazier`로 보내고, 그 외 보호 구역은 기존 거절을 유지한다. 취소 요청은 `cancelBrazier`. HUD는 점화 수와 남은 틱만 보여 준다. bosses와 neglect는 그리지 않는다. 기술·피격 연결은 오스카 S03 커밋을 기다린다. protocol 34. push 없음. 인게임 미실행.
+- 잠금 단일 전체 회귀는 S06 작업본과 함께 exit 0. 표는 P4-S06.
+
+## P4-S06 (2026-10-18)
+- V040. `run_party_control`, `run_member_lifecycle`, `run_party_invites`. `run_participants`는 지우지 않는다. `disconnect_at`은 채우지 않는다. 메모리 대기 파티는 저장하지 않는다.
+- 초대는 파티장·같은 계정·단계 READY만. 명단 revision이 다르면 오래된 초대. ACTIVE면 준비 중. 이탈자는 단계보다 먼저 거절한다.
+- F6 `임시 파티`는 로딩, `임시 초대`, `임시 수락`을 보여 준다. 서버 사유를 그대로 쓴다. 성공으로 처리하지 않는다.
+- 런 입장 코드는 `PartyRunService.open`을 호출하지 않는다. 명단이 없으면 `거절: 파티 명단은 아직 열리지 않았습니다.`
+- `verifyRunPartyMembership`은 build.gradle에 없다. 잠금을 잡고 따로 PASS. 전체 회귀 표에는 없다. 오스카 등록이 필요하다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 197초. 검사 53개와 p1_integration_smoke.ps1 전부 PASS. 잠금은 끝나고 삭제. push 없음. 인게임 미실행. S03 `mechanicActions` 한 줄은 아직 없다.
