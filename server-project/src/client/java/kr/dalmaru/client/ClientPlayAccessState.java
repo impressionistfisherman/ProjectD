@@ -19,7 +19,14 @@ final class ClientPlayAccessState {
 	static int version() { return version; }
 
 	static void accept(String result, boolean rejected) {
-		if (rejected) { text = "임시 요청이 거절되었습니다."; return; }
+		if (rejected) {
+			try {
+				var json = JsonParser.parseString(result).getAsJsonObject();
+				if (json.has("message") && json.get("message").isJsonPrimitive()) { text = "임시 " + json.get("message").getAsString(); return; }
+			} catch (RuntimeException ignored) { }
+			text = "임시 요청이 거절되었습니다.";
+			return;
+		}
 		try {
 			var json = JsonParser.parseString(result).getAsJsonObject();
 			if (json.has("offerId") && json.get("offerId").isJsonPrimitive()) offerId = json.get("offerId").getAsString();

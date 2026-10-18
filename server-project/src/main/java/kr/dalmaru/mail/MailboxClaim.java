@@ -11,6 +11,7 @@ import kr.dalmaru.request.RequestJournal;
 
 /** Claims one mailbox row into the bag or inventory. A claimed row returns the same result. */
 public final class MailboxClaim {
+	public static final String WALLET_LIMIT = "지갑 상한을 넘으면 이 우편은 받을 수 없습니다.";
 	private final String url = "jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/" + System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
 	private final String username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
 	private final String password = System.getenv("DALMARU_DB_PASSWORD");
@@ -72,7 +73,7 @@ public final class MailboxClaim {
 			query.setObject(1, characterId);
 			try (var row = query.executeQuery()) { if (row.next()) wallet = row.getInt(1); }
 		}
-		if (wallet + (long) mail.quantity() > Integer.MAX_VALUE) throw new IllegalArgumentException("Invalid mailbox copper.");
+		if (wallet + (long) mail.quantity() > Integer.MAX_VALUE) throw new IllegalArgumentException(WALLET_LIMIT);
 		try (var update = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=? WHERE character_id=?")) {
 			update.setInt(1, wallet + mail.quantity());
 			update.setObject(2, characterId);

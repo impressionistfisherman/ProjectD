@@ -52,6 +52,10 @@ public final class MailboxClaimCheck {
 			var special = act(claim, account, generation, 8, character, core);
 			act(claim, account, generation, 9, character, core);
 			require("bag".equals(special.result().get("destination").getAsString()) && material(character, "pilot.special.beacon_core") == 1 && "ACCOUNT".equals(binding(character, "pilot.special.beacon_core")), "Beacon core was not kept once as an account item.");
+			sql("UPDATE dalmaru.character_mailbox SET claimed_at=NULL, quantity=2 WHERE event_id=?", copper);
+			sql("UPDATE dalmaru.character_wallet SET copper=2147483646 WHERE character_id=?", character);
+			reject(() -> act(claim, account, generation, 10, character, copper));
+			require(!claimed(copper) && copper(character) == 2147483646, "Copper over the wallet limit was claimed.");
 			UUID blocked = UUID.randomUUID();
 			sql("INSERT INTO dalmaru.character_mailbox(event_id, character_id, source_run_id, item_id, quantity) VALUES(?, ?, ?, 'supply.recovery', 1)", blocked, character, run);
 			int recovery = material(character, "supply.recovery");
