@@ -17,7 +17,7 @@ final class DalmaruPartyScreen extends Screen {
 	@Override
 	protected void init() {
 		int contentWidth = Math.min(360, width - 20), left = (width - contentWidth) / 2;
-		int rows = 9;
+		int rows = 10;
 		int step = Math.max(12, Math.min(22, (height - 8) / rows));
 		int buttonHeight = Math.max(10, step - 2);
 		int top = Math.max(4, (height - rows * step) / 2);
@@ -32,7 +32,8 @@ final class DalmaruPartyScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.literal("추방 투표"), ignored -> DalmaruClient.requestParty("kick_vote", "{\"characterId\":\"" + target.getValue().trim() + "\"}")).bounds(left, top + 5 * step, contentWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("찬성"), ignored -> DalmaruClient.requestParty("kick_yes")).bounds(left, top + 6 * step, contentWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("반대"), ignored -> DalmaruClient.requestParty("kick_no")).bounds(left, top + 7 * step, contentWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("닫기"), ignored -> onClose()).bounds(left, top + 8 * step, contentWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("자진 이탈"), ignored -> DalmaruClient.requestParty("leave")).bounds(left, top + 8 * step, contentWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("닫기"), ignored -> onClose()).bounds(left, top + 9 * step, contentWidth, buttonHeight).build());
 		DalmaruClient.requestParty("party_menu");
 	}
 

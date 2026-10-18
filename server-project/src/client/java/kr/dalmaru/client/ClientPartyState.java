@@ -20,7 +20,8 @@ final class ClientPartyState {
 	static void accept(DalmaruPayloads.P4State payload) {
 		if (payload.requestId() != current) return;
 		if ("REJECT".equals(payload.status())) { reject(payload.reason()); return; }
-		if (("INVITED".equals(payload.status()) || "ACCEPTED".equals(payload.status()) || "ROSTER".equals(payload.status()) || "OPEN".equals(payload.status()) || "VOTED".equals(payload.status()) || "WAITING".equals(payload.status()) || "EXPIRED".equals(payload.status())) && payload.reason() != null && !payload.reason().contains("성공") && !payload.reason().contains("추방 확정")) {
+		if ("REMOVED".equals(payload.status()) && payload.reason() != null && payload.reason().contains("추방 확정") && !payload.reason().contains("성공")) { status = payload.reason(); return; }
+		if (("INVITED".equals(payload.status()) || "ACCEPTED".equals(payload.status()) || "ROSTER".equals(payload.status()) || "OPEN".equals(payload.status()) || "VOTED".equals(payload.status()) || "WAITING".equals(payload.status()) || "EXPIRED".equals(payload.status()) || "EXITING".equals(payload.status())) && payload.reason() != null && !payload.reason().contains("성공") && !payload.reason().contains("추방 확정")) {
 			status = payload.reason();
 			return;
 		}

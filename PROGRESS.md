@@ -694,3 +694,11 @@
 - 호환 확인 직후 `sendBrazierHud`로 스냅샷을 다시 보낸다. 스냅샷이 없으면 빈 패킷을 보내지 않는다. 늦은 파티 응답은 버리고, 거절 뒤에는 다시 요청할 수 있다. `추방 확정`은 화면에 올리지 않는다.
 - 자진 이탈, 3분 재접속, 추방 확정 화면은 없다. 봉화창·혼파·원혼화염 표시도 없다. 완료와 보상은 기존 F7을 이번 해시에서 다시 연결하지 않았다. 런 입장은 여전히 `PartyRunService.open`을 호출하지 않는다.
 - `verifyP4PlayAccess`는 build.gradle에 없다. 초기화 스크립트로 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyClientReplyRecovery PASS. DB 없음. 잠금 전체 회귀는 돌리지 않음. c9bee3e 회귀를 이 변경의 통과로 쓰지 않는다. 인게임 미실행. push 없음.
+
+## P4-S07 연결 (2026-10-18)
+- 머지 `f660118`(47c44c2). 오스카 파일은 머지로만 들어왔다. S05 예고 클래스도 그 머지에 포함된다.
+- 정족수 뒤에는 `RunMemberExit`가 멤버를 지우고, 커밋 다음에 `publishMemberExit(..., KICKED)`를 호출한다. 화면 상태는 `REMOVED`, 문구는 `추방 확정`. V042는 투표 결과에 `REMOVED`를 추가한다.
+- F6 `자진 이탈`은 `requestVoluntaryExit(player, -1)`. 입장과 재접속은 `bindCharacter`. 이탈 뒤 `memberExited`가 `COMBAT.remove`를 호출한다.
+- 열린 투표 분모는 `left_at`이 없는 유권자만 센다. `disconnect_at`만 있는 유예 단절은 분모에 남는다.
+- 입장 트랜잭션이 명단을 READY로 연다. 봉화창·혼파·원혼화염은 서버 파티클이다. 클라이언트 예고 화면은 없다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 212초. 검사 64개와 스모크 PASS. verifyRunKickVote, verifyRunMemberExit, verifyRunReconnectWindow, verifyBossTelegraph 포함. verifyP4PlayAccess는 회귀 밖이고 따로 PASS. 인게임 미실행. push 없음.

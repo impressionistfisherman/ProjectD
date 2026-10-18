@@ -96,6 +96,7 @@ public final class DalmaruNetworking {
         COMBAT.contributions(contribution,RUN_RUNTIME::contributionInput);
         COMBAT.mechanicActions(id -> { var player = ONLINE == null ? null : ONLINE.getPlayerList().getPlayer(id); if (player != null) RUN_RUNTIME.skillUsed(player); }, RUN_RUNTIME::receivedHit);
         COMBAT.bossHooks(RUN_RUNTIME::bossDamageTaken, RUN_RUNTIME::bossSkillHit);
+        RUN_RUNTIME.memberExited((player, reason) -> COMBAT.remove(player.getUUID()));
         RUN_RUNTIME.mechanicAction(player->contribution.accept(player,kr.dalmaru.run.RunContribution.Action.MECHANIC));
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.WaypointRequest.TYPE,DalmaruPayloads.WaypointRequest.CODEC);
@@ -313,7 +314,7 @@ public final class DalmaruNetworking {
 				return;
 			}
 			if("start_brazier".equals(payload.action())||"cancel_brazier".equals(payload.action())){brazierRequest(context.player(),payload);return;}
-			if("party_menu".equals(payload.action())||"invite".equals(payload.action())||"accept".equals(payload.action())||"kick_vote".equals(payload.action())||"kick_yes".equals(payload.action())||"kick_no".equals(payload.action())){partyRequest(context.player(),payload);return;}
+			if("party_menu".equals(payload.action())||"invite".equals(payload.action())||"accept".equals(payload.action())||"kick_vote".equals(payload.action())||"kick_yes".equals(payload.action())||"kick_no".equals(payload.action())||"leave".equals(payload.action())){partyRequest(context.player(),payload);return;}
 			var judged = kr.dalmaru.party.P4Contract.judge(payload.action());
 			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.P4State(payload.requestId(), judged.status(), 0, 0, judged.reason()));
 		});
@@ -949,7 +950,7 @@ public final class DalmaruNetworking {
             try{RUNS.saveReturn(run.runId(),characterId,member.level().dimension().identifier().toString(),member.getX(),member.getY(),member.getZ(),member.gameMode.getGameModeForPlayer().getName());}
             catch(Exception error){throw new IllegalStateException("Cannot save safe run return.",error);}
         }
-        for(UUID id:players){ServerPlayer member=server.getPlayerList().getPlayer(id);if(member!=null)RUN_RUNTIME.enter(member,run.runId(),run.difficulty(),run.partySize(),owner,content);}
+        for(UUID id:players){ServerPlayer member=server.getPlayerList().getPlayer(id);ConnectionState bound=CONNECTIONS.get(id);if(member!=null){RUN_RUNTIME.enter(member,run.runId(),run.difficulty(),run.partySize(),owner,content);if(bound!=null&&bound.accountSession!=null&&bound.accountSession.activeCharacterId()!=null)RUN_RUNTIME.bindCharacter(member.getUUID(),bound.accountSession.activeCharacterId());}}
         for(UUID id:players){var member=server.getPlayerList().getPlayer(id);var state=CONNECTIONS.get(id);if(member!=null&&state!=null&&state.activeProfile!=null)COMBAT.refresh(member,state.activeProfile);}
     }
     private static void resumeRuntime(ServerPlayer player,kr.dalmaru.run.RunRecord run){
@@ -957,6 +958,8 @@ public final class DalmaruNetworking {
         long paused=RUN_RUNTIME.pausedTicks(run.runId());
         if(paused>0)for(UUID id:RUN_RUNTIME.participantIds(run.runId()))COMBAT.shiftCooldowns(id,paused);
         if(!RUN_RUNTIME.reconnect(player,run.runId()))throw new IllegalStateException("Run runtime is no longer joinable.");
+        ConnectionState bound=CONNECTIONS.get(player.getUUID());
+        if(bound!=null&&bound.accountSession!=null&&bound.accountSession.activeCharacterId()!=null)RUN_RUNTIME.bindCharacter(player.getUUID(),bound.accountSession.activeCharacterId());
     }
     private static void restorePendingReturn(ServerPlayer player,AccountSession session,RunRepository.ReturnPosition position){
         if(session.activeCharacterId()==null)return;
@@ -1467,6 +1470,11 @@ public final class DalmaruNetworking {
 			ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), "REJECT", 0, 0, "거절: 캐릭터가 없습니다."));
 			return;
 		}
+		if ("leave".equals(payload.action())) {
+			boolean started = RUN_RUNTIME.requestVoluntaryExit(player, -1);
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), started ? "EXITING" : "REJECT", 0, 0, started ? "이탈을 요청했습니다." : "거절: 지금은 파티에서 나갈 수 없습니다."));
+			return;
+		}
 		UUID account = state.accountSession.accountId();
 		UUID character = state.accountSession.activeCharacterId();
 		UUID runId = RUN_RUNTIME.runId(player);
@@ -1481,7 +1489,10 @@ public final class DalmaruNetworking {
 					return outcome;
 				} catch (RuntimeException | java.sql.SQLException error) { connection.rollback(); throw new IllegalStateException(error); }
 			} catch (java.sql.SQLException error) { throw new IllegalStateException(error); }
-		}, LIFECYCLE_DB).whenComplete((outcome, error) -> server.execute(() -> ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), error == null ? outcome.status() : "REJECT", 0, 0, error == null ? outcome.reason() : "거절: 파티 저장을 확인하지 못했습니다."))));
+		}, LIFECYCLE_DB).whenComplete((outcome, error) -> server.execute(() -> {
+			if (error == null && outcome.exit() != null) RUN_RUNTIME.publishMemberExit(server, outcome.exit(), kr.dalmaru.run.RunMechanicAccess.ExitReason.KICKED);
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), error == null ? outcome.status() : "REJECT", 0, 0, error == null ? outcome.reason() : "거절: 파티 저장을 확인하지 못했습니다."));
+		}));
 	}
 
 	private static boolean bossFight(ServerPlayer player) {

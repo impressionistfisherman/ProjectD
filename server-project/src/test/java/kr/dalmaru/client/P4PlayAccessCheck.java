@@ -18,7 +18,11 @@ public final class P4PlayAccessCheck {
 		ClientPartyState.accept(new DalmaruPayloads.P4State(retry, "ROSTER", 0, 0, "명단 1명"));
 		require("명단 1명".equals(ClientPartyState.status()), "Retried roster is not shown");
 		ClientPartyState.accept(new DalmaruPayloads.P4State(retry, "WAITING", 0, 0, "추방 확정"));
-		require(ClientPartyState.status().contains("성공으로 처리할 수 없습니다"), "Removal confirmation reached the screen");
+		require(ClientPartyState.status().contains("성공으로 처리할 수 없습니다"), "A waiting status showed removal");
+		ClientPartyState.accept(new DalmaruPayloads.P4State(retry, "REMOVED", 0, 0, "추방 확정"));
+		require("추방 확정".equals(ClientPartyState.status()), "Kick confirmation is not shown");
+		ClientPartyState.accept(new DalmaruPayloads.P4State(retry, "EXITING", 0, 0, "이탈을 요청했습니다."));
+		require("이탈을 요청했습니다.".equals(ClientPartyState.status()), "Voluntary exit request is not shown");
 
 		ClientBrazierState.resetForConnection();
 		ClientBrazierState.accept(new DalmaruPayloads.P4BrazierHud(1, 0, 0, 0, "", "IDLE", 0, "120.0/400.0/30.0/100.0/COLLAPSED/80"));
@@ -30,8 +34,9 @@ public final class P4PlayAccessCheck {
 		String root = System.getProperty("user.dir");
 		String party = Files.readString(Path.of(root, "src/client/java/kr/dalmaru/client/DalmaruPartyScreen.java"));
 		String server = Files.readString(Path.of(root, "src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
-		require(party.contains("requestParty(\"party_menu\")") && party.contains("requestParty(\"invite\"") && party.contains("requestParty(\"accept\")") && party.contains("requestParty(\"kick_vote\"") && party.contains("requestParty(\"kick_yes\")") && party.contains("requestParty(\"kick_no\")"), "Party buttons do not call their requests");
-		require(!party.contains("자진 이탈") && !party.contains("추방 확정"), "Unassigned exit screen is present");
+		require(party.contains("requestParty(\"party_menu\")") && party.contains("requestParty(\"invite\"") && party.contains("requestParty(\"accept\")") && party.contains("requestParty(\"kick_vote\"") && party.contains("requestParty(\"kick_yes\")") && party.contains("requestParty(\"kick_no\")") && party.contains("requestParty(\"leave\")"), "Party buttons do not call their requests");
+		require(party.contains("자진 이탈") && !party.contains("추방 확정"), "Kick confirmation is hardcoded on the screen");
+		require(server.contains("requestVoluntaryExit(player, -1)") && server.contains("publishMemberExit") && server.contains("bindCharacter") && server.contains("memberExited"), "Exit hooks are not connected");
 		int hello = server.indexOf("DalmaruPayloads.Hello.TYPE");
 		int compatible = server.indexOf("state.compatible = true;", hello);
 		int resend = server.indexOf("sendBrazierHud(context.player(), \"\");", hello);

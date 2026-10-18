@@ -92,7 +92,7 @@ public final class ProtocolVersionCheck {
         String run = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruRunScreen.java"));
         String party = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPartyScreen.java"));
         require(run.contains("\"파티\"") && run.contains("openParty()") && run.contains("ClientRunState.status()"), "F6 party entry missing");
-        require(party.contains("\"파티\"") && party.contains("로딩") && party.contains("\"명단\"") && party.contains("requestParty(\"party_menu\")"), "Party frame does not show loading");
+        require(party.contains("\"파티\"") && party.contains("로딩") && party.contains("\"명단\"") && party.contains("requestParty(\"party_menu\")") && party.contains("requestParty(\"leave\")"), "Party frame does not show loading");
         require(!party.contains("성공"), "Party frame shows success");
         int use = server.indexOf("UseBlockCallback.EVENT.register");
         int brazier = server.indexOf("startBrazier", use);
