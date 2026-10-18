@@ -1114,3 +1114,4 @@
 - 검증 커밋 8e18c501e2b007a6119fb14a5595f260ffec56c3, clean. 공유 잠금 단일 전체47 PASS/exit0/257.05초(잠금 대기 포함). 신규 직접거래·제작·채집 검사 포함, assemble/임시35565 RunRespawnMixin PASS.
 - OscarP3DB accounts0/operation_requests0/schema37, V033/34/35/37 및 신규4테이블·거래version 양수제약 확인. 자기token 확인 후 잠금 해제 확인.
 - Grok 제품11개 원본보존, 검사guard 추가수정 불필요. 상세 hive/research/MDF_P3_GROK_INTEGRATION_OSCAR.md/.log/_timing.json. Pam 독립통합검토 요청, S13 PASS 전 S14 구현보류. push/배포/실제플레이 미실행.
+- 2026-10-18 S13: verifyMailboxClaim PASS. grok_p3_fixture에 V035가 없어 첫 전체 회귀는 verifyRewardEligibility FAIL. 검사가 없을 때만 V035를 적용한 뒤 다시 돌린 잠금 회귀는 exit 0. 그 사이 verifyRunJournal은 접속 실패로 한 번 FAIL, 단독 재실행 PASS. 통과한 전체 회귀에 verifyMailboxClaim과 verifyRewardEligibility가 포함된다. 인게임 미실행.

@@ -396,7 +396,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("delete_character".equals(request.operation())||"restore_character".equals(request.operation())){acceptLifeOperation(request,receipt);return;}
         if("list_villages".equals(request.operation())||"open_village".equals(request.operation())){ClientVillageState.accept(request.operation(),receipt.result(),"rejected".equals(receipt.state()));return;}
         if("quest_stage".equals(request.operation())){ClientQuestStageState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
-        if(java.util.Set.of("vault_move","shop_trade","gather_node","craft_recipe","direct_trade").contains(request.operation())){ClientPlayAccessState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
+        if(java.util.Set.of("vault_move","shop_trade","gather_node","craft_recipe","direct_trade","claim_mail").contains(request.operation())){ClientPlayAccessState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if(!"enhance_item".equals(request.operation()))return;

@@ -10,6 +10,7 @@ final class DalmaruPlayScreen extends Screen {
 	private final Screen parent;
 	private Button statusButton;
 	private EditBox partner;
+	private EditBox mail;
 
 	DalmaruPlayScreen(Screen parent) {
 		super(Component.literal("임시 생활"));
@@ -18,7 +19,7 @@ final class DalmaruPlayScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int rows = 14;
+		int rows = 16;
 		int left = Math.max(8, (width - 300) / 2);
 		int buttonWidth = Math.min(300, width - 16);
 		int step = Math.max(12, Math.min(20, (height - 16) / rows));
@@ -41,6 +42,10 @@ final class DalmaruPlayScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.literal("임시 거래 확인"), button -> trade("confirm", false)).bounds(left, top + 11 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("임시 거래 취소"), button -> trade("cancel", false)).bounds(left, top + 12 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("임시 거래 회수"), button -> trade("withdraw", false)).bounds(left, top + 13 * step, buttonWidth, buttonHeight).build());
+		mail = new EditBox(font, left, top + 14 * step, buttonWidth, buttonHeight, Component.literal("우편"));
+		mail.setMaxLength(36);
+		addRenderableWidget(mail);
+		addRenderableWidget(Button.builder(Component.literal("임시 우편 수령"), button -> { var body = new JsonObject(); body.addProperty("eventId", mail.getValue().trim()); send("claim_mail", body); }).bounds(left, top + 15 * step, buttonWidth, buttonHeight).build());
 	}
 
 	private static JsonObject vault(String direction) {

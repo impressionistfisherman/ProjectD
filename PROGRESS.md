@@ -603,3 +603,4 @@
 - 검증 커밋 8e18c501e2b007a6119fb14a5595f260ffec56c3, clean. 공유 잠금 단일 전체47 PASS/exit0/257.05초(잠금 대기 포함). 신규 직접거래·제작·채집 검사 포함, assemble/임시35565 RunRespawnMixin PASS.
 - OscarP3DB accounts0/operation_requests0/schema37, V033/34/35/37 및 신규4테이블·거래version 양수제약 확인. 자기token 확인 후 잠금 해제 확인.
 - Grok 제품11개 원본보존, 검사guard 추가수정 불필요. 상세 hive/research/MDF_P3_GROK_INTEGRATION_OSCAR.md/.log/_timing.json. Pam 독립통합검토 요청, S13 PASS 전 S14 구현보류. push/배포/실제플레이 미실행.
+- 2026-10-18 S13: oscar/mdf-p3 2f77fbf를 --no-ff로 받았다. protocol 33. 우편 행은 읽어서 한 번만 수령한다. 넣는 코드는 그대로. currency.copper는 지갑과 mail.claim. beacon_core는 ACCOUNT. 장비 상자는 보관함. 지급 물품은 거절. V038은 안 바꿈. 잠금 회귀 exit 0. 인게임 미실행.

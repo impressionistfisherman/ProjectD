@@ -43,7 +43,7 @@ public final class ProtocolVersionCheck {
         String client = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));
         require(client.contains("new DalmaruPayloads.Hello(DalmaruNetworking.PROTOCOL_VERSION)"), "Client Hello does not use PROTOCOL_VERSION");
         require(server.contains("\"delete_character\"") && server.contains("\"restore_character\"") && server.contains("\"list_villages\"") && server.contains("\"open_village\"") && server.contains("\"quest_stage\""), "P2 packet operations missing");
-        require(server.contains("\"vault_move\"") && server.contains("\"shop_trade\"") && server.contains("\"gather_node\"") && server.contains("\"craft_recipe\"") && server.contains("\"direct_trade\""), "P3 play operations missing");
+        require(server.contains("\"vault_move\"") && server.contains("\"shop_trade\"") && server.contains("\"gather_node\"") && server.contains("\"craft_recipe\"") && server.contains("\"direct_trade\"") && server.contains("\"claim_mail\""), "P3 play operations missing");
         int play = server.indexOf("private static void playAccess");
         int position = server.indexOf("player.blockPosition()", play);
         int async = server.indexOf("supplyAsync", play);

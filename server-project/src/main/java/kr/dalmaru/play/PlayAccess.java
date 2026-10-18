@@ -6,6 +6,7 @@ import java.util.UUID;
 import kr.dalmaru.account.AccountVault;
 import kr.dalmaru.craft.BasicCraft;
 import kr.dalmaru.gather.Gathering;
+import kr.dalmaru.mail.MailboxClaim;
 import kr.dalmaru.request.RequestEnvelope;
 import kr.dalmaru.request.RequestJournal;
 import kr.dalmaru.shop.NpcShop;
@@ -18,6 +19,7 @@ public final class PlayAccess {
 	private static final Gathering GATHER = new Gathering();
 	private static final BasicCraft CRAFT = new BasicCraft();
 	private static final DirectTrade TRADE = new DirectTrade();
+	private static final MailboxClaim MAIL = new MailboxClaim();
 
 	public record Outcome(JsonObject result, RequestJournal.Receipt receipt, boolean replayed) { }
 
@@ -47,6 +49,11 @@ public final class PlayAccess {
 				yield new Outcome(done.result(), done.receipt(), done.replayed());
 			}
 			case "direct_trade" -> trade(accountId, generation, requestId, characterId, body, envelope);
+			case "claim_mail" -> {
+				requireSize(body, 1);
+				var done = MAIL.actJournaled(accountId, generation, requestId, characterId, UUID.fromString(text(body, "eventId")), envelope);
+				yield new Outcome(done.result(), done.receipt(), done.replayed());
+			}
 			default -> throw new IllegalArgumentException("Unsupported play action.");
 		};
 	}
