@@ -1155,4 +1155,10 @@
 - 한국어 결과 기록 인코딩 복구는 문서만 변경. 검증 제품·검사 동일성 확인 후 중복 회귀 생략.
 
 ## P4-S02 화면 (2026-10-18)
-- compileJava compileClientJava, verifyProtocolVersion, verifyClientScreenBounds PASS. 화로 HUD 문구와 우클릭이 보호 거절보다 앞인지만 확인했다. 잠금 전체 회귀는 이 기록 시점에 아직이다. 인게임 미실행.
+- compileJava compileClientJava, verifyProtocolVersion, verifyClientScreenBounds PASS. 화로 HUD 문구와 우클릭이 보호 거절보다 앞인지만 확인했다. 인게임 미실행.
+- 잠금 단일 전체 회귀는 S06 작업본과 함께 exit 0. 표는 P4-S06.
+
+## P4-S06 (2026-10-18)
+- grok_p3_fixture. `verifyRunPartyMembership`은 잠금을 잡고 따로 실행. `Run party membership PASS`. BUILD SUCCESSFUL. 이 검사는 전체 회귀 스크립트에 없다.
+- 그 다음 잠금 단일 전체 회귀 exit 0, 약 197초. 잠금은 끝나고 삭제. 인게임 미실행.
+- PASS: verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyMailboxClaim, verifyDirectTrade, verifyBasicCraft, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, verifyRunJournal, verifyClientScreenBounds, verifyRunAutoRespawnSafety, verifyClientReplyRecovery, verifyEnhancementReplay, verifyRequestJournal, verifyClientRequestEnvelope, verifyRequestJournalResult, verifyContentCatalog, verifyRunContentSnapshot, verifySkillJournal, verifyStatJournal, verifyResetJournal, verifyProfessionJournal, verifyLoadoutJournal, verifyEquipmentMoveJournal, verifyRefinementJournal, verifyInheritanceJournal, verifyQuestAcceptanceJournal, verifyQuestAcceptanceWire, verifyQuestKillJournal, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, verifyWeaponSlots, verifyRefinementGrade, verifyRefinementKeep, verifyInheritanceShare, verifyRewardEligibility, verifyEnhancementTail, verifyAuctionSettlement, verifyMailboxAuctionIntegration, verifyP4ContentContracts, verifyBrazierChannel, p1_integration_smoke.ps1.

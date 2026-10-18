@@ -307,6 +307,7 @@ public final class DalmaruNetworking {
 				return;
 			}
 			if("start_brazier".equals(payload.action())||"cancel_brazier".equals(payload.action())){brazierRequest(context.player(),payload);return;}
+			if("party_menu".equals(payload.action())||"invite".equals(payload.action())||"accept".equals(payload.action())){partyRequest(context.player(),payload);return;}
 			var judged = kr.dalmaru.party.P4Contract.judge(payload.action());
 			ServerPlayNetworking.send(context.player(), new DalmaruPayloads.P4State(payload.requestId(), judged.status(), 0, 0, judged.reason()));
 		});
@@ -1452,6 +1453,44 @@ public final class DalmaruNetworking {
 			}
 			return true;
 		});
+	}
+
+	private static void partyRequest(ServerPlayer player, DalmaruPayloads.P4Request payload) {
+		ConnectionState state = CONNECTIONS.get(player.getUUID());
+		if (state == null || state.accountSession == null || state.accountSession.activeCharacterId() == null) {
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), "REJECT", 0, 0, "거절: 캐릭터가 없습니다."));
+			return;
+		}
+		UUID account = state.accountSession.accountId();
+		UUID character = state.accountSession.activeCharacterId();
+		UUID runId = RUN_RUNTIME.runId(player);
+		var server = serverFor(player);
+		CompletableFuture.supplyAsync(() -> {
+			try (var connection = kr.dalmaru.party.PartyRunService.connect()) {
+				connection.setAutoCommit(false);
+				try {
+					var outcome = partyOutcome(connection, payload, account, character, runId);
+					connection.commit();
+					return outcome;
+				} catch (RuntimeException | java.sql.SQLException error) { connection.rollback(); throw new IllegalStateException(error); }
+			} catch (java.sql.SQLException error) { throw new IllegalStateException(error); }
+		}, LIFECYCLE_DB).whenComplete((outcome, error) -> server.execute(() -> ServerPlayNetworking.send(player, new DalmaruPayloads.P4State(payload.requestId(), error == null ? outcome.status() : "REJECT", 0, 0, error == null ? outcome.reason() : "거절: 파티 저장을 확인하지 못했습니다."))));
+	}
+
+	private static kr.dalmaru.party.PartyRunService.Outcome partyOutcome(java.sql.Connection connection, DalmaruPayloads.P4Request payload, UUID account, UUID character, UUID runId) throws java.sql.SQLException {
+		if ("party_menu".equals(payload.action())) return kr.dalmaru.party.PartyRunService.roster(connection, runId);
+		if ("accept".equals(payload.action())) return kr.dalmaru.party.PartyRunService.accept(connection, account, character, runId);
+		UUID target = characterId(payload.body());
+		if (target == null) return new kr.dalmaru.party.PartyRunService.Outcome("REJECT", "거절: 대상이 없습니다.");
+		return kr.dalmaru.party.PartyRunService.invite(connection, account, character, runId, target, java.time.Instant.now());
+	}
+
+	private static UUID characterId(String body) {
+		try {
+			var json = com.google.gson.JsonParser.parseString(body).getAsJsonObject();
+			if (!json.has("characterId")) return null;
+			return UUID.fromString(json.get("characterId").getAsString());
+		} catch (RuntimeException invalid) { return null; }
 	}
 
 	private static void brazierRequest(ServerPlayer player, DalmaruPayloads.P4Request payload) {

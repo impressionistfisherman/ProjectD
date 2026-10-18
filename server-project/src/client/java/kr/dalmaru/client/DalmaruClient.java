@@ -446,6 +446,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     static void readyRun(){if(!ClientRunState.preparing()||ClientRunState.preparationId()==null)return;ClientPlayNetworking.send(new DalmaruPayloads.RunReadyRequest(ClientRunState.preparationId(),true));}
 	public static void openParty(){var client=net.minecraft.client.Minecraft.getInstance();if(client!=null)client.setScreen(new DalmaruPartyScreen(client.screen));}
-	public static void requestParty(String action){ClientPartyState.loading();if(!ClientConnectionState.isCompatible()){ClientPartyState.reject("거절: 서버 연결 후에 확인할 수 있습니다.");return;}ClientPlayNetworking.send(new DalmaruPayloads.P4Request(ClientPartyState.nextId(),action,"{}"));}
+	public static void requestParty(String action){requestParty(action,"{}");}
+	public static void requestParty(String action,String body){ClientPartyState.loading();if(!ClientConnectionState.isCompatible()){ClientPartyState.reject("거절: 서버 연결 후에 확인할 수 있습니다.");return;}ClientPlayNetworking.send(new DalmaruPayloads.P4Request(ClientPartyState.nextId(),action,body));}
 
 }

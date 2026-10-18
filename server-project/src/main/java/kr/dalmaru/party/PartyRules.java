@@ -25,6 +25,15 @@ public final class PartyRules {
 		this.reconnectSeconds = reconnectSeconds;
 	}
 
+	public static String snapshot() {
+		try (var stream = PartyRules.class.getResourceAsStream("/content/party.json")) {
+			if (stream == null) throw new IllegalStateException("Missing party rules");
+			return new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (java.io.IOException exception) {
+			throw new IllegalStateException("Cannot load party rules", exception);
+		}
+	}
+
 	public static PartyRules current() {
 		try (var stream = PartyRules.class.getResourceAsStream("/content/party.json")) {
 			if (stream == null) throw new IllegalStateException("Missing party rules");

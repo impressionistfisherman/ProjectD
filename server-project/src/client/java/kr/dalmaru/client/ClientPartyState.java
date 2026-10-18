@@ -19,11 +19,12 @@ final class ClientPartyState {
 
 	static void accept(DalmaruPayloads.P4State payload) {
 		if (payload.requestId() != current) return;
-		if (!"REJECT".equals(payload.status())) {
-			status = "거절: 성공으로 처리할 수 없습니다.";
+		if ("REJECT".equals(payload.status())) { reject(payload.reason()); return; }
+		if (("INVITED".equals(payload.status()) || "ACCEPTED".equals(payload.status()) || "ROSTER".equals(payload.status())) && payload.reason() != null && !payload.reason().contains("성공")) {
+			status = payload.reason();
 			return;
 		}
-		reject(payload.reason());
+		status = "거절: 성공으로 처리할 수 없습니다.";
 	}
 
 	static String status() { return status; }

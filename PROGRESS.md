@@ -648,3 +648,12 @@
 
 ## P4-S02 화면 (2026-10-18)
 - 화로 위치 우클릭만 `startBrazier`로 보내고, 그 외 보호 구역은 기존 거절을 유지한다. 취소 요청은 `cancelBrazier`. HUD는 점화 수와 남은 틱만 보여 준다. bosses와 neglect는 그리지 않는다. 기술·피격 연결은 오스카 S03 커밋을 기다린다. protocol 34. push 없음. 인게임 미실행.
+- 잠금 단일 전체 회귀는 S06 작업본과 함께 exit 0. 표는 P4-S06.
+
+## P4-S06 (2026-10-18)
+- V040. `run_party_control`, `run_member_lifecycle`, `run_party_invites`. `run_participants`는 지우지 않는다. `disconnect_at`은 채우지 않는다. 메모리 대기 파티는 저장하지 않는다.
+- 초대는 파티장·같은 계정·단계 READY만. 명단 revision이 다르면 오래된 초대. ACTIVE면 준비 중. 이탈자는 단계보다 먼저 거절한다.
+- F6 `임시 파티`는 로딩, `임시 초대`, `임시 수락`을 보여 준다. 서버 사유를 그대로 쓴다. 성공으로 처리하지 않는다.
+- 런 입장 코드는 `PartyRunService.open`을 호출하지 않는다. 명단이 없으면 `거절: 파티 명단은 아직 열리지 않았습니다.`
+- `verifyRunPartyMembership`은 build.gradle에 없다. 잠금을 잡고 따로 PASS. 전체 회귀 표에는 없다. 오스카 등록이 필요하다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 197초. 검사 53개와 p1_integration_smoke.ps1 전부 PASS. 잠금은 끝나고 삭제. push 없음. 인게임 미실행. S03 `mechanicActions` 한 줄은 아직 없다.
