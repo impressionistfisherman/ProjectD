@@ -39,6 +39,8 @@ public final class ContentCatalog {
     private final List<Skill> skillDefinitions;
     public List<Skill> skills(){return skillDefinitions;}
     public Skill skill(String id){return skillDefinitions.stream().filter(skill->skill.id().equals(id)).findFirst().orElseThrow(()->new IllegalArgumentException("Unknown skill: "+id));}
+    private final BeaconMechanics mechanics;
+    public BeaconMechanics mechanics(){return mechanics;}
     private final EncounterDefinition encounter;
     public EncounterDefinition encounter(){return encounter;}
     public record Display(String name,String description){}
@@ -54,7 +56,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy){
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy,BeaconMechanics mechanics){
+        this.mechanics=mechanics;
         this.refinementPolicy=refinementPolicy;
         this.refinementGrades=List.copyOf(refinementGrades);
         this.weaponSlots=Map.copyOf(weaponSlots);
@@ -85,7 +88,7 @@ public final class ContentCatalog {
             if(source.length()>1_048_576)throw new IllegalArgumentException("Content snapshot exceeds size limit");
             var root=JsonParser.parseString(source).getAsJsonObject();
             int schema=integer(root,"schemaVersion");
-            if((schema<1||schema>4)||!flag(root,"enabled"))throw new IllegalArgumentException("Unsupported/disabled content schema");
+            if((schema<1||schema>5)||!flag(root,"enabled"))throw new IllegalArgumentException("Unsupported/disabled content schema");
             String version=version(root,"contentVersion");Set<String> all=new HashSet<>(),skills=new HashSet<>(),knownSkills=new HashSet<>();
             if(schema==1&&!version.equals("pilot-j02-1"))throw new IllegalArgumentException("Unknown schema1 skill revision");
             knownSkills.addAll(SkillDefinition.capabilities().keySet());
@@ -179,6 +182,14 @@ public final class ContentCatalog {
             int gatekeeper=integer(encounterSource,"gatekeeperHealth"),finalBoss=integer(encounterSource,"finalBossHealth");
             if(groups.size()!=4||totalMobs>64||commanders!=1||gatekeeper<1||finalBoss<1||!mobs.get("SOLDIER").enabled())throw new IllegalArgumentException("Invalid encounter roster/bosses");
             var encounter=new EncounterDefinition(mobs,groups,scales(encounterSource,"healthScales"),scales(encounterSource,"damageScales"),gatekeeper,finalBoss);
+            BeaconMechanics mechanics=null;
+            if(schema>=5){
+                var sourceMechanics=root.getAsJsonObject("mechanics");
+                if(!flag(sourceMechanics,"temporary"))throw new IllegalArgumentException("P4 mechanics must be labelled temporary");
+                var b=sourceMechanics.getAsJsonObject("brazier");var boss=sourceMechanics.getAsJsonObject("boss");
+                mechanics=new BeaconMechanics(new BeaconMechanics.Brazier(integer(b,"channelTicks"),number(b,"cancelDistance"),number(b,"interactionRadius"),integer(b,"overlapTicks"),integers(b,"counts"),integers(b,"simultaneous"),integer(b,"idleTicks"),integer(b,"warningTicks"),integer(b,"pulseTicks"),number(b,"maximumHealthFraction")),
+                    new BeaconMechanics.Boss(integer(boss,"gatekeeperPosture"),integer(boss,"beaconPosture"),integer(boss,"wallPostureDamage"),scales(boss,"postureScales"),number(boss,"trainingPostureScale"),integer(boss,"collapseTicks"),number(boss,"collapsedDamageScale"),integer(boss,"immunityTicks")),integer(sourceMechanics,"minimumTelegraphTicks"));
+            }else if(version.startsWith("pilot-p4-"))throw new IllegalArgumentException("P4 requires mechanics schema");
             RefinementPolicy refinementPolicy=null;
             if(equipment.has("refinement")){
                 var refinementSource=equipment.getAsJsonObject("refinement");var families=strings(refinementSource,"families");var attempts=integers(refinementSource,"attemptCopper");var keep=integers(refinementSource,"keepPercent");
@@ -192,7 +203,7 @@ public final class ContentCatalog {
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
             var displays=displays(root,schema,items,skillDefinitions,quests,runs,mobs);
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy);
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy,mechanics);
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static Map<String,Display> displays(JsonObject root,int schema,Map<String,Item> items,List<Skill> skills,Map<String,Quest> quests,Map<String,Run> runs,Map<String,Mob> mobs){
@@ -205,7 +216,7 @@ public final class ContentCatalog {
             for(String id:runs.keySet())result.put(id,new Display(id.equals("run.bongsudae")?"\ud3d0\ubd09\uc218\ub300":id,""));
             return result;
         }
-        putDisplay(result,id(root,"id"),display(root,4));
+        putDisplay(result,id(root,"id"),display(root,schema));
         var equipment=root.getAsJsonObject("equipment");var enhancement=root.getAsJsonObject("enhancement");
         if(equipment.has("weaponSlots"))for(var value:array(equipment,"offhands")){var offhand=value.getAsJsonObject();for(int level:integers(equipment,"levels"))putDisplay(result,"pilot.offhand."+id(offhand,"id")+"."+level,new Display(text(offhand,"name")+" "+level,"보조칸"));}
         if(!flag(equipment,"enabled")||!flag(enhancement,"enabled"))throw new IllegalArgumentException("Required content table disabled");
