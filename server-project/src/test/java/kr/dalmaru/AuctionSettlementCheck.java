@@ -22,6 +22,7 @@ public final class AuctionSettlementCheck {
 
     public static void main(String[] args) throws Exception {
         FixtureDatabase.databaseName();
+        FixtureMigrations.apply();
         try {
             for (int i = 0; i < 4; i++) {
                 UUID account = UUID.randomUUID(); ACCOUNTS.add(account); var session = new AccountRepository().openSession(account);

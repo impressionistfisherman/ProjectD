@@ -12,6 +12,7 @@ public final class RewardEligibilityCheck {
     public static void main(String[] args) throws Exception {
         FixtureDatabase.databaseName();
         applyContributions();
+        FixtureMigrations.apply();
         var idle=new RunContribution();check(!idle.record(Action.RECEIVED_HIT,50)&&idle.action()==null,"AFK damage qualified");
         idle.input(51);check(!idle.record(Action.RECEIVED_HIT,252),"Old input qualified");
         idle.input(253);check(idle.record(Action.RECEIVED_HIT,254),"Input then damage rejected");

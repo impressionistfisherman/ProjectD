@@ -11,7 +11,7 @@ import kr.dalmaru.run.*;
 /** V038 event rows must pass through the unchanged S13 receiver independently. */
 public final class MailboxAuctionIntegrationCheck {
     public static void main(String[] args) throws Exception {
-        FixtureDatabase.databaseName(); UUID account=UUID.randomUUID(),run=null;
+        FixtureDatabase.databaseName(); FixtureMigrations.apply(); UUID account=UUID.randomUUID(),run=null;
         try {
             var session=new AccountRepository().openSession(account);long generation=session.connectionGeneration();
             UUID character=new CharacterRepository().create(account,generation,1,1,"mi_"+account.toString().substring(0,8)).character().characterId();

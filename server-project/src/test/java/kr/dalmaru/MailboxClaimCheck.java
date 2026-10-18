@@ -16,6 +16,7 @@ public final class MailboxClaimCheck {
 
 	public static void main(String[] args) throws Exception {
 		FixtureDatabase.databaseName();
+		FixtureMigrations.apply();
 		UUID account = UUID.randomUUID();
 		UUID run = null;
 		try {
