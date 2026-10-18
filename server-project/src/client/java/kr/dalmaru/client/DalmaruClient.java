@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvents;
 import org.lwjgl.glfw.GLFW;
 
 public final class DalmaruClient implements ClientModInitializer {
@@ -72,8 +73,13 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> ClientConnectionState.acceptWelcome(payload.protocolVersion()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4State.TYPE,
 			(payload, context) -> ClientPartyState.accept(payload));
-		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4BrazierHud.TYPE,
-			(payload, context) -> ClientBrazierState.accept(payload));
+		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.P4BrazierHud.TYPE, (payload, context) -> {
+			String previous = ClientBrazierState.accept(payload);
+			var player = context.client().player;
+			if (player == null || payload.total() < 1) return;
+			if ("WARNING".equals(payload.neglect()) && !"WARNING".equals(previous)) player.playSound(SoundEvents.BELL_BLOCK, 0.7F, 1.2F);
+			else if ("DAMAGING".equals(payload.neglect()) && !"DAMAGING".equals(previous)) player.playSound(SoundEvents.PLAYER_HURT, 0.6F, 1.0F);
+		});
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.ProbeResponse.TYPE,
 			(payload, context) -> ClientConnectionState.acceptProbeResponse(payload.requestId(), payload.rateLimited()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.CharacterSelectionReady.TYPE, (payload, context) -> {

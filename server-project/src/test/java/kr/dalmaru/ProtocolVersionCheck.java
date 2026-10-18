@@ -103,6 +103,7 @@ public final class ProtocolVersionCheck {
         require(hud.contains("ClientBrazierState.line()") && hud.contains("neglectLine()") && brazierState.contains("임시 화로") && brazierState.contains("남은 "), "Brazier HUD missing progress");
         require(brazierState.contains("임시 방치") && brazierState.contains("임시 경고") && brazierState.contains("임시 피해 중"), "Neglect HUD missing");
         require(client.contains("cancel_brazier") && brazierState.contains("채널 진행") && !hud.contains("bosses") && !brazierState.contains("boss") && !server.contains("snapshot.bosses") && !hud.contains("성공") && !brazierState.contains("성공"), "Brazier HUD shows bosses or success");
+        require(client.contains("SoundEvents.BELL_BLOCK") && client.contains("SoundEvents.PLAYER_HURT") && client.contains("!\"WARNING\".equals(previous)") && client.contains("!\"DAMAGING\".equals(previous)") && !hud.contains("playSound"), "Neglect sound is not a one-shot vanilla transition");
         System.out.println("Protocol 34 constant/handshake/P3-mismatch-reject PASS");
     }
 

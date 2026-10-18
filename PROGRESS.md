@@ -674,3 +674,4 @@
 ## P4-S03 방치 HUD (2026-10-18)
 - 화로 단계 HUD에 스냅샷 방치 상태만 표시한다. IDLE은 `임시 방치 남은 N초`, WARNING은 `임시 경고 남은 N초`, DAMAGING은 `임시 피해 중 · 다음 N초`. 초는 틱을 20으로 올려 센다. bosses는 패킷에 넣지 않는다. protocol 34.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 216초. 검사 56개와 스모크 PASS. verifyProtocolVersion, verifyClientScreenBounds, verifyBrazierNeglect 포함. 인게임 미실행. push 없음. 바닐라 소리는 이번 지시에 없어 넣지 않았다.
+- 이어서 클라이언트만: WARNING으로 바뀌는 패킷에 종 소리 1회, DAMAGING으로 바뀌는 패킷에 피격 소리 1회. 같은 상태가 이어지면 다시 내지 않는다. 서버는 안 고쳤다. verifyProtocolVersion PASS. 전체 회귀는 다시 돌리지 않음. 인게임 소리는 듣지 않음.

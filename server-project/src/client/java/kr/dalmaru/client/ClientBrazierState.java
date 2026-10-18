@@ -17,14 +17,16 @@ final class ClientBrazierState {
 	static long nextId() { return next++; }
 	static boolean channeling() { return remaining > 0; }
 
-	static void accept(DalmaruPayloads.P4BrazierHud hud) {
+	static String accept(DalmaruPayloads.P4BrazierHud hud) {
+		String previous = neglect;
 		lit = hud.litCount();
 		total = hud.total();
 		remaining = hud.remainingTicks();
-		if (total < 1) { result = ""; neglect = "IDLE"; neglectTicks = 0; return; }
+		if (total < 1) { result = ""; neglect = "IDLE"; neglectTicks = 0; return previous; }
 		if (!hud.result().isEmpty()) result = hud.result();
 		neglect = hud.neglect() == null ? "IDLE" : hud.neglect();
 		neglectTicks = Math.max(0, hud.neglectTicks());
+		return previous;
 	}
 
 	static String line() {
