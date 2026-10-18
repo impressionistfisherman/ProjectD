@@ -3,7 +3,7 @@ package kr.dalmaru.client;
 import com.google.gson.JsonParser;
 
 final class ClientPlayAccessState {
-	private static String text = "임시. 상점은 마을 안, 제작은 대장간 안. 서버가 위치를 판정합니다.";
+	private static String text = "임시. 상점은 마을 안, 제작은 대장간 안. 재련은 첫 장비, 계승은 첫 장비와 둘째 장비.";
 	private static String offerId;
 	private static int version;
 	private static long nextId = 1;
