@@ -37,6 +37,11 @@ public final class CombatRuntime {
     private java.util.function.Consumer<UUID> skillUsed=player->{};
     private java.util.function.Consumer<ServerPlayer> receivedHit=player->{};
     public void mechanicActions(java.util.function.Consumer<UUID> skill,java.util.function.Consumer<ServerPlayer> hit){skillUsed=java.util.Objects.requireNonNull(skill);receivedHit=java.util.Objects.requireNonNull(hit);}
+    /** Boss hooks (P4-S04): damage multiplier by target and one actual rising-strike posture hit. */
+    @FunctionalInterface public interface BossPostureHit{boolean hit(UUID boss,UUID attacker,double amount);}
+    private java.util.function.ToDoubleFunction<UUID> bossDamageTaken=id->1;
+    private BossPostureHit bossPostureHit=(boss,attacker,amount)->false;
+    public void bossHooks(java.util.function.ToDoubleFunction<UUID> damageTaken,BossPostureHit postureHit){bossDamageTaken=java.util.Objects.requireNonNull(damageTaken);bossPostureHit=java.util.Objects.requireNonNull(postureHit);}
     public kr.dalmaru.content.ContentCatalog content(UUID player){return contentSource.apply(player);}
     public kr.dalmaru.content.ContentCatalog.Skill skill(UUID player,String id){return content(player).skill(id);}
     public DefenseState defenseState(UUID player){return defenseStates.computeIfAbsent(player,id->new DefenseState());}
@@ -131,7 +136,13 @@ public final class CombatRuntime {
             multiplier*=1+skill(player.getUUID(),"skill.rogue.expose_weakness").parameter("damageBonus",rank(player.getUUID(),"skill.rogue.expose_weakness"));
         multiplier*=1+effects.markBonus(player.getUUID(),target.getUUID(),tick);
         double attack=state.gear.attack()>0?state.gear.attack():CombatUnits.toRpg(player.getAttribute(Attributes.ATTACK_DAMAGE).getBaseValue());
-        return CombatCalculator.damage(attack,state.strengthMultiplier,multiplier,CombatRules.critical(.05,player.getRandom().nextDouble()),defense);
+        int damage=CombatCalculator.damage(attack,state.strengthMultiplier,multiplier,CombatRules.critical(.05,player.getRandom().nextDouble()),defense);
+        double taken=bossDamageTaken.applyAsDouble(target.getUUID());
+        if(taken!=1)damage=(int)Math.round(damage*taken);
+        var mechanics=content(player.getUUID()).mechanics();
+        if(!basic&&damage>0&&mechanics!=null&&risingStrikeCooldowns.getOrDefault(player.getUUID(),0L)-skill(player.getUUID(),"skill.warrior.rising_strike").cooldownTicks()==tick)
+            bossPostureHit.hit(target.getUUID(),player.getUUID(),mechanics.boss().risingStrikePosture(rank(player.getUUID(),"skill.warrior.rising_strike")));
+        return damage;
     }
     private final java.util.Set<UUID> disconnected=new java.util.HashSet<>();
 	private final Map<UUID, EquipmentSnapshot> equipment = new HashMap<>();

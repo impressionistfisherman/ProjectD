@@ -15,5 +15,5 @@ public final class BeaconTowerMobs {
     public static double damageScale(int partySize){return damageScale(ContentCatalog.current(),partySize);}
     public static double healthScale(ContentCatalog content,int partySize){return content.encounter().healthScales().get(tier(partySize));}
     public static double damageScale(ContentCatalog content,int partySize){return content.encounter().damageScales().get(tier(partySize));}
-    private static int tier(int size){if(size<1||size>4)throw new IllegalArgumentException("Invalid party size.");return size==1?0:size==2?1:2;}
+    public static int tier(int size){if(size<1||size>4)throw new IllegalArgumentException("Invalid party size.");return size==1?0:size==2?1:2;}
 }

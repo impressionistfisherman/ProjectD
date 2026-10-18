@@ -18,7 +18,7 @@ public final class P4ContentContractsCheck {
                 && b.idleTicks()+b.warningTicks()+b.pulseTicks() == 660 && b.maximumHealthFraction() == .15, "First damage at 33 seconds");
         check(boss.gatekeeperPosture() == 650 && boss.beaconPosture() == 900 && boss.wallPostureDamage() == 225
                 && boss.postureScales().equals(List.of(1.,1.7,2.8)) && boss.trainingPostureScale() == 1.2
-                && boss.collapseTicks() == 80 && boss.collapsedDamageScale() == 1.3 && boss.immunityTicks() == 300
+                && boss.risingStrikePosture().equals(List.of(18.,30.)) && boss.collapseTicks() == 80 && boss.collapsedDamageScale() == 1.3 && boss.immunityTicks() == 300
                 && mechanics.minimumTelegraphTicks() == 20, "Boss contract");
         var archived = root(current); archived.getAsJsonObject("mechanics").getAsJsonObject("brazier").addProperty("channelTicks",100);
         check(ContentCatalog.parse(archived.toString()).mechanics().brazier().channelTicks() == 100
@@ -42,6 +42,7 @@ public final class P4ContentContractsCheck {
         reject(current, r -> r.getAsJsonObject("mechanics").getAsJsonObject("brazier").addProperty("maximumHealthFraction",1.01));
         reject(current, r -> r.getAsJsonObject("mechanics").getAsJsonObject("brazier").getAsJsonArray("simultaneous").set(0,new JsonPrimitive(2)));
         reject(current, r -> r.getAsJsonObject("mechanics").getAsJsonObject("boss").addProperty("collapsedDamageScale",.9));
+        reject(current, r -> r.getAsJsonObject("mechanics").getAsJsonObject("boss").getAsJsonArray("risingStrikePosture").remove(1));
         reject(current, r -> r.getAsJsonObject("mechanics").getAsJsonObject("boss").getAsJsonArray("postureScales").set(0,new JsonPrimitive(0)));
         try { b.counts().clear(); throw new AssertionError("Mutable tiers"); } catch (UnsupportedOperationException expected) {}
         var views = new ArrayList<RunMechanicAccess.BrazierView>();

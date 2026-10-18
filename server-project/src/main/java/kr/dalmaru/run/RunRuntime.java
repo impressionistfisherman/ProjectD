@@ -33,6 +33,8 @@ public final class RunRuntime implements RunMechanicAccess {
     /** Null source denotes a run hazard; damage still uses the normal combat pipeline. */
     @FunctionalInterface public interface BossDamage { void hit(ServerPlayer player, net.minecraft.world.entity.LivingEntity boss, float amount, boolean magic); }
     @FunctionalInterface public interface LingerDamage { void hit(UUID playerId, net.minecraft.world.entity.LivingEntity body, net.minecraft.world.entity.LivingEntity source, float amount, boolean magic); }
+    /** The roster closes to invites and accepts when the first combat stage (GATEKEEPER) starts. */
+    private final PartyActivator partyActivator = new PartyActivator();
     private final Map<UUID, State> playerRuns = new HashMap<>();
     private final Map<UUID, Encounter> encounters = new HashMap<>();
     private final java.util.concurrent.ConcurrentMap<UUID,RunLifecycle> lifecycles=new java.util.concurrent.ConcurrentHashMap<>();
@@ -92,7 +94,7 @@ public final class RunRuntime implements RunMechanicAccess {
             UUID owner=e.brazier.owner(i);braziers.add(new BrazierView(brazierPosition(e,i),e.brazier.lit(i),owner,owner==null?0:e.brazier.remaining(owner)));
         }
         boolean neglectActive=e.neglect!=null&&!e.failed&&e.stage==Stage.BRAZIER&&e.mobs.isEmpty();
-        return new Snapshot(e.runId,e.revision,Phase.valueOf(e.stage.name()),e.partySize,braziers,neglectActive?e.neglect.state():Neglect.IDLE,neglectActive?e.neglect.remaining():0,List.of());
+        return new Snapshot(e.runId,e.revision,Phase.valueOf(e.stage.name()),e.partySize,braziers,neglectActive?e.neglect.state():Neglect.IDLE,neglectActive?e.neglect.remaining():0,bossViews(e));
     }
     private static BlockPos brazierPosition(Encounter e,int index){return e.floor.offset(-4+index*4,1,35);}
     private void tickBraziers(MinecraftServer server,Encounter e) {
@@ -343,8 +345,10 @@ public final class RunRuntime implements RunMechanicAccess {
         for (Encounter encounter : new ArrayList<>(encounters.values())) {
             if(encounter.failed||encounter.pausedAt!=0||encounter.stage==Stage.COMPLETED)continue;
             tickMobs(server,encounter);
+            if(encounter.group>0&&tickCount%100==0)partyActivator.request(encounter.runId);
             if (encounter.stage == Stage.BRAZIER) {tickBraziers(server,encounter);activateFinalBoss(encounter);}
             tickBoss(server, encounter);
+            tickPosture(encounter);
         }
     }
 
@@ -440,6 +444,7 @@ public final class RunRuntime implements RunMechanicAccess {
         RuntimeException failure=null;
         try{
             if(encounter!=null)encounter.failed=true;
+            partyActivator.forget(runId);
             for(var entry:new ArrayList<>(playerRuns.entrySet()))if(entry.getValue().runId.equals(runId)){
                 State state=entry.getValue();ServerPlayer player=server.getPlayerList().getPlayer(entry.getKey());
                 try{if(player!=null){if(player.isSpectator())player.setGameMode(state.returnMode);player.teleportTo(state.returnLevel,state.returnPosition.x,state.returnPosition.y,state.returnPosition.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);}else releaseDisconnected.accept(entry.getKey());}
@@ -550,8 +555,9 @@ public final class RunRuntime implements RunMechanicAccess {
     private void spawnFinalBoss(Encounter encounter) {
         encounter.stage = Stage.BEACON;encounter.revision++;
         BeaconTowerMap.open(encounter.level, encounter.floor, 45);
-        encounter.bossId = spawnBoss(encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", health(encounter.difficulty, encounter.content.encounter().finalBossHealth()));
+        encounter.bossId = spawnBoss(encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", bossHealth(encounter, encounter.content.encounter().finalBossHealth()));
         BeaconTowerBosses.style(encounter.level, encounter.bossId, true);
+        beginPosture(encounter, true);
     }
 
     private void spawnGroup(Encounter encounter,int group) {
@@ -605,8 +611,8 @@ public final class RunRuntime implements RunMechanicAccess {
         }
         if(!encounter.mobs.isEmpty())return;
         if(encounter.stage==Stage.GATEKEEPER&&encounter.bossId==null){
-            if(encounter.group==0){spawnGroup(encounter,1);return;}
-            encounter.bossId=spawnBoss(encounter.level,encounter.floor.offset(0,1,22),"철문수장",health(encounter.difficulty,encounter.content.encounter().gatekeeperHealth()));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);
+            if(encounter.group==0){partyActivator.request(encounter.runId);spawnGroup(encounter,1);return;}
+            encounter.bossId=spawnBoss(encounter.level,encounter.floor.offset(0,1,22),"철문수장",bossHealth(encounter,encounter.content.encounter().gatekeeperHealth()));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);beginPosture(encounter,false);
         }else if(encounter.stage==Stage.APPROACH)spawnFinalBoss(encounter);
     }
 
@@ -618,31 +624,90 @@ public final class RunRuntime implements RunMechanicAccess {
         ServerPlayer target = players.isEmpty()?null:players.stream().min(java.util.Comparator.comparingDouble(player -> player.distanceToSqr(boss))).orElseThrow();
         if (encounter.stage == Stage.GATEKEEPER) {
             int slamEvery = boss.getHealth() <= boss.getMaxHealth() * .5F ? 50 : 100;
-            if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, attack(encounter, 150), false, ParticleTypes.CRIT);
+            if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, bossAttack(encounter, 150), false, ParticleTypes.CRIT);
             else if (encounter.bossTicks % 60 == 0) {
                 if (target!=null && target.distanceToSqr(boss) <= 16) {
-                    bossDamage.hit(target, boss, attack(encounter, 130), false);
+                    bossDamage.hit(target, boss, bossAttack(encounter, 130), false);
                     target.knockback(.4, boss.getX() - target.getX(), boss.getZ() - target.getZ());
                 }
-                hurtLinger(encounter, boss, attack(encounter, 130), 4, false);
+                hurtLinger(encounter, boss, bossAttack(encounter, 130), 4, false);
             }
             else if (encounter.bossTicks % 40 == 0) {
-                if (target!=null && target.distanceToSqr(boss) <= 16) bossDamage.hit(target, boss, attack(encounter, 110), false);
-                hurtLinger(encounter, boss, attack(encounter, 110), 4, false);
+                if (target!=null && target.distanceToSqr(boss) <= 16) bossDamage.hit(target, boss, bossAttack(encounter, 110), false);
+                hurtLinger(encounter, boss, bossAttack(encounter, 110), 4, false);
+                startCharge(encounter, boss, target);
             }
         } else if (encounter.stage == Stage.BEACON) {
             float ratio = boss.getHealth() / boss.getMaxHealth();
             int every = ratio > .7F ? 70 : ratio > .35F ? 50 : 35;
             if (encounter.bossTicks % every != 0) return;
             if (ratio > .7F) {
-                if(target!=null)bossDamage.hit(target, boss, attack(encounter, 130), false);
-                hurtLinger(encounter, boss, attack(encounter, 130), 4, false);
+                if(target!=null)bossDamage.hit(target, boss, bossAttack(encounter, 130), false);
+                hurtLinger(encounter, boss, bossAttack(encounter, 130), 4, false);
                 if(target!=null)encounter.level.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, target.getX(), target.getY() + 1, target.getZ(), 24, .4, .6, .4, .03);
-            } else if (ratio > .35F) damage(players, boss, 7, attack(encounter, 120), true, ParticleTypes.SOUL);
-            else damage(players, boss, 6, attack(encounter, 180), true, ParticleTypes.SOUL_FIRE_FLAME);
+            } else if (ratio > .35F) damage(players, boss, 7, bossAttack(encounter, 120), true, ParticleTypes.SOUL);
+            else damage(players, boss, 6, bossAttack(encounter, 180), true, ParticleTypes.SOUL_FIRE_FLAME);
         }
     }
 
+    private List<BossView> bossViews(Encounter e) {
+        if(e.posture==null||e.bossId==null||!(e.level.getEntity(e.bossId) instanceof Mob boss)||!boss.isAlive())return List.of();
+        return List.of(new BossView(e.bossId,kr.dalmaru.combat.CombatUnits.toRpg(boss.getHealth()),kr.dalmaru.combat.CombatUnits.toRpg(boss.getMaxHealth()),e.posture.posture(),e.posture.maximum(),e.posture.state(),e.posture.remainingTicks()));
+    }
+    private static void beginPosture(Encounter encounter, boolean finalBoss) {
+        encounter.charge.cancel();encounter.postureHits.clear();
+        var mechanics=encounter.content.mechanics();
+        encounter.posture=mechanics==null?null:new BossPosture(BossScaling.maximumPosture(mechanics.boss(),finalBoss,encounter.difficulty,encounter.partySize),mechanics.boss());
+    }
+    private void startCharge(Encounter encounter, Mob boss, ServerPlayer target) {
+        if(encounter.posture==null||target==null)return;
+        double dx=target.getX()-boss.getX(),dz=target.getZ()-boss.getZ(),length=Math.sqrt(dx*dx+dz*dz);
+        if(length<.5)return;
+        encounter.chargeX=dx/length;encounter.chargeZ=dz/length;encounter.charge.start();
+    }
+    /** Advances posture time and the boss charge. A wall impact is a real block collision of the boss body. */
+    private void tickPosture(Encounter encounter) {
+        if(encounter.posture==null||encounter.bossId==null||!(encounter.level.getEntity(encounter.bossId) instanceof Mob boss)||!boss.isAlive())return;
+        var before=encounter.posture.state();
+        encounter.posture.tick(tickCount);
+        if(encounter.charge.active()){
+            long wall=encounter.charge.tick(boss.horizontalCollision);
+            if(wall!=0)encounter.posture.wall(wall,encounter.content.mechanics().boss().wallPostureDamage());
+            else if(encounter.charge.active())boss.setDeltaMovement(encounter.chargeX*.7,boss.getDeltaMovement().y,encounter.chargeZ*.7);
+        }
+        var after=encounter.posture.state();
+        if(after!=before){
+            encounter.revision++;
+            if(after==Posture.COLLAPSED)announceCollapse(encounter,boss);
+        }
+    }
+    private void announceCollapse(Encounter encounter, Mob boss) {
+        encounter.level.sendParticles(ParticleTypes.CRIT,boss.getX(),boss.getY()+1.5,boss.getZ(),40,.8,.8,.8,.2);
+        for(var entry:playerRuns.entrySet())if(entry.getValue().runId.equals(encounter.runId)){
+            ServerPlayer player=encounter.level.getServer().getPlayerList().getPlayer(entry.getKey());
+            if(player!=null)player.sendSystemMessage(Component.literal("보스의 자세가 무너졌습니다! 4초간 받는 피해가 늘어납니다."));
+        }
+    }
+    /** CombatRuntime hook: damage multiplier applied to HP damage dealt to this entity (1 unless it is a collapsed boss). */
+    public double bossDamageTaken(UUID entityId) {
+        for(Encounter e:encounters.values())if(entityId.equals(e.bossId)&&e.posture!=null)return e.posture.damageTakenScale();
+        return 1;
+    }
+    /** CombatRuntime hook: one actual posture hit (rising strike). Repeated events of one attacker in a tick count once. */
+    public boolean bossSkillHit(UUID entityId, UUID attacker, double amount) {
+        for(Encounter e:encounters.values())if(entityId.equals(e.bossId)&&e.posture!=null){
+            if(e.failed||e.pausedAt!=0)return false;
+            Long last=e.postureHits.put(attacker,tickCount);
+            if(last!=null&&last==tickCount)return false;
+            boolean started=e.posture.damage(amount);
+            if(started){
+                e.revision++;
+                if(e.level.getEntity(e.bossId) instanceof Mob boss)announceCollapse(e,boss);
+            }
+            return started;
+        }
+        return false;
+    }
     private void damage(List<ServerPlayer> players, Mob boss, double range, float amount, boolean magic, net.minecraft.core.particles.ParticleOptions particle) {
         ServerLevel level = (ServerLevel) boss.level();
         level.sendParticles(particle, boss.getX(), boss.getY() + 1, boss.getZ(), 32, 1.2, .8, 1.2, .04);
@@ -683,6 +748,8 @@ public final class RunRuntime implements RunMechanicAccess {
         return false;
     }
     private static double health(RunDifficulty difficulty, double base) { return RunEncounterRules.bossHealth(difficulty, base); }
+    private static double bossHealth(Encounter encounter, double base) { return BossScaling.health(encounter.content, encounter.difficulty, base, encounter.partySize); }
+    private static float bossAttack(Encounter encounter, int base) { return (float) BossScaling.damage(encounter.content, encounter.difficulty, base, encounter.partySize); }
     private static float attack(Encounter encounter, int base) { return (float) (base * (encounter.difficulty == RunDifficulty.TRAINING ? 1.15 : 1.0)); }
 
     public record DeathResult(UUID runId, boolean canRespawn, boolean partyDefeated) { }
@@ -693,7 +760,7 @@ public final class RunRuntime implements RunMechanicAccess {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
-        private long revision=1; private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
+        private long revision=1; private BossPosture posture; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
         private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize);this.neglect=content.mechanics()==null?null:new BrazierNeglect(content.mechanics().brazier()); }
     }
 }

@@ -6,13 +6,15 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Applies existing V038 and V039 when this fixture stopped at V037. Does not add a migration. */
+/** Applies existing V038 to V041 when this fixture stopped at V037. Does not add a migration. */
 public final class FixtureMigrations {
 	private FixtureMigrations() { }
 
 	public static void apply() throws Exception {
 		apply(38, "V038__run_auctions.sql");
 		apply(39, "V039__mail_claim_ledger_events.sql");
+		apply(40, "V040__run_member_lifecycle.sql");
+		apply(41, "V041__run_kick_votes.sql");
 	}
 
 	private static void apply(int version, String name) throws Exception {
