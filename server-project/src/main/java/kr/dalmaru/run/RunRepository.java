@@ -61,6 +61,25 @@ public final class RunRepository {
             } catch (Exception exception) { connection.rollback(); throw exception; }
         }
     }
+    /** READY to ACTIVE for the run roster when the first combat stage starts. Repeat calls and runs without a roster change nothing; failure rolls back. */
+    public boolean activateParty(UUID runId) throws SQLException {
+        if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD not configured.");
+        try (var connection = DriverManager.getConnection(url, username, password)) {
+            connection.setAutoCommit(false);
+            try {
+                try (var phase = connection.prepareStatement("SELECT phase FROM dalmaru.run_party_control WHERE run_id=? FOR UPDATE")) {
+                    phase.setObject(1, runId);
+                    try (var row = phase.executeQuery()) {
+                        if (!row.next() || !"READY".equals(row.getString(1))) { connection.commit(); return true; }
+                    }
+                }
+                var outcome = kr.dalmaru.party.PartyRunService.activate(connection, runId);
+                if (!"ROSTER".equals(outcome.status())) throw new IllegalStateException("Run party roster did not activate: " + outcome.reason());
+                connection.commit();
+                return true;
+            } catch (Exception error) { connection.rollback(); throw error; }
+        }
+    }
     public kr.dalmaru.content.ContentCatalog frozenContent(UUID run)throws SQLException{
         try(var c=DriverManager.getConnection(url,username,password);var q=c.prepareStatement("SELECT content_id,content_version,content_snapshot::text FROM dalmaru.run_instances WHERE run_id=?")){
             q.setObject(1,run);

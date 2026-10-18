@@ -33,6 +33,8 @@ public final class RunRuntime implements RunMechanicAccess {
     /** Null source denotes a run hazard; damage still uses the normal combat pipeline. */
     @FunctionalInterface public interface BossDamage { void hit(ServerPlayer player, net.minecraft.world.entity.LivingEntity boss, float amount, boolean magic); }
     @FunctionalInterface public interface LingerDamage { void hit(UUID playerId, net.minecraft.world.entity.LivingEntity body, net.minecraft.world.entity.LivingEntity source, float amount, boolean magic); }
+    /** The roster closes to invites and accepts when the first combat stage (GATEKEEPER) starts. */
+    private final PartyActivator partyActivator = new PartyActivator();
     private final Map<UUID, State> playerRuns = new HashMap<>();
     private final Map<UUID, Encounter> encounters = new HashMap<>();
     private final java.util.concurrent.ConcurrentMap<UUID,RunLifecycle> lifecycles=new java.util.concurrent.ConcurrentHashMap<>();
@@ -343,6 +345,7 @@ public final class RunRuntime implements RunMechanicAccess {
         for (Encounter encounter : new ArrayList<>(encounters.values())) {
             if(encounter.failed||encounter.pausedAt!=0||encounter.stage==Stage.COMPLETED)continue;
             tickMobs(server,encounter);
+            if(encounter.group>0&&tickCount%100==0)partyActivator.request(encounter.runId);
             if (encounter.stage == Stage.BRAZIER) {tickBraziers(server,encounter);activateFinalBoss(encounter);}
             tickBoss(server, encounter);
         }
@@ -440,6 +443,7 @@ public final class RunRuntime implements RunMechanicAccess {
         RuntimeException failure=null;
         try{
             if(encounter!=null)encounter.failed=true;
+            partyActivator.forget(runId);
             for(var entry:new ArrayList<>(playerRuns.entrySet()))if(entry.getValue().runId.equals(runId)){
                 State state=entry.getValue();ServerPlayer player=server.getPlayerList().getPlayer(entry.getKey());
                 try{if(player!=null){if(player.isSpectator())player.setGameMode(state.returnMode);player.teleportTo(state.returnLevel,state.returnPosition.x,state.returnPosition.y,state.returnPosition.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);}else releaseDisconnected.accept(entry.getKey());}
@@ -605,7 +609,7 @@ public final class RunRuntime implements RunMechanicAccess {
         }
         if(!encounter.mobs.isEmpty())return;
         if(encounter.stage==Stage.GATEKEEPER&&encounter.bossId==null){
-            if(encounter.group==0){spawnGroup(encounter,1);return;}
+            if(encounter.group==0){partyActivator.request(encounter.runId);spawnGroup(encounter,1);return;}
             encounter.bossId=spawnBoss(encounter.level,encounter.floor.offset(0,1,22),"철문수장",health(encounter.difficulty,encounter.content.encounter().gatekeeperHealth()));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);
         }else if(encounter.stage==Stage.APPROACH)spawnFinalBoss(encounter);
     }
