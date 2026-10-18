@@ -70,6 +70,7 @@ public final class DalmaruNetworking {
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
+	private static net.minecraft.server.MinecraftServer ONLINE;
 	private static final QuestRepository QUESTS = new QuestRepository();
 	private static final EquipmentRepository EQUIPMENT = new EquipmentRepository();
 	private static final RunRepository RUNS = new RunRepository();
@@ -93,6 +94,7 @@ public final class DalmaruNetworking {
             CompletableFuture.runAsync(()->{try{RUNS.recordContribution(runId,character,action);}catch(Exception error){LOGGER.warn("Failed to persist run action; completion retains its snapshot.",error);}},LIFECYCLE_DB);
         };
         COMBAT.contributions(contribution,RUN_RUNTIME::contributionInput);
+        COMBAT.mechanicActions(id -> { var player = ONLINE == null ? null : ONLINE.getPlayerList().getPlayer(id); if (player != null) RUN_RUNTIME.skillUsed(player); }, RUN_RUNTIME::receivedHit);
         RUN_RUNTIME.mechanicAction(player->contribution.accept(player,kr.dalmaru.run.RunContribution.Action.MECHANIC));
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.WaypointRequest.TYPE,DalmaruPayloads.WaypointRequest.CODEC);
@@ -165,9 +167,11 @@ public final class DalmaruNetworking {
 
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity,world)->RUN_RUNTIME.loadedEntity(entity));
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{
+            ONLINE = server;
             try{kr.dalmaru.run.RunTerrainRecovery.recover(server);RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot recover unfinished runs safely.",error);throw new IllegalStateException("Run recovery failed.",error);}
         });
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server->{
+            if (ONLINE == server) ONLINE = null;
             for(var player:server.getPlayerList().getPlayers())clearFieldRevive(player);
             LIFECYCLE_DB.shutdown();
             try{if(!LIFECYCLE_DB.awaitTermination(5,java.util.concurrent.TimeUnit.SECONDS))LIFECYCLE_DB.shutdownNow();}catch(InterruptedException error){LIFECYCLE_DB.shutdownNow();Thread.currentThread().interrupt();}
@@ -245,7 +249,7 @@ public final class DalmaruNetworking {
 			COMBAT.restoreAfterRespawn(oldPlayer,newPlayer);
             if(!alive){boolean dungeon=RUN_RUNTIME.runId(newPlayer)!=null;RUN_RUNTIME.afterRespawn(oldPlayer,newPlayer);if(dungeon){if(!newPlayer.isSpectator())COMBAT.revived(newPlayer,.25,true,currentTick);}else fieldRespawn(newPlayer);sendRunReviveState(newPlayer);}
 		});
-		ServerTickEvents.END_SERVER_TICK.register(server -> { expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); sendBrazierHuds(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
+		ServerTickEvents.END_SERVER_TICK.register(server -> { ONLINE = server; expireMissingHello(server); COMBAT.tick(currentTick); COMBAT.tickEffects(currentTick); tickDodges(server); tickFieldRevives(server); RUN_RUNTIME.tick(server); tickWaypoints(server); sendBrazierHuds(server); if (currentTick % 20 == 0) { sendCombatStates(server);server.getPlayerList().getPlayers().forEach(DalmaruNetworking::sendRunReviveState);for(UUID runId:RUN_RUNTIME.completedRuns()){var member=RUN_RUNTIME.participant(server,runId);if(member!=null)completeRun(member,server,runId);} CompletableFuture.runAsync(() -> { try { RUNS.expireTimedOut(); } catch (Exception exception) { LOGGER.warn("Failed to expire timed out runs.", exception); } }); } });
 		ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
             if(entity instanceof ServerPlayer player&&baseDamageTaken>0)interruptWaypoint(player,"피격으로 귀환이 취소되었습니다.");
 			if (damageTaken > 0) {

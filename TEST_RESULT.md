@@ -1166,3 +1166,7 @@
 ## P4-S08 준비 (2026-10-18)
 - grok_p3_fixture. `verifyRunKickVote`는 잠금을 잡고 따로 실행. `Run kick vote PASS`. BUILD SUCCESSFUL. 3인 2/2, 4인 2/3, 2인 거절, 대상·중복·타인·끝난 투표, 59/60초, 기권으로 분모 유지, 보스 중 미확정, 완료된 공략 미확정, 리더 대상도 같은 규칙. 멤버 `left_at`은 0. 이 검사는 전체 회귀 스크립트에 없다.
 - 그 다음 잠금 단일 전체 회귀 exit 0, 약 230초. 검사 53개와 p1_integration_smoke.ps1 전부 PASS. verifyProtocolVersion, verifyClientScreenBounds 포함. 잠금은 끝나고 삭제. 인게임 미실행. 추방 확정은 검사하지 않음.
+
+## P4-S03 입력 연결 (2026-10-18)
+- verifyProtocolVersion, verifyCombatConsistency, verifyBrazierNeglect PASS. 전투 검사는 기술 사용 1회와 실제 피격 콜백, 환경 피해가 채널 콜백을 올리지 않음을 확인했다. 채널이 실제로 끊기는지는 런타임 취소 메서드 연결과 이 검사로 확인했고, 인게임 채널은 하지 않았다.
+- 잠금 대기 5회 포함 단일 전체 회귀 exit 0, 약 365초. 검사 56개와 p1_integration_smoke.ps1 PASS. verifySkillContent, verifyBrazierChannel 포함. 잠금은 끝나고 삭제.
