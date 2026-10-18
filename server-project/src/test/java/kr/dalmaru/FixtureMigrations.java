@@ -20,7 +20,7 @@ public final class FixtureMigrations {
 			check.setInt(1, version);
 			try (var result = check.executeQuery()) { if (result.next()) return; }
 		}
-		String sql = Files.readString(Path.of("database", "migrations", name));
+		String sql = stripLineComments(Files.readString(Path.of("database", "migrations", name)));
 		try (var connection = EnhancementReplayCheck.connection()) {
 			connection.setAutoCommit(false);
 			try {
@@ -28,6 +28,23 @@ public final class FixtureMigrations {
 				connection.commit();
 			} catch (SQLException error) { connection.rollback(); throw error; }
 		}
+	}
+
+	private static String stripLineComments(String sql) {
+		var plain = new StringBuilder();
+		boolean dollar = false;
+		for (int i = 0; i < sql.length(); i++) {
+			if (sql.startsWith("$$", i)) { dollar = !dollar; plain.append("$$"); i++; continue; }
+			if (!dollar && sql.startsWith("--", i)) {
+				int newline = sql.indexOf('\n', i);
+				if (newline < 0) break;
+				i = newline;
+				plain.append('\n');
+				continue;
+			}
+			plain.append(sql.charAt(i));
+		}
+		return plain.toString();
 	}
 
 	private static List<String> split(String sql) {
