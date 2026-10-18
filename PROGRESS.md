@@ -702,3 +702,7 @@
 - 열린 투표 분모는 `left_at`이 없는 유권자만 센다. `disconnect_at`만 있는 유예 단절은 분모에 남는다.
 - 입장 트랜잭션이 명단을 READY로 연다. 봉화창·혼파·원혼화염은 서버 파티클이다. 클라이언트 예고 화면은 없다.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 212초. 검사 64개와 스모크 PASS. verifyRunKickVote, verifyRunMemberExit, verifyRunReconnectWindow, verifyBossTelegraph 포함. verifyP4PlayAccess는 회귀 밖이고 따로 PASS. 인게임 미실행. push 없음.
+
+## P4 최종 통합 (2026-10-18, Toby)
+- 3c06abe 낡은 검사 4개 삭제. 911554a grok/mdf-p4 043f5c2 merge(충돌 0, 그록 파일 손수정 없음) + verifyP4PlayAccess 등록. 프로토콜 34 한 곳, V001~V042(V036 비움).
+- 상세: hive/research/MDF_P4_INTEGRATION_TOBY.md. 크리드 g448 결과 미수신. 서버/클라이언트 실행·던전 입장·사람 7항목 미실행. push 없음.
