@@ -881,6 +881,7 @@ public final class RunRuntime implements RunMechanicAccess {
         boss.setCustomName(Component.literal(name));
         boss.setCustomNameVisible(true);
         boss.setPersistenceRequired(); // otherwise it despawns while the dying player respawns far away
+        boss.addTag("dalmaru.mob.boss"); // dungeon bosses never drop vanilla loot/XP or count for field quests
         boss.setPos(position.getX() + .5, position.getY(), position.getZ() + .5);
         level.addFreshEntity(boss);
         return boss.getUUID();

@@ -437,3 +437,6 @@ tasks.register('verifyBossPosture', JavaExec) { group = 'verification'; classpat
 tasks.register('verifyBossTelegraph', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossTelegraphCheck' }
 tasks.register('verifyRunMemberExit', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunMemberExitCheck' }
 tasks.register('verifyRunReconnectWindow', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunReconnectWindowCheck' }
+tasks.register('verifyP4RunProgression', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P4RunProgressionCheck' }
+tasks.register('verifyDungeonRewardIsolation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.DungeonRewardIsolationCheck' }
+tasks.register('verifyP4LifecycleRecovery', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P4LifecycleRecoveryCheck' }
