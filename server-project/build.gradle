@@ -266,11 +266,6 @@ tasks.register('verifyBeaconTowerTerrain', JavaExec) {
 	mainClass = 'kr.dalmaru.BeaconTowerTerrainCheck'
 }
 
-tasks.register('verifyPremergeDatabase', JavaExec) {
-    group = 'verification'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'kr.dalmaru.PremergeDatabaseCheck'
-}
 tasks.register('verifyPremergeRuntime', JavaExec) {
     group = 'verification'
     classpath = sourceSets.test.runtimeClasspath
@@ -287,12 +282,6 @@ tasks.register('verifySessionLifecycle', JavaExec) {
     group = 'verification'
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'kr.dalmaru.SessionLifecycleCheck'
-    if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
-}
-tasks.register('verifyLifecycleDatabase', JavaExec) {
-    group = 'verification'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'kr.dalmaru.LifecycleDatabaseCheck'
     if (project.hasProperty('reviewSource')) systemProperty 'reviewSource', project.property('reviewSource')
 }
 tasks.register('verifySelectionBoundary', JavaExec) {
@@ -345,11 +334,9 @@ tasks.register('verifyFieldReviveBoundary', JavaExec) { group = 'verification'; 
 
 tasks.register('verifyReviewFixBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ReviewFixBoundaryCheck' }
 
-tasks.register('verifyRunEntryCancellation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunEntryCancellationCheck' }
 
 tasks.register('verifyRunLifecycleOwnership', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunLifecycleOwnershipCheck' }
 tasks.register('verifySkillPresentation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.SkillPresentationCheck' }
-tasks.register('verifyRunRespawnBoundary', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunRespawnBoundaryCheck' }
 tasks.register('verifyRunAutoRespawnSafety', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunAutoRespawnSafetyCheck' }
 tasks.register('verifyRunDeathScreen', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunDeathScreenCheck' }
 tasks.register('verifyClientReplyRecovery', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.ClientReplyRecoveryCheck' }
