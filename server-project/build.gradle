@@ -439,3 +439,5 @@ tasks.register('verifyBrazierNeglect', JavaExec) { group = 'verification'; class
 tasks.register('verifyRunPartyMembership', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunPartyMembershipCheck' }
 
 tasks.register('verifyRunEntryPartyOpen', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunEntryPartyOpenCheck' }
+
+tasks.register('verifyRunKickVote', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunKickVoteCheck' }
