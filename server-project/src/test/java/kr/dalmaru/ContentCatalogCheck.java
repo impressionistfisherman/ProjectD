@@ -11,9 +11,9 @@ import kr.dalmaru.equipment.PilotEquipment;
 public final class ContentCatalogCheck {
     public static void main(String[] args)throws Exception{
         String source=Files.readString(Path.of("src/main/resources/content/pilot.json"));
-        var catalog=ContentCatalog.current();check(catalog.items().size()==78&&catalog.version().equals("pilot-p3-4"),"Pilot IDs/version changed");
+        var catalog=ContentCatalog.current();check(catalog.items().size()==78&&catalog.version().equals("pilot-p4-1"),"Pilot IDs/version changed");
         check(catalog.quest("pilot1.zombie_hunt").version().equals("pilot-1")&&catalog.quest("pilot1.zombie_hunt").goal()==3&&catalog.quest("pilot1.zombie_hunt").experience()==100,"Legacy quest changed");
-        check(catalog.run("run.bongsudae").version().equals("pilot-p3-4")&&catalog.run("run.bongsudae").minPlayers()==1&&catalog.run("run.bongsudae").maxPlayers()==4,"Run manifest differs");
+        check(catalog.run("run.bongsudae").version().equals("pilot-p4-1")&&catalog.run("run.bongsudae").minPlayers()==1&&catalog.run("run.bongsudae").maxPlayers()==4,"Run manifest differs");
         int[][] attacks={{41,51,63},{30,37,46},{35,44,55},{57,71,88},{36,46,57},{31,39,48},{38,48,59},{34,43,53}};
         String[] weapons={"two_handed_sword","sword_shield","bow","crossbow","fan","ritual_sword","dual_axes","pirate_sword"};int[] ticks={20,16,18,30,20,18,10,16},levels={10,15,20};
         for(int w=0;w<weapons.length;w++)for(int tier=0;tier<3;tier++){
@@ -28,7 +28,7 @@ public final class ContentCatalogCheck {
         check(PilotEquipment.slot("pilot.weapon.fan.20")==0&&PilotEquipment.slot("pilot.armor.heavy.body.15")==3,"Equipment consumer not connected");
         check(!catalog.display("pilot.weapon.fan.20").name().equals("pilot.weapon.fan.20")&&!catalog.display("pilot.armor.heavy.body.15").description().isBlank(),"Item display templates not consumed");
         check(catalog.display("unknown.legacy").name().equals("unknown.legacy"),"Unknown legacy label invented");
-        var legacyDisplay=JsonParser.parseString(source).getAsJsonObject();legacyDisplay.addProperty("schemaVersion",3);
+        var legacyDisplay=JsonParser.parseString(source).getAsJsonObject();legacyDisplay.addProperty("schemaVersion",3);legacyDisplay.addProperty("contentVersion","pilot-p3-4");for(var run:legacyDisplay.getAsJsonArray("runs")){run.getAsJsonObject().addProperty("version","pilot-p3-4");run.getAsJsonObject().addProperty("contentVersion","pilot-p3-4");}
         check(ContentCatalog.parse(legacyDisplay.toString()).display("pilot.weapon.fan.20").name().equals("pilot.weapon.fan.20"),"Legacy display overwritten");
         reject(source,root->root.remove("display"));
         reject(source,root->root.getAsJsonObject("equipment").getAsJsonArray("weapons").get(0).getAsJsonObject().getAsJsonObject("display").addProperty("name",""));
@@ -68,7 +68,7 @@ public final class ContentCatalogCheck {
         var archived=ContentCatalog.parse(changed.toString());
         check(archived.encounter().mob("GUARD").health()==999&&kr.dalmaru.run.BeaconTowerMobs.group(archived,0).getFirst()==kr.dalmaru.run.BeaconTowerMobs.Kind.SOLDIER&&kr.dalmaru.run.BeaconTowerMobs.healthScale(archived,1)==2&&catalog.encounter().mob("GUARD").health()==330,"Archived encounter used current definitions");
         try{archived.encounter().groups().get(0).clear();throw new AssertionError("Mutable roster");}catch(UnsupportedOperationException expected){}
-        reject(source,root->root.addProperty("schemaVersion",5));reject(source,root->root.addProperty("enabled",false));
+        reject(source,root->root.addProperty("schemaVersion",6));reject(source,root->root.addProperty("enabled",false));
         reject(source,root->root.getAsJsonArray("skills").add(root.getAsJsonArray("skills").get(0).deepCopy()));
         reject(source,root->root.getAsJsonArray("skills").get(0).getAsJsonObject().addProperty("id","skill.unknown"));
         reject(source,root->root.getAsJsonArray("quests").get(0).getAsJsonObject().getAsJsonArray("itemRefs").add("pilot.unknown"));

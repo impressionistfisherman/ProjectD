@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 4,
-  "contentVersion": "pilot-p3-4",
+  "schemaVersion": 5,
+  "contentVersion": "pilot-p4-1",
   "enabled": true,
   "skills": [
     {
@@ -1345,7 +1345,7 @@
   "runs": [
     {
       "id": "run.bongsudae",
-      "version": "pilot-p3-4",
+      "version": "pilot-p4-1",
       "minPlayers": 1,
       "maxPlayers": 4,
       "enabled": true,
@@ -1353,7 +1353,7 @@
       "itemRefs": [],
       "skillRefs": [],
       "schemaVersion": 1,
-      "contentVersion": "pilot-p3-4",
+      "contentVersion": "pilot-p4-1",
       "display": {
         "name": "폐봉수대",
         "description": "1~4인 파티 공략"
@@ -1535,5 +1535,43 @@
   "display": {
     "name": "달마루 시험 콘텐츠",
     "description": "달마루 1~20레벨 시험 정의"
+  },
+  "mechanics": {
+    "temporary": true,
+    "minimumTelegraphTicks": 20,
+    "brazier": {
+      "channelTicks": 80,
+      "cancelDistance": 0.5,
+      "interactionRadius": 3,
+      "overlapTicks": 20,
+      "counts": [
+        1,
+        2,
+        3
+      ],
+      "simultaneous": [
+        1,
+        1,
+        2
+      ],
+      "idleTicks": 400,
+      "warningTicks": 200,
+      "pulseTicks": 60,
+      "maximumHealthFraction": 0.15
+    },
+    "boss": {
+      "gatekeeperPosture": 650,
+      "beaconPosture": 900,
+      "wallPostureDamage": 225,
+      "postureScales": [
+        1,
+        1.7,
+        2.8
+      ],
+      "trainingPostureScale": 1.2,
+      "collapseTicks": 80,
+      "collapsedDamageScale": 1.3,
+      "immunityTicks": 300
+    }
   }
 }

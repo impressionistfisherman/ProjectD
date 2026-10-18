@@ -633,3 +633,15 @@
 
 ## P4-S01 (2026-10-18)
 - protocol 34. P3(33) Hello는 "달마루 통신 버전이 맞지 않습니다."로 끊고 Welcome을 보내지 않는다. F6 `임시 파티`는 로딩 뒤 거절만 보여 준다. 파티 명단·화로·보스·반환은 성공으로 처리하지 않는다. V040/V041/V042 파일 없음. push 없음. 인게임 미실행.
+
+## P4 S01 서버 계약 (2026-10-18)
+- 승인 conv-c3d6bd, 기준728fe72에서 oscar/mdf-p4. Active Spec: J03~J07/J22 임시값·서버 입력/결과/상태·개인제거 Connection 어댑터 계약 우선. Grok의 통신/화면/protocol34/V040·41 소유권 유지.
+- 제품 c8a804835c4420339d2166e6962138095be6fadb: root schema5/pilot-p4-1, BeaconMechanics frozen 정의 및 엄격 검증. P3 이하 mechanics=null로 기존 스냅샷 보존. RunMechanicAccess 계약 및 docs/P4_SERVER_CONTRACT.md.
+- 집중3 PASS11초, clean 제품에서 공유잠금 단일전체53 PASS/exit0/211.95초. assemble·임시35565 RunRespawnMixin PASS, 자기잠금해제/파일없음 확인. 증거 hive/research/MDF_P4_S01_OSCAR.md/.log/_timing.json.
+
+## P4 S02 서버 화로 채널 (2026-10-18, 화면 통합 대기)
+- 제품9887bdfe8d2d62e4536301545a896491b7832d72: BrazierMechanic 및 RunRuntime implements RunMechanicAccess. 시작시 참가자/run/revision/단계/생존/3블록/시야 검증, 명시입력·80틱·화로 독점·중복 시간초기화 없음. 0.5블록 이상 이동/사망/단절/차원 변경 취소. 실제 성공만 기존 S12 콜백, 모든 화로 성공 후 문 개방. P3 이하 근접 체류 경로 보존.
+- A02 세부 경계: 완료 시각 차20틱 이하 그룹, 각자80틱 수행 후 먼저 끝난 채널은 최대20틱 더 유지. 불성립 시 취소 후 재시도. 성공 화로 유지/마지막 잔여 화로는1명. god에 세부 해석과 검토 필요를 보고.
+- 집중3 PASS17초(79/80틱, 중복/소유, 정확0.5 수직이동 포함, 취소/단절, 1/2/3/4인, 20/21틱 협동/잔여수). clean 제품 단일전체54 PASS/exit0/231.99초(잠금대기 포함), assemble·임시35565 RunRespawnMixin PASS. 자기잠금해제 기록 확인 후 Grok이 다른 token으로 잠금 확보, 타인 잠금 미변경.
+- 증거 hive/research/MDF_P4_S02_OSCAR.md/.log/_timing.json. Grok 입력/기술 성공/실제HP·보호막 피격 콜백/HUD 통합 대기. bosses=[]/neglect=IDLE,0은 S04/S03 미연결 필드. 화면 슬라이스 전체 완료나 사람7항목 PASS가 아님. 다음 S03→S04→S05→S07→S10.
+- 결과기록의 PowerShell→Python 입력 인코딩 손상을 복구. 제품·검사 소스는 회귀 검증 커밋과 동일하므로 반복 회귀하지 않음. Pam/공유계약 Creed 및 S02 계획상 Creed 독립 검토를 god에 요청.

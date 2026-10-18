@@ -17,7 +17,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 
-public final class RunRuntime {
+public final class RunRuntime implements RunMechanicAccess {
     private static final org.slf4j.Logger LOGGER=org.slf4j.LoggerFactory.getLogger(RunRuntime.class);
     private final BossDamage bossDamage;
     private final java.util.function.Consumer<UUID> releaseDisconnected;
@@ -38,6 +38,73 @@ public final class RunRuntime {
     private long tickCount;
     private java.util.function.Consumer<ServerPlayer> mechanicAction=player->{};
     public void mechanicAction(java.util.function.Consumer<ServerPlayer> listener){mechanicAction=java.util.Objects.requireNonNull(listener);}
+    @Override public Result startBrazier(ServerPlayer player,UUID runId,long revision,BlockPos position) {
+        Result rejected=validateMechanic(player,runId,revision);
+        if(rejected!=null)return rejected;
+        Encounter encounter=encounters.get(runId);
+        int index=-1;for(int i=0;i<encounter.brazier.count();i++)if(brazierPosition(encounter,i).equals(position))index=i;
+        if(index<0)return Result.WRONG_PHASE;
+        double radius=encounter.content.mechanics().brazier().interactionRadius();
+        if(player.distanceToSqr(position.getCenter())>radius*radius)return Result.OUT_OF_RANGE;
+        var hit=encounter.level.clip(new net.minecraft.world.level.ClipContext(player.getEyePosition(),position.getCenter(),
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,net.minecraft.world.level.ClipContext.Fluid.NONE,player));
+        if(hit.getType()!=net.minecraft.world.phys.HitResult.Type.MISS&&!hit.getBlockPos().equals(position))return Result.NO_LINE_OF_SIGHT;
+        Result result=encounter.brazier.start(player.getUUID(),index,player.position());
+        if(result==Result.STARTED)contributionInput(player);
+        return result;
+    }
+    @Override public Result cancelBrazier(ServerPlayer player,UUID runId,long revision) {
+        Result rejected=validateMechanic(player,runId,revision);
+        if(rejected!=null)return rejected;
+        return cancelChannel(player,CancelReason.REQUEST)?Result.CANCELLED:Result.NOT_CHANNELING;
+    }
+    private Result validateMechanic(ServerPlayer player,UUID runId,long revision) {
+        State state=playerRuns.get(player.getUUID());
+        if(state==null||!state.runId.equals(runId)||!state.connected)return Result.NOT_PARTICIPANT;
+        Encounter e=encounters.get(runId);
+        if(e==null||e.brazier==null||e.failed||e.pausedAt!=0)return Result.UNAVAILABLE;
+        if(e.revision!=revision)return Result.STALE_REVISION;
+        if(e.stage!=Stage.BRAZIER||!e.mobs.isEmpty())return Result.WRONG_PHASE;
+        if(state.dead||!player.isAlive()||player.isSpectator())return Result.DEAD;
+        if(player.level()!=e.level)return Result.WRONG_PHASE;
+        return null;
+    }
+    @Override public void skillUsed(ServerPlayer player){cancelChannel(player,CancelReason.SKILL);}
+    @Override public void receivedHit(ServerPlayer player){cancelChannel(player,CancelReason.HIT);}
+    private boolean cancelChannel(ServerPlayer player,CancelReason reason) {
+        State state=playerRuns.get(player.getUUID());Encounter e=state==null?null:encounters.get(state.runId);
+        if(e==null||e.brazier==null||!e.brazier.cancel(player.getUUID()))return false;
+        player.sendSystemMessage(Component.literal("화로 조작 취소: "+switch(reason){
+            case REQUEST->"직접 취소";case MOVED->"0.5블록 이상 이동";case HIT->"피격";case SKILL->"기술 사용";
+            case DEATH->"사망";case DISCONNECT->"연결 종료";case DIMENSION->"차원 변경";case PHASE->"단계 변경";}));
+        return true;
+    }
+    @Override public Snapshot mechanicSnapshot(ServerPlayer player) {
+        State state=playerRuns.get(player.getUUID());Encounter e=state==null?null:encounters.get(state.runId);
+        if(e==null||!state.connected)return null;
+        var braziers=new ArrayList<BrazierView>();
+        if(e.brazier!=null&&e.stage==Stage.BRAZIER)for(int i=0;i<e.brazier.count();i++){
+            UUID owner=e.brazier.owner(i);braziers.add(new BrazierView(brazierPosition(e,i),e.brazier.lit(i),owner,owner==null?0:e.brazier.remaining(owner)));
+        }
+        return new Snapshot(e.runId,e.revision,Phase.valueOf(e.stage.name()),e.partySize,braziers,Neglect.IDLE,0,List.of());
+    }
+    private static BlockPos brazierPosition(Encounter e,int index){return e.floor.offset(-4+index*4,1,35);}
+    private void tickBraziers(MinecraftServer server,Encounter e) {
+        if(e.brazier==null||!e.mobs.isEmpty())return;
+        var positions=new HashMap<UUID,net.minecraft.world.phys.Vec3>();
+        for(var entry:playerRuns.entrySet())if(entry.getValue().runId.equals(e.runId)){
+            ServerPlayer player=server.getPlayerList().getPlayer(entry.getKey());
+            if(player!=null&&entry.getValue().connected&&!entry.getValue().dead&&player.isAlive()&&!player.isSpectator()&&player.level()==e.level)positions.put(entry.getKey(),player.position());
+        }
+        var result=e.brazier.tick(positions);
+        for(UUID id:result.completed()){
+            ServerPlayer player=server.getPlayerList().getPlayer(id);if(player!=null)mechanicAction.accept(player);
+        }
+        if(!result.completed().isEmpty())for(int i=0;i<e.brazier.count();i++)if(e.brazier.lit(i))e.level.setBlock(brazierPosition(e,i),Blocks.CAMPFIRE.defaultBlockState(),3);
+        for(UUID id:result.unsynchronized()){
+            ServerPlayer player=server.getPlayerList().getPlayer(id);if(player!=null)player.sendSystemMessage(Component.literal("동시 점화 시간이 맞지 않아 취소했습니다. 함께 다시 조작해 주세요."));
+        }
+    }
     public void contributionInput(ServerPlayer player){State state=playerRuns.get(player.getUUID());if(state!=null&&state.connected&&!state.dead&&!player.isSpectator())state.contribution.input(tickCount);}
     public boolean recordContribution(ServerPlayer player,UUID characterId,RunContribution.Action action){
         State state=playerRuns.get(player.getUUID());if(state==null||state.dead||!state.connected||player.isSpectator())return false;
@@ -122,6 +189,7 @@ public final class RunRuntime {
         State state=playerRuns.get(player.getUUID());
         if(state==null)return new DeathResult(null,false,false);
         if(state.dead)return new DeathResult(state.runId,false,false);
+        cancelChannel(player,CancelReason.DEATH);
         state.dead=true;state.deathTick=tickCount;state.deathPosition=player.position();
         Encounter encounter=encounters.get(state.runId);
         double relative=player.getZ()-encounter.floor.getZ();state.deathZone=relative<27?0:relative<45?1:2;
@@ -191,16 +259,18 @@ public final class RunRuntime {
         Encounter encounter = encounters.get(state.runId);
         if (encounter == null || !bossId.equals(encounter.bossId)) return null;
         if (encounter.stage == Stage.GATEKEEPER) {
-            encounter.stage = Stage.BRAZIER;
+            encounter.stage = Stage.BRAZIER;encounter.revision++;
             spawnGroup(encounter,2);
             encounter.bossId = null;
             BeaconTowerMap.open(encounter.level, encounter.floor, 27);
-            for (int i = 0; i < Math.min(3, encounter.partySize); i++) encounter.level.setBlock(encounter.floor.offset(-4 + i * 4, 1, 35), Blocks.CAMPFIRE.defaultBlockState(), 3);
-            player.sendSystemMessage(Component.literal("봉수로를 정화하세요. 화로 근처에서 4초간 버티면 됩니다."));
+            for (int i = 0; i < Math.min(3, encounter.partySize); i++) encounter.level.setBlock(encounter.floor.offset(-4 + i * 4, 1, 35), Blocks.CAMPFIRE.defaultBlockState().setValue(net.minecraft.world.level.block.CampfireBlock.LIT,encounter.brazier==null), 3);
+            player.sendSystemMessage(Component.literal(encounter.brazier==null
+                    ? "봉수로를 정화하세요. 화로 근처에서 4초간 버티면 됩니다."
+                    : "적을 처치한 뒤 화로를 우클릭해 4초간 조작하세요. 이동·피격·기술 사용 시 취소됩니다. (임시)"));
             return null;
         }
         if (encounter.stage == Stage.BEACON) {
-            encounter.stage = Stage.COMPLETED;
+            encounter.stage = Stage.COMPLETED;encounter.revision++;
             BeaconTowerMap.open(encounter.level, encounter.floor, 64);
             encounter.level.setBlock(encounter.floor.offset(0, 1, 70), Blocks.CHEST.defaultBlockState(), 3);
             // Keep the completed encounter until the database commit is acknowledged.
@@ -224,12 +294,14 @@ public final class RunRuntime {
             ServerPlayer player=server.getPlayerList().getPlayer(entry.getKey());Encounter encounter=encounters.get(entry.getValue().runId);
             if(autoRespawn(player))continue;
             if(player==null||encounter==null||entry.getValue().dead)continue;
+            if(player.level()!=encounter.level)cancelChannel(player,CancelReason.DIMENSION);
+            else if(encounter.brazier!=null&&encounter.brazier.moved(player.getUUID(),player.position()))cancelChannel(player,CancelReason.MOVED);
             if(!inside(player,encounter))player.teleportTo(encounter.level,entry.getValue().lastSafe.x,entry.getValue().lastSafe.y,entry.getValue().lastSafe.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
             else if(player.onGround())entry.getValue().lastSafe=player.position();
         }
         for (Map.Entry<UUID, State> entry : playerRuns.entrySet()) {
             Encounter encounter = encounters.get(entry.getValue().runId);
-            if (encounter == null || encounter.failed || encounter.pausedAt!=0 || entry.getValue().dead || !entry.getValue().connected || encounter.stage != Stage.BRAZIER) continue;
+            if (encounter == null || encounter.brazier!=null || encounter.failed || encounter.pausedAt!=0 || entry.getValue().dead || !entry.getValue().connected || encounter.stage != Stage.BRAZIER) continue;
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             if (player == null) continue;
             if (encounter.mobs.isEmpty() && nearBrazier(player, encounter.floor, encounter.partySize)) {int ticks=encounter.brazierTicks.merge(entry.getKey(),1,Integer::sum);if(ticks>=80)mechanicAction.accept(player);}
@@ -238,7 +310,7 @@ public final class RunRuntime {
         for (Encounter encounter : new ArrayList<>(encounters.values())) {
             if(encounter.failed||encounter.pausedAt!=0||encounter.stage==Stage.COMPLETED)continue;
             tickMobs(server,encounter);
-            if (encounter.stage == Stage.BRAZIER) activateFinalBoss(encounter);
+            if (encounter.stage == Stage.BRAZIER) {tickBraziers(server,encounter);activateFinalBoss(encounter);}
             tickBoss(server, encounter);
         }
     }
@@ -246,6 +318,7 @@ public final class RunRuntime {
     public void leave(ServerPlayer player) { State state=playerRuns.get(player.getUUID());if(state!=null)close(((ServerLevel)player.level()).getServer(),state.runId); }
     public void disconnect(ServerPlayer player) {
         State state=playerRuns.get(player.getUUID());if(state==null)return;
+        cancelChannel(player,CancelReason.DISCONNECT);
         state.contribution.disconnect();
         state.connected=false;state.disconnectedAt=System.currentTimeMillis();
         spawnLinger(player);
@@ -430,16 +503,19 @@ public final class RunRuntime {
     }
 
     private void activateFinalBoss(Encounter encounter) {
+        if(encounter.brazier!=null){if(!encounter.brazier.complete()||!encounter.mobs.isEmpty())return;}
+        else {
         long ready = playerRuns.entrySet().stream().filter(entry -> entry.getValue().runId.equals(encounter.runId)).filter(entry -> encounter.brazierTicks.getOrDefault(entry.getKey(), 0) >= 80).count();
         if (ready < encounter.requiredInteractions || !encounter.mobs.isEmpty()) return;
         encounter.brazierTicks.clear();
-        encounter.stage=Stage.APPROACH;
+        }
+        encounter.stage=Stage.APPROACH;encounter.revision++;
         BeaconTowerMap.open(encounter.level,encounter.floor,45);
         spawnGroup(encounter,3);
     }
 
     private void spawnFinalBoss(Encounter encounter) {
-        encounter.stage = Stage.BEACON;
+        encounter.stage = Stage.BEACON;encounter.revision++;
         BeaconTowerMap.open(encounter.level, encounter.floor, 45);
         encounter.bossId = spawnBoss(encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", health(encounter.difficulty, encounter.content.encounter().finalBossHealth()));
         BeaconTowerBosses.style(encounter.level, encounter.bossId, true);
@@ -584,7 +660,7 @@ public final class RunRuntime {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
-        private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
-        private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize); }
+        private long revision=1; private final BrazierMechanic brazier; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
+        private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize); }
     }
 }
