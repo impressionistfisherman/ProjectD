@@ -657,3 +657,10 @@
 - 런 입장 코드는 `PartyRunService.open`을 호출하지 않는다. 명단이 없으면 `거절: 파티 명단은 아직 열리지 않았습니다.`
 - `verifyRunPartyMembership`은 build.gradle에 없다. 잠금을 잡고 따로 PASS. 전체 회귀 표에는 없다. 오스카 등록이 필요하다.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 197초. 검사 53개와 p1_integration_smoke.ps1 전부 PASS. 잠금은 끝나고 삭제. push 없음. 인게임 미실행. S03 `mechanicActions` 한 줄은 아직 없다.
+
+## P4-S08 준비 (2026-10-18)
+- V041 `run_kick_votes`. 대상은 분모에서 빠진다. 3명은 찬성 2/2, 4명은 2/3. 무응답은 기권이라 분모를 줄이지 않는다. 30초가 지나면 만료. 같은 대상은 닫힌 시각부터 60초. 59초는 거절, 60초는 허용. 보스 전투와 완료된 공략은 확정하지 않는다. 2명은 열지 않는다.
+- 정족수가 차도 `MemberExitAdapter.removeMember(..., KICKED)` 호출 자리만 있고, 어댑터는 비어 있다. 반환은 `WAITING`과 `거절: 추방 제거는 아직 준비되지 않았습니다.` 멤버는 지우지 않는다. 추방 확정은 반환하지 않는다.
+- F6 `임시 파티`에 `추방 투표`, `찬성`, `반대`. 화면은 서버 사유만 보여 준다.
+- `verifyRunKickVote`는 build.gradle에 없다. 잠금을 잡고 따로 PASS. 전체 회귀 표에는 없다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 230초. 검사 53개와 스모크 PASS. 이 슬라이스는 제거가 없어 PARTIAL. push 없음. 인게임 미실행. S03 한 줄은 아직 없다.
