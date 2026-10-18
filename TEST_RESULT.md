@@ -1094,3 +1094,16 @@
 ## P3 S11 전체 회귀 통과 (2026-10-18)
 - focused5 PASS27초 뒤 공유잠금 단일 전체44 모두 PASS/exit0/243.38초. assemble·임시35565 RunRespawnMixin PASS, 잠금해제 확인. OscarP3DB 사후계정0/요청0/schema35.
 - 제품 Java 변경 없음. JSON 의미변경은 bundle/run 버전과 강화뿐임을 비교 확인, 첫5단계 비용·확률 동일. 상세 research/MDF_P3_S11_OSCAR.md/.log/_timing.json. 인게임·push·배포 미실행, Creed 독립검토/god 최종승인 대기.
+- 2026-10-15 S03 재회귀: grok_p3_fixture, 연결 0, 계정 0, tools/p1_regression.ps1 exit 0. 표의 검사와 smoke 전부 PASS.
+- 2026-10-15 P3-S05: PASS verifyGatherNode. 공식 회귀 1회는 verifyStoryQuestCurve만 FAIL, 로그는 그 회차에 지워짐. 실패 출력을 남긴 재실행은 exit 1, FAIL은 verifyCharacterProfession. 본문: PSQLException, Driver ConnectTask.getResult, AccountRepository.openSession, CharacterProfessionCheck.main:17. 기대값/실제값 비교 전에는 접속이 끊겼다. StoryQuestCurve는 그 회차 PASS.
+
+- 2026-10-15 S05 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. tools/p1_regression.ps1 exit 0. verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, 저널·클라이언트 검사, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, p1_integration_smoke.ps1 모두 PASS.
+- 2026-10-15 P3-S06: PASS verifyBasicCraft. 가공은 위치와 무관하게 1회. 재생은 다시 만들지 않음. 캐릭터 귀속 연철석은 거절. 대장간 밖 제작은 철괴를 그대로 둠. 대장간 안에서는 철괴가 기초 부품 1이 됨.
+- 2026-10-16 S06 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. 커밋 d562dc9. tools/p1_regression.ps1 exit 0. verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyBasicCraft, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, 저널·클라이언트 검사, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, p1_integration_smoke.ps1 모두 PASS.
+- 2026-10-16 P3-S04: PASS verifyDirectTrade. 연철석 2는 한 번만 맡김. 재생은 다시 맡기지 않음. 회복 물품과 캐릭터 귀속은 거절. 한쪽 확인은 바꾸지 않음. 양쪽 확인 뒤에만 바뀜. 취소와 만료는 맡긴 것을 되돌림. 전체 회귀는 이 변경을 포함하지 않음.
+- 2026-10-16 S04 잠금 회귀: DALMARU_DB_NAME=grok_p3_fixture. 커밋 24002cc. tools/p1_regression.ps1 exit 0. verifyStarterSupply, verifyGrowthRewardGrant, verifyCharacterDeletion, verifyPaidStatReset, verifyVillageRoutes, verifyQuestStages, verifyCharacterExperience, verifyCharacterProfession, verifyCharacterSkill, verifyDirectTrade, verifyBasicCraft, verifyGatherNode, verifyNpcShop, verifyAccountVault, verifySupplyStay, 저널·클라이언트 검사, verifyProtocolVersion, verifyTrialGrowth, verifyProfessionGate, verifyWaypointReturn, verifyStoryQuestCurve, verifyStoryInvestigationLink, p1_integration_smoke.ps1 모두 PASS.
+- 2026-10-16 S04 수정: PASS verifyDirectTrade. 상대 맡김 전 확인은 거절. 다른 버전 확인은 거절. 맡김을 바꾸면 이전 확인은 풀리고 완료되지 않음. 완료·취소·만료 뒤 줄이 남음. 전 5와 3을 바꾸면 지갑과 trade.out/trade.in이 맞음.
+
+## P3 S04/S05/S06 통합 (2026-10-18)
+- 승인된 83fa4d2 병합: Grok 제품·마이그레이션 원본 보존, 양쪽 문서·회귀 태스크 합집합. 신규 검사 3개는 기존 공용 P3 DB guard 사용.
+- 회귀 스크립트 내부 공유 잠금 단독 사용. 외부 잠금 runner 중첩 실행 금지. Oscar/UTC/commit/dirty/token 기록 및 소유 token 확인 후 해제. 전체 회귀 결과 대기.

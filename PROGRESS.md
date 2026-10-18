@@ -583,3 +583,16 @@
 ## P3 S11 전체 회귀 통과 (2026-10-18)
 - focused5 PASS27초 뒤 공유잠금 단일 전체44 모두 PASS/exit0/243.38초. assemble·임시35565 RunRespawnMixin PASS, 잠금해제 확인. OscarP3DB 사후계정0/요청0/schema35.
 - 제품 Java 변경 없음. JSON 의미변경은 bundle/run 버전과 강화뿐임을 비교 확인, 첫5단계 비용·확률 동일. 상세 research/MDF_P3_S11_OSCAR.md/.log/_timing.json. 인게임·push·배포 미실행, Creed 독립검토/god 최종승인 대기.
+- 2026-10-15 S03 재회귀: 잔여 연결 0, 계정 0 확인 뒤 grok_p3_fixture 공식 회귀 1회 exit 0. 00bf7b7. 인게임 미실행.
+- 2026-10-15 P3-S05: 개인 채집. content/gathering.json 임시 지점. 계정 대기시간은 재접속 뒤에도 남고, 생활 경험치는 캐릭터별. 바닐라 캐기는 이 경로가 아니다. V034. verifyGatherNode PASS. 그 뒤 공식 회귀는 exit 1. 보존한 본문은 CharacterProfession의 접속 실패이고 StoryQuestCurve는 그 회차에서 PASS. 인게임 미실행.
+
+- 2026-10-15 S05 잠금 회귀: 06fc1cd, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
+- 2026-10-15 P3-S06: 연철석 1을 철괴 1로 가공한다. 철괴 1은 대장간(16,64,16, 반경 4) 안에서만 기초 부품이 된다. 캐릭터 귀속은 재료로 쓰지 못한다. content/crafting.json 임시. 마이그레이션 없음. verifyBasicCraft PASS. 인게임 미실행.
+- 2026-10-16 S06 잠금 회귀: d562dc9, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
+- 2026-10-16 P3-S04: 양쪽이 확인해야 맡긴 재료가 바뀐다. 취소와 만료는 되돌린다. 두 계정 잠금은 UUID 오름차순. 옮기기 전에 SupplyStay.refuseMove. V033 trade_offers. content/trade.json 임시 60초. 패킷 없음. verifyDirectTrade PASS. 이 커밋의 전체 회귀는 아직. 인게임 미실행.
+- 2026-10-16 S04 잠금 회귀: 24002cc, grok_p3_fixture, 잠금 사용, 공식 회귀 1회 exit 0. 인게임 미실행.
+- 2026-10-16 S04 수정: 확인은 제안 버전에 묶인다. 내용이 바뀌면 버전이 오르고 양쪽 확인은 풀린다. 줄이 없으면 확인은 거절. 완료·취소·만료 줄은 남긴다. 전도 맡길 수 있고 원장 사유는 trade.in, trade.out. V037. verifyDirectTrade PASS. 이 수정의 전체 회귀는 아직. 인게임 미실행.
+
+## P3 S04/S05/S06 통합 (2026-10-18)
+- 승인된 83fa4d2 병합: Grok 제품·마이그레이션 원본 보존, 양쪽 문서·회귀 태스크 합집합. 신규 검사 3개는 기존 공용 P3 DB guard 사용.
+- 회귀 스크립트 내부 공유 잠금 단독 사용. 외부 잠금 runner 중첩 실행 금지. Oscar/UTC/commit/dirty/token 기록 및 소유 token 확인 후 해제. 전체 회귀 결과 대기.

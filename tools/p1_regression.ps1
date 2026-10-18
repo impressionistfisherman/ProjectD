@@ -4,6 +4,9 @@ $ErrorActionPreference = 'Stop'
 $log = $null
 $err = $null
 $init = $null
+$lock = 'C:\Users\gusdl\OneDrive\Desktop\MunderDifflin\hive\locks\p3_full_regression.lock'
+$ownsLock = $false
+$lockToken = [guid]::NewGuid().ToString()
 function Say([string]$text) {
     if ($env:DALMARU_DB_PASSWORD) { $text = $text.Replace($env:DALMARU_DB_PASSWORD, '***') }
     Write-Output $text
@@ -16,10 +19,30 @@ try {
     $live = [IO.Path]::GetFullPath('C:\Users\gusdl\OneDrive\Desktop\Dalmaru').TrimEnd('\')
     $here = [IO.Path]::GetFullPath($root).TrimEnd('\')
     if ($here.Equals($live, [StringComparison]::OrdinalIgnoreCase)) { Say 'FAIL refusing to run in the live Dalmaru checkout'; exit 1 }
+    New-Item -ItemType Directory -Force -Path (Split-Path $lock) | Out-Null
+    while (-not $ownsLock) {
+        try {
+            $fs = [IO.File]::Open($lock, 'CreateNew', 'Write', 'Read')
+            $ownsLock = $true
+            try {
+                $metadata = @{name='Oscar';agent='oscar-muz4uhs4';startedAt=[DateTime]::UtcNow.ToString('o');commit=(git -C $root rev-parse HEAD).Trim();dirty=[bool](git -C $root status --porcelain);token=$lockToken} | ConvertTo-Json -Compress
+                $bytes = [Text.Encoding]::UTF8.GetBytes($metadata)
+                $fs.Write($bytes, 0, $bytes.Length)
+                $fs.Flush()
+            } finally { $fs.Dispose() }
+            Say 'LOCK_ACQUIRED'
+        } catch [IO.IOException] {
+            if ($ownsLock) { throw }
+            if (-not (Test-Path -LiteralPath $lock)) { throw }
+            if (([DateTime]::UtcNow - [IO.File]::GetLastWriteTimeUtc($lock)).TotalMinutes -ge 40) { Say 'FAIL regression lock is older than 40 minutes; notify god; do not remove'; exit 1 }
+            Say 'WAIT_LOCK'
+            Start-Sleep -Seconds 30
+        }
+    }
     $gradleFile = Join-Path $project 'build.gradle'
     $registered = [regex]::Matches((Get-Content -Raw $gradleFile), "tasks\.register\('([^']+)'") | ForEach-Object { $_.Groups[1].Value }
-    $tasks = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyEnhancementTail','verifyRewardEligibility','verifyInheritanceShare','verifyRefinementKeep','verifyRefinementGrade','verifyWeaponSlots','verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop') } | Select-Object -Unique)
-    $expected = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyEnhancementTail','verifyRewardEligibility','verifyInheritanceShare','verifyRefinementKeep','verifyRefinementGrade','verifyWeaponSlots','verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop') })
+    $tasks = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyEnhancementTail','verifyRewardEligibility','verifyInheritanceShare','verifyRefinementKeep','verifyRefinementGrade','verifyWeaponSlots','verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop','verifyGatherNode','verifyBasicCraft','verifyDirectTrade') } | Select-Object -Unique)
+    $expected = @($registered | Where-Object { $_ -match '^verify.*Journal$' -or $_ -match '^verifyRequestJournal' -or $_ -match '^verifyClient' -or $_ -match '^verifyQuest' -or $_ -eq 'verifyProtocolVersion' -or $_ -eq 'verifyEnhancementReplay' -or $_ -eq 'verifyRunAutoRespawnSafety' -or $_ -in @('verifyEnhancementTail','verifyRewardEligibility','verifyInheritanceShare','verifyRefinementKeep','verifyRefinementGrade','verifyWeaponSlots','verifyStarterSupply','verifyGrowthRewardGrant','verifyCharacterDeletion','verifyPaidStatReset','verifyVillageRoutes','verifyStoryInvestigationLink','verifyStoryQuestCurve','verifyWaypointReturn','verifyTrialGrowth','verifyProfessionGate','verifyCharacterExperience','verifyCharacterSkill','verifyCharacterProfession','verifySupplyStay','verifyAccountVault','verifyNpcShop','verifyGatherNode','verifyBasicCraft','verifyDirectTrade') })
     if ($tasks.Count -eq 0 -or $tasks.Count -ne $expected.Count) { Say 'FAIL task list does not match build.gradle'; exit 1 }
     $log = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.log')
     $err = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.err')
@@ -54,6 +77,12 @@ try {
     exit 0
 }
 finally {
+    if ($ownsLock) {
+        $current = [IO.File]::ReadAllText($lock) | ConvertFrom-Json
+        if ($current.token -ne $lockToken) { throw 'LOCK_OWNER_CHANGED: refusing to remove another owner lock' }
+        Remove-Item -LiteralPath $lock
+        Say 'LOCK_RELEASED'
+    }
     if ($log -and (Test-Path $log)) { Remove-Item -Force $log -ErrorAction SilentlyContinue }
     if ($err -and (Test-Path $err)) { Remove-Item -Force $err -ErrorAction SilentlyContinue }
     if ($init -and (Test-Path $init)) { Remove-Item -Force $init -ErrorAction SilentlyContinue }
