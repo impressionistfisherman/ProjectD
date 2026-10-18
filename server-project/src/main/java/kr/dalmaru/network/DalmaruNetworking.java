@@ -95,6 +95,7 @@ public final class DalmaruNetworking {
         };
         COMBAT.contributions(contribution,RUN_RUNTIME::contributionInput);
         COMBAT.mechanicActions(id -> { var player = ONLINE == null ? null : ONLINE.getPlayerList().getPlayer(id); if (player != null) RUN_RUNTIME.skillUsed(player); }, RUN_RUNTIME::receivedHit);
+        COMBAT.bossHooks(RUN_RUNTIME::bossDamageTaken, RUN_RUNTIME::bossSkillHit);
         RUN_RUNTIME.mechanicAction(player->contribution.accept(player,kr.dalmaru.run.RunContribution.Action.MECHANIC));
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.Hello.TYPE, DalmaruPayloads.Hello.CODEC);
         PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.WaypointRequest.TYPE,DalmaruPayloads.WaypointRequest.CODEC);
@@ -1540,19 +1541,33 @@ public final class DalmaruNetworking {
 		if (state == null || !state.compatible) return;
 		var snapshot = RUN_RUNTIME.mechanicSnapshot(player);
 		boolean active = snapshot != null && snapshot.phase() == kr.dalmaru.run.RunMechanicAccess.Phase.BRAZIER && !snapshot.braziers().isEmpty();
-		if (!active) {
+		String bosses = bossText(snapshot);
+		if (!active && bosses.isEmpty()) {
 			if (!state.brazierHud && result.isEmpty()) return;
 			state.brazierHud = false;
-			ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(0, 0, 0, 0, result, "IDLE", 0));
+			ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(0, 0, 0, 0, result, "IDLE", 0, ""));
 			return;
 		}
 		int lit = 0, remaining = 0;
-		for (var brazier : snapshot.braziers()) {
+		if (active) for (var brazier : snapshot.braziers()) {
 			if (brazier.lit()) lit++;
 			if (player.getUUID().equals(brazier.channelPlayerId())) remaining = brazier.remainingTicks();
 		}
 		state.brazierHud = true;
-		ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(snapshot.revision(), lit, snapshot.braziers().size(), remaining, result, snapshot.neglect().name(), Math.max(0, snapshot.neglectRemainingTicks())));
+		int total = active ? snapshot.braziers().size() : 0;
+		String neglect = active ? snapshot.neglect().name() : "IDLE";
+		int neglectTicks = active ? Math.max(0, snapshot.neglectRemainingTicks()) : 0;
+		ServerPlayNetworking.send(player, new DalmaruPayloads.P4BrazierHud(snapshot.revision(), lit, total, remaining, result, neglect, neglectTicks, bosses));
+	}
+
+	private static String bossText(kr.dalmaru.run.RunMechanicAccess.Snapshot snapshot) {
+		if (snapshot == null || snapshot.bosses().isEmpty()) return "";
+		var text = new StringBuilder();
+		for (var boss : snapshot.bosses()) {
+			if (text.length() > 0) text.append('|');
+			text.append(boss.health()).append('/').append(boss.maximumHealth()).append('/').append(boss.posture()).append('/').append(boss.maximumPosture()).append('/').append(boss.state().name()).append('/').append(Math.max(0, boss.remainingTicks()));
+		}
+		return text.toString();
 	}
 
 	private static void disconnect(ServerPlayNetworking.Context context, String message) {

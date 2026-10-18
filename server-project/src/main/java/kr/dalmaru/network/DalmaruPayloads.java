@@ -521,7 +521,7 @@ public record CharacterCreateRequest(long requestId, int slot, String displayNam
 		@Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 	}
 
-	public record P4BrazierHud(long revision, int litCount, int total, int remainingTicks, String result, String neglect, int neglectTicks) implements CustomPacketPayload {
+	public record P4BrazierHud(long revision, int litCount, int total, int remainingTicks, String result, String neglect, int neglectTicks, String bosses) implements CustomPacketPayload {
 		public static final Type<P4BrazierHud> TYPE = DalmaruPayloads.type("p4_brazier_hud");
 		public static final StreamCodec<RegistryFriendlyByteBuf, P4BrazierHud> CODEC = StreamCodec.of(
 			(buf, value) -> {
@@ -532,6 +532,7 @@ public record CharacterCreateRequest(long requestId, int slot, String displayNam
 				ByteBufCodecs.stringUtf8(32).encode(buf, value.result());
 				ByteBufCodecs.stringUtf8(16).encode(buf, value.neglect());
 				ByteBufCodecs.VAR_INT.encode(buf, value.neglectTicks());
+				ByteBufCodecs.stringUtf8(256).encode(buf, value.bosses());
 			},
 			buf -> new P4BrazierHud(
 				ByteBufCodecs.VAR_LONG.decode(buf),
@@ -540,7 +541,8 @@ public record CharacterCreateRequest(long requestId, int slot, String displayNam
 				ByteBufCodecs.VAR_INT.decode(buf),
 				ByteBufCodecs.stringUtf8(32).decode(buf),
 				ByteBufCodecs.stringUtf8(16).decode(buf),
-				ByteBufCodecs.VAR_INT.decode(buf)));
+				ByteBufCodecs.VAR_INT.decode(buf),
+				ByteBufCodecs.stringUtf8(256).decode(buf)));
 		@Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 	}
 

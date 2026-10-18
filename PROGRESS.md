@@ -682,3 +682,8 @@
 - 새 투표와 명단 조회는 만료된 열린 투표를 먼저 닫는다. 개시 31초 뒤 다른 대상 투표는 열린다. 같은 대상은 60초 안이면 거절한다.
 - 추방 확정은 여전히 반환하지 않는다. verifyRunKickVote는 잠금 아래 PASS이고 전체 회귀 스크립트에는 없다.
 - grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 213초. 검사 56개와 스모크 PASS. push 없음. 인게임 미실행.
+
+## P4-S04 보스 HUD (2026-10-18)
+- oscar/mdf-p4 @3ab081d를 머지했다. `bossHooks(RUN_RUNTIME::bossDamageTaken, RUN_RUNTIME::bossSkillHit)`는 인자 타입이 맞아 그대로 연결했다.
+- 보스 목록이 있으면 화로 단계가 아니어도 HUD에 체력/최대, 자세/최대, 보통·붕괴·면역, 남은 초를 표시한다. 목록이 비면 줄을 지운다.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 206초. 검사 61개와 스모크 PASS. verifyBossPartyScaling, verifyBossPosture, verifyRunKickVote, verifyProtocolVersion 포함. 인게임 미실행. push 없음.

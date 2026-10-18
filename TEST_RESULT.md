@@ -1179,3 +1179,7 @@
 ## P4-S08 크리드 수정 (2026-10-18)
 - grok_p3_fixture. `verifyRunKickVote` 잠금 실행. `Run kick vote PASS`. 개시 119초 거절, 120초 허용. 만료 투표를 닫은 뒤 31초 뒤 다른 대상은 OPEN, 같은 대상은 60초 거절. 조회도 만료 투표를 EXPIRED로 닫음. 소스는 GATEKEEPER와 BEACON을 함께 본다. 이 검사는 전체 회귀에 없다.
 - 잠금 단일 전체 회귀 exit 0, 약 213초. 검사 56개와 p1_integration_smoke.ps1 PASS. 잠금은 끝나고 삭제. 인게임 미실행. 추방 확정은 검사하지 않음.
+
+## P4-S04 보스 HUD (2026-10-18)
+- verifyProtocolVersion PASS. 코덱에 보스 문자열 `120.0/400.0/30.0/100.0/COLLAPSED/80`이 포함된다. 화면 문구는 임시 보스 체력, 자세, 보통, 붕괴, 면역, 남은 초.
+- grok_p3_fixture. 잠금 단일 전체 회귀 exit 0, 약 206초. 검사 61개와 p1_integration_smoke.ps1 PASS. verifyBossPartyScaling, verifyBossPosture, verifyRunPartyMembership, verifyRunKickVote, verifyRunEntryPartyOpen, verifyBrazierChannel, verifyBrazierNeglect 포함. 잠금은 끝나고 삭제. 인게임 HUD는 보지 않음.

@@ -40,7 +40,7 @@ public final class ProtocolVersionCheck {
             DalmaruPayloads.P4State.CODEC.encode(buffer, statePayload);
             require(statePayload.equals(DalmaruPayloads.P4State.CODEC.decode(buffer)), "P4 state roundtrip changed");
             buffer.clear();
-            var hudPayload = new DalmaruPayloads.P4BrazierHud(3, 1, 2, 40, "STARTED", "WARNING", 200);
+            var hudPayload = new DalmaruPayloads.P4BrazierHud(3, 1, 2, 40, "STARTED", "WARNING", 200, "120.0/400.0/30.0/100.0/COLLAPSED/80");
             DalmaruPayloads.P4BrazierHud.CODEC.encode(buffer, hudPayload);
             require(hudPayload.equals(DalmaruPayloads.P4BrazierHud.CODEC.decode(buffer)), "Brazier HUD roundtrip changed");
             buffer.clear();
@@ -100,9 +100,10 @@ public final class ProtocolVersionCheck {
         require(use > 0 && brazier > use && protect > brazier && server.contains("cancelBrazier"), "Brazier click must reach the server before the protected-block reject");
         String hud = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruBrazierHud.java"));
         String brazierState = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientBrazierState.java"));
-        require(hud.contains("ClientBrazierState.line()") && hud.contains("neglectLine()") && brazierState.contains("임시 화로") && brazierState.contains("남은 "), "Brazier HUD missing progress");
+        require(hud.contains("ClientBrazierState.line()") && hud.contains("neglectLine()") && hud.contains("bossLine()") && brazierState.contains("임시 화로") && brazierState.contains("남은 "), "Brazier HUD missing progress");
         require(brazierState.contains("임시 방치") && brazierState.contains("임시 경고") && brazierState.contains("임시 피해 중"), "Neglect HUD missing");
-        require(client.contains("cancel_brazier") && brazierState.contains("채널 진행") && !hud.contains("bosses") && !brazierState.contains("boss") && !server.contains("snapshot.bosses") && !hud.contains("성공") && !brazierState.contains("성공"), "Brazier HUD shows bosses or success");
+        require(brazierState.contains("임시 보스 체력") && brazierState.contains("자세") && brazierState.contains("붕괴") && brazierState.contains("면역") && server.contains("snapshot.bosses()") && server.contains("bossHooks"), "Boss HUD missing");
+        require(client.contains("cancel_brazier") && brazierState.contains("채널 진행") && !hud.contains("성공") && !brazierState.contains("성공"), "Brazier HUD shows success");
         require(client.contains("SoundEvents.BELL_BLOCK") && client.contains("SoundEvents.PLAYER_HURT") && client.contains("!\"WARNING\".equals(previous)") && client.contains("!\"DAMAGING\".equals(previous)") && !hud.contains("playSound"), "Neglect sound is not a one-shot vanilla transition");
         System.out.println("Protocol 34 constant/handshake/P3-mismatch-reject PASS");
     }
