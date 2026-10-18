@@ -188,7 +188,7 @@ public final class ContentCatalog {
                 if(!flag(sourceMechanics,"temporary"))throw new IllegalArgumentException("P4 mechanics must be labelled temporary");
                 var b=sourceMechanics.getAsJsonObject("brazier");var boss=sourceMechanics.getAsJsonObject("boss");
                 mechanics=new BeaconMechanics(new BeaconMechanics.Brazier(integer(b,"channelTicks"),number(b,"cancelDistance"),number(b,"interactionRadius"),integer(b,"overlapTicks"),integers(b,"counts"),integers(b,"simultaneous"),integer(b,"idleTicks"),integer(b,"warningTicks"),integer(b,"pulseTicks"),number(b,"maximumHealthFraction")),
-                    new BeaconMechanics.Boss(integer(boss,"gatekeeperPosture"),integer(boss,"beaconPosture"),integer(boss,"wallPostureDamage"),scales(boss,"postureScales"),number(boss,"trainingPostureScale"),integer(boss,"collapseTicks"),number(boss,"collapsedDamageScale"),integer(boss,"immunityTicks")),integer(sourceMechanics,"minimumTelegraphTicks"));
+                    new BeaconMechanics.Boss(integer(boss,"gatekeeperPosture"),integer(boss,"beaconPosture"),integer(boss,"wallPostureDamage"),scales(boss,"postureScales"),number(boss,"trainingPostureScale"),integer(boss,"collapseTicks"),number(boss,"collapsedDamageScale"),integer(boss,"immunityTicks"),endpoints(boss,"risingStrikePosture")),integer(sourceMechanics,"minimumTelegraphTicks"));
             }else if(version.startsWith("pilot-p4-"))throw new IllegalArgumentException("P4 requires mechanics schema");
             RefinementPolicy refinementPolicy=null;
             if(equipment.has("refinement")){
@@ -290,6 +290,7 @@ public final class ContentCatalog {
     private static int integer(JsonObject value,String key){return integer(value.get(key));}
     private static int integer(JsonElement value){if(value==null||!value.isJsonPrimitive()||!value.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Expected integer");int number=new java.math.BigDecimal(value.getAsString()).intValueExact();if(number<0)throw new IllegalArgumentException("Negative content value");return number;}
     private static double number(JsonObject value,String key){var field=value.get(key);if(field==null||!field.isJsonPrimitive()||!field.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Expected number: "+key);double number=field.getAsDouble();if(!Double.isFinite(number)||number<0)throw new IllegalArgumentException("Invalid numeric content value");return number;}
+    private static List<Double> endpoints(JsonObject source,String key){var values=new ArrayList<Double>();for(var entry:array(source,key)){if(!entry.isJsonPrimitive()||!entry.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Invalid endpoint");double value=entry.getAsDouble();if(!Double.isFinite(value)||value<=0||value>10000)throw new IllegalArgumentException("Invalid endpoint");values.add(value);}return values;}
     private static List<Double> scales(JsonObject source,String key){
         var values=new ArrayList<Double>();for(var entry:array(source,key)){
             if(!entry.isJsonPrimitive()||!entry.getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Invalid encounter scale");

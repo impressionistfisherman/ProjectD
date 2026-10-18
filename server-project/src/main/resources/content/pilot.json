@@ -1571,7 +1571,11 @@
       "trainingPostureScale": 1.2,
       "collapseTicks": 80,
       "collapsedDamageScale": 1.3,
-      "immunityTicks": 300
+      "immunityTicks": 300,
+      "risingStrikePosture": [
+        18,
+        30
+      ]
     }
   }
 }
