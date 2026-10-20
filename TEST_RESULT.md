@@ -1205,3 +1205,7 @@
 - verifyProtocolVersion, verifyP4PlayAccess, verifyClientScreenBounds PASS. DB 없음.
 - grok_p3_fixture. 잠금 `verifyRunEntryPartyOpen` PASS. 입장 전 초대·수락·명단은 `거절: 입장 후 초대할 수 있습니다.` 입장 후 초대와 철문수장 시작 후 거절은 그대로다.
 - 잠금 단일 전체 회귀 exit 0, 약 209초. FAIL 0. 검사 72개와 p1_integration_smoke.ps1 PASS. RunRespawnMixin PASS. 잠금은 끝나고 삭제. 인게임 미실행. push 없음.
+
+## P4 쌍도끼 검사 기대값 (2026-10-20, MDF-23)
+- verifySoloCombatDefinitions PASS. `Solo equipment ownership/budget, RPG units, and 208/277 strike reference verified.` DB 없음.
+- Toby 잠금 대기 5회 뒤 grok_p3_fixture 잠금 전체 회귀 exit 0. 벽시계 352초. FAIL 0. verifySoloCombatDefinitions 포함 73개와 p1_integration_smoke.ps1 PASS. RunRespawnMixin PASS. 잠금은 끝나고 삭제. push 없음.
