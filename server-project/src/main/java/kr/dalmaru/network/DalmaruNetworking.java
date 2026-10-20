@@ -1003,7 +1003,8 @@ public final class DalmaruNetworking {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		if (state == null || state.accountSession == null) return;
 		AccountSession session = state.accountSession;
-		CompletableFuture.supplyAsync(() -> { try { return RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, death.runId(), false); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(run -> server.execute(() -> { RUN_RUNTIME.close(server,death.runId());acknowledgeReturns(server,death.runId());player.sendSystemMessage(Component.literal("부활 횟수를 모두 사용해 폐봉수대 공략에 실패했습니다.")); })).exceptionally(error -> { LOGGER.error("Failed to close run after final death.", error); return null; });
+		String failMessage = kr.dalmaru.run.RunEncounterRules.finalDeathMessage(RUN_RUNTIME.revivesRemaining(player));
+		CompletableFuture.supplyAsync(() -> { try { return RUNS.finish(session.accountId(), session.connectionGeneration(), System.nanoTime() & Long.MAX_VALUE, death.runId(), false); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(run -> server.execute(() -> { RUN_RUNTIME.close(server,death.runId());acknowledgeReturns(server,death.runId());player.sendSystemMessage(Component.literal(failMessage)); })).exceptionally(error -> { LOGGER.error("Failed to close run after final death.", error); return null; });
 	}
 
 	private static kr.dalmaru.combat.CombatRules.TargetKind controlKind(LivingEntity target){

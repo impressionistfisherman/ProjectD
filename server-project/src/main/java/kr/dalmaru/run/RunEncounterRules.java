@@ -17,6 +17,8 @@ public final class RunEncounterRules {
     public static boolean pauseExpired(long pausedAt,long now){return pausedAt!=0&&now-pausedAt>RECONNECT_WINDOW_MS;}
     /** Whole-run pause start after a presence check: a living member lifts it (revive/reconnect); nobody keeps or starts it. */
     public static long pausedAfterCheck(long pausedAt,boolean survivorPresent,long now){return survivorPresent?0:(pausedAt!=0?pausedAt:now);}
+    /** Final-failure chat line: "revives used up" only when none are left; a party wipe with revives left says so. */
+    public static String finalDeathMessage(int revivesRemaining){return revivesRemaining>0?"전원이 쓰러져 폐봉수대 공략에 실패했습니다.":"부활 횟수를 모두 사용해 폐봉수대 공략에 실패했습니다.";}
     public static boolean lingering(long disconnectedAt,long now){return disconnectedAt!=0&&now-disconnectedAt<DISCONNECT_LINGER_MS;}
     public static boolean countsAsSurvivor(boolean connected,boolean dead,long disconnectedAt,long now){return !dead&&(connected||lingering(disconnectedAt,now));}
 

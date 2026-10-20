@@ -45,6 +45,12 @@ public final class RunReconnectWindowCheck {
         String quiet = Files.readString(Path.of("src/main/java/kr/dalmaru/run/RunRuntime.java"));
         check(quiet.contains("RunEncounterRules.pausedAfterCheck(encounter.pausedAt,present,now)") && !quiet.contains("encounter==null||encounter.pausedAt!=0||encounter.failed)return;\n        boolean present"), "Runtime does not lift the pause through the rule");
 
+        // MDF-23 B04: the final-failure chat line follows the remaining revives, not the wipe itself.
+        check(RunEncounterRules.finalDeathMessage(5).equals(RunEncounterRules.finalDeathMessage(2)) && !RunEncounterRules.finalDeathMessage(2).contains("모두 사용"), "Wipe with revives left claims they were used up");
+        check(RunEncounterRules.finalDeathMessage(0).contains("모두 사용") && !RunEncounterRules.finalDeathMessage(0).equals(RunEncounterRules.finalDeathMessage(1)), "Revives used up message lost");
+        String networking = Files.readString(Path.of("src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
+        check(networking.contains("RunEncounterRules.finalDeathMessage(RUN_RUNTIME.revivesRemaining(player))") && !networking.contains("literal(\"부활 횟수를 모두 사용해"), "Final death message is not tied to remaining revives");
+
         // The runtime uses the rules everywhere the old 5-minute limit lived and rejects removed members.
         String runtime = Files.readString(Path.of("src/main/java/kr/dalmaru/run/RunRuntime.java"));
         check(!runtime.contains("300000"), "A 5-minute pause limit survived in the runtime");
