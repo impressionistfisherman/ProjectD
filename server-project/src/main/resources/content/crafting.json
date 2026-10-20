@@ -47,5 +47,18 @@
         {"materialId": "material.basic_fitting", "binding": "FREE", "quantity": 1, "drops": ["craft.iron_blade"]}
       ]
     }
+  ],
+  "precision": [
+    {
+      "id": "craft.precision_blade",
+      "job": "blacksmith",
+      "proficiency": 21,
+      "station": "station.forge",
+      "equipmentItem": "gear.iron_blade",
+      "steps": [
+        {"choice": "heat", "materialId": "material.iron_ingot", "binding": "FREE", "quantity": 1},
+        {"choice": "quench", "materialId": "material.basic_fitting", "binding": "FREE", "quantity": 1}
+      ]
+    }
   ]
 }

@@ -70,6 +70,7 @@ public final class DalmaruNetworking {
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
 	private static final kr.dalmaru.life.LifeProfessionRepository LIFE = new kr.dalmaru.life.LifeProfessionRepository();
 	private static final kr.dalmaru.craft.CraftResearchRepository RESEARCH = new kr.dalmaru.craft.CraftResearchRepository();
+	private static final kr.dalmaru.craft.PrecisionOrderRepository PRECISION = new kr.dalmaru.craft.PrecisionOrderRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -568,6 +569,14 @@ public final class DalmaruNetworking {
                         if((body.size()!=1&&body.size()!=2)||!body.has("recipeId")||!body.get("recipeId").isJsonPrimitive()||!body.getAsJsonPrimitive("recipeId").isString())throw new IllegalArgumentException("Invalid learned craft body");
                         craftLearned(context,payload.correlationId(),body.get("recipeId").getAsString(),envelope);
                     }
+                case "begin_precision"->{
+                        if(body.size()!=2||!body.has("recipeId")||!body.get("recipeId").isJsonPrimitive()||!body.getAsJsonPrimitive("recipeId").isString()||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid precision body");
+                        beginPrecision(context,payload.correlationId(),body.get("recipeId").getAsString(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
+                    }
+                case "step_precision"->{
+                        if(body.size()!=3||!body.has("orderId")||!body.get("orderId").isJsonPrimitive()||!body.getAsJsonPrimitive("orderId").isString()||!body.has("stepIndex")||!body.get("stepIndex").isJsonPrimitive()||!body.getAsJsonPrimitive("stepIndex").isNumber()||!body.has("choice")||!body.get("choice").isJsonPrimitive()||!body.getAsJsonPrimitive("choice").isString())throw new IllegalArgumentException("Invalid precision body");
+                        stepPrecision(context,payload.correlationId(),UUID.fromString(body.get("orderId").getAsString()),body.get("stepIndex").getAsInt(),body.get("choice").getAsString(),envelope);
+                    }
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -722,6 +731,36 @@ public final class DalmaruNetworking {
         int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
         try{
             var made=RESEARCH.craftJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),recipeId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void beginPrecision(ServerPlayNetworking.Context context,long correlation,String recipeId,UUID equipmentId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=PRECISION.beginJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),recipeId,equipmentId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void stepPrecision(ServerPlayNetworking.Context context,long correlation,UUID orderId,int stepIndex,String choice,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=PRECISION.stepJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),orderId,stepIndex,choice,dimension,x,y,z,envelope);
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){

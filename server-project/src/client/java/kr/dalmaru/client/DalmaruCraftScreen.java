@@ -15,11 +15,12 @@ final class DalmaruCraftScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int count = 3, left = Math.max(8, (width - 300) / 2), buttonWidth = Math.min(300, width - 16), step = Math.min(22, (height - 16) / count), buttonHeight = Math.min(20, step - 2), top = (height - ((count - 1) * step + buttonHeight)) / 2;
+		int count = 4, left = Math.max(8, (width - 300) / 2), buttonWidth = Math.min(300, width - 16), step = Math.min(22, (height - 16) / count), buttonHeight = Math.min(20, step - 2), top = (height - ((count - 1) * step + buttonHeight)) / 2;
 		statusButton = addRenderableWidget(Button.builder(Component.literal(""), button -> { }).bounds(left, top, buttonWidth, buttonHeight).build());
 		statusButton.active = false;
 		addRenderableWidget(Button.builder(Component.literal("연구"), button -> DalmaruClient.requestCraftResearch()).bounds(left, top + step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("제작"), button -> DalmaruClient.requestLearnedCraft()).bounds(left, top + 2 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("정밀 주문"), button -> minecraft.setScreen(new DalmaruPrecisionScreen(this))).bounds(left, top + 3 * step, buttonWidth, buttonHeight).build());
 	}
 
 	@Override

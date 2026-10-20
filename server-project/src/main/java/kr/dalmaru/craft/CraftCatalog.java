@@ -18,11 +18,14 @@ public final class CraftCatalog {
 	public record Trial(String materialId, String binding, int quantity, List<String> drops) { }
 	public record Clue(String id, String job, int proficiency, String stationId, List<String> candidates, List<Trial> trials) { }
 	public record Learned(String id, String job, int proficiency, String stationId, String attribute, List<Input> inputs, Output output, boolean equipment) { }
+	public record PrecisionStep(String choice, String materialId, String binding, int quantity) { }
+	public record Precision(String id, String job, int proficiency, String stationId, String equipmentItem, List<PrecisionStep> steps) { }
 
 	private static final Map<String, Station> STATIONS = new HashMap<>();
 	private static final Map<String, Recipe> RECIPES = new HashMap<>();
 	private static final Map<String, Learned> LEARNED = new HashMap<>();
 	private static final Map<String, Clue> CLUES = new HashMap<>();
+	private static final Map<String, Precision> PRECISION = new HashMap<>();
 
 	static { load(); }
 
@@ -36,6 +39,12 @@ public final class CraftCatalog {
 
 	public static Learned learned(String id) {
 		Learned recipe = LEARNED.get(id);
+		if (recipe == null) throw new IllegalArgumentException("Unknown recipe: " + id);
+		return recipe;
+	}
+
+	public static Precision precision(String id) {
+		Precision recipe = PRECISION.get(id);
 		if (recipe == null) throw new IllegalArgumentException("Unknown recipe: " + id);
 		return recipe;
 	}
@@ -128,6 +137,23 @@ public final class CraftCatalog {
 				int proficiency = clue.get("proficiency").getAsInt();
 				if (id.isBlank() || CLUES.containsKey(id) || candidates.size() < 2 || trials.isEmpty() || proficiency < 1 || (!stationId.isEmpty() && !STATIONS.containsKey(stationId))) throw new IllegalStateException("Invalid craft clue: " + id);
 				CLUES.put(id, new Clue(id, clue.get("job").getAsString(), proficiency, stationId, List.copyOf(candidates), List.copyOf(trials)));
+			}
+			if (root.has("precision")) for (var entry : root.getAsJsonArray("precision")) {
+				var recipe = entry.getAsJsonObject();
+				String id = recipe.get("id").getAsString();
+				String stationId = recipe.has("station") && !recipe.get("station").isJsonNull() ? recipe.get("station").getAsString() : "";
+				var steps = new ArrayList<PrecisionStep>();
+				for (var step : recipe.getAsJsonArray("steps")) {
+					var line = step.getAsJsonObject();
+					String choice = line.get("choice").getAsString();
+					String binding = line.get("binding").getAsString();
+					int quantity = line.get("quantity").getAsInt();
+					if (choice.isBlank() || steps.stream().anyMatch(existing -> existing.choice().equals(choice)) || line.get("materialId").getAsString().isBlank() || quantity < 1 || (!"FREE".equals(binding) && !"ACCOUNT".equals(binding) && !"CHARACTER".equals(binding))) throw new IllegalStateException("Invalid precision step: " + id);
+					steps.add(new PrecisionStep(choice, line.get("materialId").getAsString(), binding, quantity));
+				}
+				int proficiency = recipe.get("proficiency").getAsInt();
+				if (id.isBlank() || PRECISION.containsKey(id) || RECIPES.containsKey(id) || steps.isEmpty() || proficiency < 1 || recipe.get("equipmentItem").getAsString().isBlank() || (!stationId.isEmpty() && !STATIONS.containsKey(stationId))) throw new IllegalStateException("Invalid precision recipe: " + id);
+				PRECISION.put(id, new Precision(id, recipe.get("job").getAsString(), proficiency, stationId, recipe.get("equipmentItem").getAsString(), List.copyOf(steps)));
 			}
 		} catch (IOException exception) {
 			throw new IllegalStateException("Cannot load craft recipes", exception);
