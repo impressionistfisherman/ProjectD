@@ -68,6 +68,7 @@ public final class DalmaruNetworking {
 
 	private static final AccountRepository ACCOUNTS = new AccountRepository();
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
+	private static final kr.dalmaru.life.LifeProfessionRepository LIFE = new kr.dalmaru.life.LifeProfessionRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -164,6 +165,8 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.SkillLearnResponse.TYPE, DalmaruPayloads.SkillLearnResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.SkillRanksRequest.TYPE, DalmaruPayloads.SkillRanksRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.SkillRanksResponse.TYPE, DalmaruPayloads.SkillRanksResponse.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.LifeProfileRequest.TYPE, DalmaruPayloads.LifeProfileRequest.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.LifeProfileResponse.TYPE, DalmaruPayloads.LifeProfileResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.CharacterCreateRequest.TYPE, DalmaruPayloads.CharacterCreateRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.CharacterCreateResponse.TYPE, DalmaruPayloads.CharacterCreateResponse.CODEC);
 
@@ -544,6 +547,10 @@ public final class DalmaruNetworking {
                     int stat,amount;try{stat=body.get("statId").getAsBigDecimal().intValueExact();amount=body.get("amount").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid stat integer",error);}
                     investStatRequest(context,payload.correlationId(),envelope.activeCharacterId(),stat,amount,envelope);
                 }
+                case "learn_life"->{
+                        if(body.size()!=1||!body.has("job")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString())throw new IllegalArgumentException("Invalid life body");
+                        learnLife(context,payload.correlationId(),body.get("job").getAsString(),envelope);
+                    }
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -562,6 +569,14 @@ public final class DalmaruNetworking {
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE,(payload,context)->prepareRun(payload,context));
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnRequest.TYPE,(payload,context)->learnSkillRequest(context,payload.requestId(),payload.skillId(),null));
+		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LifeProfileRequest.TYPE, (payload, context) -> {
+			ConnectionState state = stateFor(context.player().getUUID());
+			if (payload.requestId() < 1 || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
+			AccountSession session = state.accountSession;
+			CompletableFuture.supplyAsync(() -> { try { return LIFE.profile(session.accountId(), session.connectionGeneration(), session.activeCharacterId()); } catch (Exception exception) { throw new IllegalStateException(exception); } })
+				.thenAccept(snapshot -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.LifeProfileResponse(payload.requestId(), snapshot.get("status").getAsString(), snapshot.toString())); }))
+				.exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.LifeProfileResponse(payload.requestId(), "STALE_SESSION", "{}"))); return null; });
+		});
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
@@ -641,6 +656,19 @@ public final class DalmaruNetworking {
 		int damage = COMBAT.targetedAttack(player,target,amount/player.getAttributeValue(Attributes.ATTACK_DAMAGE),defense,false,currentTick);
 		return CombatRuntime.hurtRpg(target, player.damageSources().playerAttack(player), damage);
 	}
+    private static void learnLife(ServerPlayNetworking.Context context,long correlation,String job,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var learned=LIFE.learnJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,envelope);
+            var receipt=learned.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
     }

@@ -111,6 +111,7 @@ public final class DalmaruClient implements ClientModInitializer {
 			(payload, context) -> ClientProfileState.acceptProfession(payload));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnResponse.TYPE,
 			(payload, context) -> {ClientProfileState.acceptSkill(payload);requestSkillRanks();requestLoadout();});
+		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LifeProfileResponse.TYPE, (payload, context) -> ClientLifeState.acceptProfile(payload.status(), payload.snapshot()));
 		ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksResponse.TYPE,
 			(payload, context) -> ClientSkillState.accept(payload));
         ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RefinementStateResponse.TYPE,(payload,context)->{var profile=ClientProfileState.current();if(profile!=null&&profile.characterId().equals(payload.characterId()))ClientEquipmentState.acceptRefinement(payload);});
@@ -215,6 +216,18 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         var body=new com.google.gson.JsonObject();body.addProperty("characterId",characterId.toString());
         var request=ClientRequestState.begin(ClientCharacterState.nextLifeRequestId(),restore?"restore_character":"delete_character",body);
         if(request!=null)ClientPlayNetworking.send(request);
+    }
+
+    public static void requestLifeProfile() {
+        if (!ClientConnectionState.isCompatible()) return;
+        ClientPlayNetworking.send(new DalmaruPayloads.LifeProfileRequest(ClientLifeState.nextId()));
+    }
+
+    public static void requestLifeLearn(String job) {
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("job", job);
+        var request = ClientRequestState.begin(ClientLifeState.nextId(), "learn_life", body);
+        if (request != null) ClientPlayNetworking.send(request);
     }
 
     public static void requestVillages() {
@@ -414,6 +427,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if(java.util.Set.of("vault_move","shop_trade","gather_node","craft_recipe","direct_trade","claim_mail","view_auction","bid_auction","leave_auction").contains(request.operation())){ClientPlayAccessState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
+        if("learn_life".equals(request.operation())){ClientLifeState.acceptLearn(receipt.result(),"rejected".equals(receipt.state()));return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
         else{

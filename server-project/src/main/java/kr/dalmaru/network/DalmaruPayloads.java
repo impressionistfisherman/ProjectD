@@ -439,6 +439,18 @@ public record SkillRanksRequest(long requestId) implements CustomPacketPayload {
 	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
 
+public record LifeProfileRequest(long requestId) implements CustomPacketPayload {
+	public static final CustomPacketPayload.Type<LifeProfileRequest> TYPE = DalmaruPayloads.type("life_profile_request");
+	public static final StreamCodec<RegistryFriendlyByteBuf, LifeProfileRequest> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, LifeProfileRequest::requestId, LifeProfileRequest::new);
+	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+}
+
+public record LifeProfileResponse(long requestId, String status, String snapshot) implements CustomPacketPayload {
+	public static final CustomPacketPayload.Type<LifeProfileResponse> TYPE = DalmaruPayloads.type("life_profile_response");
+	public static final StreamCodec<RegistryFriendlyByteBuf, LifeProfileResponse> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, LifeProfileResponse::requestId, ByteBufCodecs.stringUtf8(32), LifeProfileResponse::status, ByteBufCodecs.stringUtf8(8192), LifeProfileResponse::snapshot, LifeProfileResponse::new);
+	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+}
+
 public record SkillRanksResponse(long requestId, List<SkillRank> ranks) implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<SkillRanksResponse> TYPE = DalmaruPayloads.type("skill_ranks_response");
 	public static final StreamCodec<RegistryFriendlyByteBuf, SkillRanksResponse> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, SkillRanksResponse::requestId, ByteBufCodecs.collection(ArrayList::new, SkillRank.CODEC), SkillRanksResponse::ranks, SkillRanksResponse::new);

@@ -159,6 +159,11 @@ tasks.register('verifyBasicCraft', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = 'kr.dalmaru.BasicCraftCheck'
 }
+tasks.register('verifyP5LifeProficiency', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.P5LifeProficiencyCheck'
+}
 tasks.register('verifyGatherNode', JavaExec) {
 	group = 'verification'
 	classpath = sourceSets.test.runtimeClasspath
