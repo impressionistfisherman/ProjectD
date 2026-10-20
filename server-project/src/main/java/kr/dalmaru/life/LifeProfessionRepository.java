@@ -34,6 +34,35 @@ public final class LifeProfessionRepository {
 		return mutate(accountId, correlationId, characterId, envelope, connection -> addProficiency(connection, characterId, job, amount));
 	}
 
+	public Learned specializeJournaled(UUID accountId, long generation, long correlationId, UUID characterId, String job, String specialization, RequestEnvelope envelope) throws SQLException {
+		if (correlationId < 1 || envelope == null || !characterId.equals(envelope.activeCharacterId()) || !"specialize_life".equals(envelope.operation())) throw new IllegalArgumentException("Invalid life request.");
+		var body = envelope.payload();
+		if (body.size() != 2 || !job.equals(text(body, "job")) || !specialization.equals(text(body, "specialization")) || !JOB_SET.contains(job)) throw new IllegalArgumentException("Unknown life job.");
+		try (var connection = connect()) {
+			connection.setAutoCommit(false);
+			try {
+				var stored = RequestJournal.begin(connection, accountId, correlationId, envelope);
+				if (stored.result() != null) { connection.commit(); return new Learned(stored.result(), stored.receipt(), true); }
+				lockProfile(connection, characterId);
+				int spent = applySpecialization(connection, characterId, job, specialization, stored.receipt().eventId());
+				var outcome = snapshot(connection, characterId, "OK");
+				outcome.addProperty("operation", envelope.operation());
+				outcome.addProperty("characterId", characterId.toString());
+				outcome.addProperty("copperSpent", spent);
+				var receipt = RequestJournal.confirm(connection, stored, outcome);
+				connection.commit();
+				return new Learned(outcome, receipt, false);
+			} catch (Exception exception) { connection.rollback(); if (exception instanceof SQLException sql) throw sql; if (exception instanceof RuntimeException runtime) throw runtime; throw new SQLException(exception); }
+		}
+	}
+
+	public Learned completeTaskJournaled(UUID accountId, long generation, long correlationId, UUID characterId, String job, RequestEnvelope envelope) throws SQLException {
+		if (correlationId < 1 || envelope == null || !characterId.equals(envelope.activeCharacterId()) || !"complete_life_task".equals(envelope.operation())) throw new IllegalArgumentException("Invalid life request.");
+		var body = envelope.payload();
+		if (body.size() != 1 || !job.equals(text(body, "job")) || !JOB_SET.contains(job)) throw new IllegalArgumentException("Unknown life job.");
+		return mutate(accountId, correlationId, characterId, envelope, connection -> completeTask(connection, characterId, job));
+	}
+
 	public JsonObject profile(UUID accountId, long generation, UUID characterId) throws SQLException {
 		try (var connection = connect()) {
 			if (!characterId.equals(activeCharacter(connection, accountId, generation))) throw new IllegalArgumentException("Stale life session.");
@@ -84,6 +113,73 @@ public final class LifeProfessionRepository {
 				}
 			}
 		}
+	}
+
+	private int applySpecialization(java.sql.Connection connection, UUID characterId, String job, String specialization, UUID eventId) throws SQLException {
+		int required = tier(job, specialization);
+		try (var query = connection.prepareStatement("SELECT proficiency, specialization FROM dalmaru.character_life_professions WHERE character_id=? AND job=? FOR UPDATE")) {
+			query.setObject(1, characterId);
+			query.setString(2, job);
+			try (var row = query.executeQuery()) {
+				if (!row.next()) throw new IllegalArgumentException("Life job is not learned.");
+				int proficiency = row.getInt(1);
+				String current = row.getString(2);
+				if (proficiency < required) throw new IllegalArgumentException("Life specialization is not ready.");
+				if (specialization.equals(current)) throw new IllegalArgumentException("Life specialization is already chosen.");
+				int cost = current == null ? 0 : 500;
+				if (cost > 0) charge(connection, characterId, cost, eventId);
+				try (var update = connection.prepareStatement("UPDATE dalmaru.character_life_professions SET specialization=?, first_specialization_used=TRUE WHERE character_id=? AND job=?")) {
+					update.setString(1, specialization);
+					update.setObject(2, characterId);
+					update.setString(3, job);
+					if (update.executeUpdate() != 1) throw new SQLException("Life specialization update lost its row.");
+				}
+				return cost;
+			}
+		}
+	}
+
+	private void completeTask(java.sql.Connection connection, UUID characterId, String job) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT specialization, task_state FROM dalmaru.character_life_professions WHERE character_id=? AND job=? FOR UPDATE")) {
+			query.setObject(1, characterId);
+			query.setString(2, job);
+			try (var row = query.executeQuery()) {
+				if (!row.next() || !(job + ".grandmaster").equals(row.getString(1))) throw new IllegalArgumentException("Life task is not ready.");
+				if ("done".equals(row.getString(2))) throw new IllegalArgumentException("Life task is already done.");
+				try (var update = connection.prepareStatement("UPDATE dalmaru.character_life_professions SET task_state='done' WHERE character_id=? AND job=?")) {
+					update.setObject(1, characterId);
+					update.setString(2, job);
+					if (update.executeUpdate() != 1) throw new SQLException("Life task update lost its row.");
+				}
+			}
+		}
+	}
+
+	private void charge(java.sql.Connection connection, UUID characterId, int cost, UUID eventId) throws SQLException {
+		try (var wallet = connection.prepareStatement("UPDATE dalmaru.character_wallet SET copper=copper-? WHERE character_id=? AND copper>=?")) {
+			wallet.setInt(1, cost);
+			wallet.setObject(2, characterId);
+			wallet.setInt(3, cost);
+			if (wallet.executeUpdate() != 1) throw new IllegalArgumentException("Insufficient copper.");
+		}
+		try (var ledger = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id, character_id, source_run_id, reason, copper_delta) VALUES(?, ?, NULL, 'life_specialization', ?)")) {
+			ledger.setObject(1, eventId);
+			ledger.setObject(2, characterId);
+			ledger.setInt(3, -cost);
+			ledger.executeUpdate();
+		}
+	}
+
+	private static int tier(String job, String specialization) {
+		String prefix = job + ".";
+		if (!specialization.startsWith(prefix)) throw new IllegalArgumentException("Unknown life specialization.");
+		return switch (specialization.substring(prefix.length())) {
+			case "journeyman" -> 21;
+			case "expert" -> 41;
+			case "master" -> 61;
+			case "grandmaster" -> 81;
+			default -> throw new IllegalArgumentException("Unknown life specialization.");
+		};
 	}
 
 	private void lockProfile(java.sql.Connection connection, UUID characterId) throws SQLException {

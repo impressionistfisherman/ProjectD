@@ -551,6 +551,14 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("job")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString())throw new IllegalArgumentException("Invalid life body");
                         learnLife(context,payload.correlationId(),body.get("job").getAsString(),envelope);
                     }
+                case "specialize_life"->{
+                        if(body.size()!=2||!body.has("job")||!body.has("specialization")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString()||!body.get("specialization").isJsonPrimitive()||!body.getAsJsonPrimitive("specialization").isString())throw new IllegalArgumentException("Invalid life specialization body");
+                        specializeLife(context,payload.correlationId(),body.get("job").getAsString(),body.get("specialization").getAsString(),envelope);
+                    }
+                case "complete_life_task"->{
+                        if(body.size()!=1||!body.has("job")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString())throw new IllegalArgumentException("Invalid life task body");
+                        completeLifeTask(context,payload.correlationId(),body.get("job").getAsString(),envelope);
+                    }
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -656,6 +664,32 @@ public final class DalmaruNetworking {
 		int damage = COMBAT.targetedAttack(player,target,amount/player.getAttributeValue(Attributes.ATTACK_DAMAGE),defense,false,currentTick);
 		return CombatRuntime.hurtRpg(target, player.damageSources().playerAttack(player), damage);
 	}
+    private static void specializeLife(ServerPlayNetworking.Context context,long correlation,String job,String specialization,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var learned=LIFE.specializeJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,specialization,envelope);
+            var receipt=learned.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void completeLifeTask(ServerPlayNetworking.Context context,long correlation,String job,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var learned=LIFE.completeTaskJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,envelope);
+            var receipt=learned.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
     private static void learnLife(ServerPlayNetworking.Context context,long correlation,String job,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
