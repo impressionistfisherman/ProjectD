@@ -340,6 +340,36 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if (client != null) client.setScreen(new DalmaruHousingScreen(client.screen));
     }
 
+    public static void cycleHomePlot() { ClientHousingState.cyclePlot(); }
+
+    public static void cycleHomeCrop() { ClientHousingState.cycleCrop(); }
+
+    public static void requestMarket(String operation) {
+        var body = new com.google.gson.JsonObject();
+        if ("stash_market".equals(operation)) {
+            body.addProperty("materialId", ClientMarketState.material());
+            body.addProperty("quantity", ClientMarketState.quantity());
+        }
+        if ("list_market".equals(operation)) {
+            if (ClientMarketState.stashId() == null) { ClientMarketState.accept("{\"status\":\"ABSENT\"}", true); return; }
+            body.addProperty("stashId", ClientMarketState.stashId());
+            body.addProperty("channel", "STALL");
+            body.addProperty("price", ClientMarketState.price());
+        }
+        if ("buy_market".equals(operation)) {
+            if (ClientMarketState.listingId() == null) { ClientMarketState.accept("{\"status\":\"ABSENT\"}", true); return; }
+            body.addProperty("listingId", ClientMarketState.listingId());
+            body.addProperty("price", ClientMarketState.price());
+        }
+        if ("cancel_market".equals(operation) || "claim_market".equals(operation)) {
+            String id = "claim_market".equals(operation) ? ClientMarketState.stashId() : ClientMarketState.listingId();
+            if (id == null) { ClientMarketState.accept("{\"status\":\"ABSENT\"}", true); return; }
+            body.addProperty("claim_market".equals(operation) ? "stashId" : "listingId", id);
+        }
+        var request = ClientRequestState.begin(ClientMarketState.nextId(), operation, body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
     public static void requestProduction(String operation) {
         var body = new com.google.gson.JsonObject();
         if ("enqueue_production".equals(operation)) {
@@ -576,6 +606,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("place_craft_order".equals(request.operation())||"accept_craft_order".equals(request.operation())||"settle_craft_order".equals(request.operation())||"cancel_craft_order".equals(request.operation())){ClientCraftOrderState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("create_home".equals(request.operation())||"enter_home".equals(request.operation())||"leave_home".equals(request.operation())||"grant_home".equals(request.operation())||"revoke_home".equals(request.operation())||"place_home".equals(request.operation())||"expand_home".equals(request.operation())||"plant_crop".equals(request.operation())||"tend_crop".equals(request.operation())||"harvest_crop".equals(request.operation())){ClientHousingState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("enqueue_production".equals(request.operation())||"claim_production".equals(request.operation())||"cancel_production".equals(request.operation())){ClientProductionState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
+        if("stash_market".equals(request.operation())||"list_market".equals(request.operation())||"buy_market".equals(request.operation())||"cancel_market".equals(request.operation())||"claim_market".equals(request.operation())){ClientMarketState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
         else{

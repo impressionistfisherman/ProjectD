@@ -15,7 +15,7 @@ final class DalmaruHousingScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int count = 13, left = Math.max(8, (width - 300) / 2), buttonWidth = Math.min(300, width - 16), step = Math.min(22, (height - 16) / count), buttonHeight = Math.min(20, step - 2), top = (height - ((count - 1) * step + buttonHeight)) / 2;
+		int count = 16, left = Math.max(8, (width - 300) / 2), buttonWidth = Math.min(300, width - 16), step = Math.min(22, (height - 16) / count), buttonHeight = Math.min(20, step - 2), top = (height - ((count - 1) * step + buttonHeight)) / 2;
 		statusButton = addRenderableWidget(Button.builder(Component.literal(""), button -> { }).bounds(left, top, buttonWidth, buttonHeight).build());
 		statusButton.active = false;
 		addRenderableWidget(Button.builder(Component.literal("거처 만들기"), button -> DalmaruClient.requestHome("create_home")).bounds(left, top + step, buttonWidth, buttonHeight).build());
@@ -30,6 +30,9 @@ final class DalmaruHousingScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.literal("비료"), button -> DalmaruClient.requestHome("tend_fertilize")).bounds(left, top + 10 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("수확"), button -> DalmaruClient.requestHome("harvest_crop")).bounds(left, top + 11 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("생산 예약"), button -> minecraft.setScreen(new DalmaruProductionScreen(this))).bounds(left, top + 12 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("농지"), button -> DalmaruClient.cycleHomePlot()).bounds(left, top + 13 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("작물"), button -> DalmaruClient.cycleHomeCrop()).bounds(left, top + 14 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("판매대"), button -> minecraft.setScreen(new DalmaruMarketScreen(this))).bounds(left, top + 15 * step, buttonWidth, buttonHeight).build());
 	}
 
 	@Override

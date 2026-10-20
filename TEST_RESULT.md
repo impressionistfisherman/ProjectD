@@ -1,5 +1,9 @@
 # 검증 결과
 
+- 2026-10-21 판매대: `verifyP5MarketStall`, `verifyClientScreenBounds`, `verifyP5CraftProductionQueue` PASS. `oscar_p3_fixture` 전체 회귀 검증 92개와 스모크 PASS, FAIL 0. 락 반환.
+
+- 2026-10-21 생산 예약: `verifyP5CraftProductionQueue`, `verifyClientScreenBounds` PASS. `oscar_p3_fixture` 전체 회귀 검증 91개와 스모크 PASS, FAIL 0. 락 반환.
+
 - 2026-10-21 거처 작물: `verifyP5HousingCrops` PASS. `oscar_p3_fixture` 전체 회귀 검증 90개와 스모크 PASS, FAIL 0. 락 반환.
 
 - 2026-10-21 거처 권한: `verifyP5HousingPermissions` PASS. `oscar_p3_fixture` 전체 회귀 검증 89개와 스모크 PASS, FAIL 0. 락 반환.

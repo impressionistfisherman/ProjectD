@@ -31,6 +31,19 @@ final class ClientHousingState {
 	static String crop() { return crop; }
 	static int cropGeneration() { return cropGeneration; }
 
+	static void cyclePlot() {
+		plot = (plot + 1) % 4;
+		text = "농지 " + plot + " " + crop;
+	}
+
+	static void cycleCrop() {
+		String[] crops = {"grain", "vegetable", "herb", "fiber", "flower"};
+		int index = 0;
+		for (int i = 0; i < crops.length; i++) if (crops[i].equals(crop)) index = i;
+		crop = crops[(index + 1) % crops.length];
+		text = "농지 " + plot + " " + crop;
+	}
+
 	static void accept(String result, boolean rejected) {
 		try {
 			var json = JsonParser.parseString(result).getAsJsonObject();

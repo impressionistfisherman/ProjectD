@@ -75,6 +75,7 @@ public final class DalmaruNetworking {
 	private static final kr.dalmaru.housing.HousingRepository HOMES = new kr.dalmaru.housing.HousingRepository();
 	private static final kr.dalmaru.housing.CropRepository CROPS = new kr.dalmaru.housing.CropRepository();
 	private static final kr.dalmaru.craft.ProductionQueueRepository PRODUCTION = new kr.dalmaru.craft.ProductionQueueRepository();
+	private static final kr.dalmaru.market.MarketRepository MARKET = new kr.dalmaru.market.MarketRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -613,6 +614,7 @@ public final class DalmaruNetworking {
                 case "grant_home","revoke_home","place_home","expand_home"->homeJournal(context,payload.correlationId(),envelope);
                 case "plant_crop","tend_crop","harvest_crop"->cropJournal(context,payload.correlationId(),envelope);
                 case "enqueue_production","cancel_production","claim_production"->productionJournal(context,payload.correlationId(),envelope);
+                case "stash_market","list_market","buy_market","cancel_market","claim_market"->marketJournal(context,payload.correlationId(),envelope);
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -935,6 +937,22 @@ public final class DalmaruNetworking {
         };}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Production request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void marketJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return switch(envelope.operation()){
+            case "stash_market"->MARKET.stashJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            case "list_market"->MARKET.listJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            case "buy_market"->MARKET.buyJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            case "cancel_market"->MARKET.cancelJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            case "claim_market"->MARKET.claimJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            default->throw new IllegalArgumentException("Invalid market request.");
+        };}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Market request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void cropJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
