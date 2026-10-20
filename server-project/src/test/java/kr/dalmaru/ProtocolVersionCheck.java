@@ -92,6 +92,7 @@ public final class ProtocolVersionCheck {
         String run = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruRunScreen.java"));
         String party = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPartyScreen.java"));
         require(run.contains("\"파티\"") && run.contains("openParty()") && run.contains("ClientRunState.status()"), "F6 party entry missing");
+        require(server.contains("\"폐봉수대 공략을 시작했습니다.\"") && server.contains("\"기존 공략 예약입니다.\"") && !server.contains("????"), "ACTIVE run status is not Korean");
         require(party.contains("\"파티\"") && party.contains("로딩") && party.contains("\"명단\"") && party.contains("requestParty(\"party_menu\")") && party.contains("requestParty(\"leave\")"), "Party frame does not show loading");
         require(!party.contains("성공"), "Party frame shows success");
         int use = server.indexOf("UseBlockCallback.EVENT.register");

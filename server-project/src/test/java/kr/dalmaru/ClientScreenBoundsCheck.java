@@ -19,7 +19,7 @@ public final class ClientScreenBoundsCheck {
     private static final String HARNESS="""
         import java.util.*;
         class Component{String text;Component(String text){this.text=text;}static Component empty(){return new Component("");}static Component literal(String s){return new Component(s);}}
-        class Button{int x,y,w,h;boolean active=true;java.util.function.Consumer<Button> action;void setMessage(Component message){}static Button builder(Component s,java.util.function.Consumer<Button> action){Button button=new Button();button.action=action;return button;}Button bounds(int x,int y,int w,int h){this.x=x;this.y=y;this.w=w;this.h=h;return this;}Button build(){return this;}}
+        class Button{int x,y,w,h;boolean active=true;boolean visible=true;java.util.function.Consumer<Button> action;void setMessage(Component message){}static Button builder(Component s,java.util.function.Consumer<Button> action){Button button=new Button();button.action=action;return button;}Button bounds(int x,int y,int w,int h){this.x=x;this.y=y;this.w=w;this.h=h;return this;}Button build(){return this;}}
         class EditBox{int x,y,w,h;String value="";EditBox(Object font,int x,int y,int w,int h,Component label){this.x=x;this.y=y;this.w=w;this.h=h;}void setMaxLength(int length){}String getValue(){return value;}}
         class Screen{int width,height;Object font=new Object();Screen minecraft=this;List<Button> buttons=new ArrayList<>();List<EditBox> boxes=new ArrayList<>();protected void init(){}void setScreen(Screen s){}void onClose(){}void clearWidgets(){buttons.clear();boxes.clear();}Button addRenderableWidget(Button b){buttons.add(b);return b;}EditBox addRenderableWidget(EditBox box){boxes.add(box);return box;}void tick(){}}
         class Profile{String profession(){return "WARRIOR";}}
@@ -44,7 +44,7 @@ public final class ClientScreenBoundsCheck {
         class ProfileScreen extends Screen{Button statusButton,strengthButton,dexterityButton,arcanaButton,vitalityButton,spiritButton,resetButton,professionButton,skillButton,villageButton,investigationButton;boolean confirmReset;/* PROFILE */}
         class VillageScreen extends Screen{Button statusButton;/* VILLAGE */}
         class InvestigationScreen extends Screen{Button statusButton;/* INVESTIGATION */}
-        class PartyScreen extends Screen{Button status;/* PARTY */}
+        class PartyScreen extends Screen{Button status,invite,accept;/* PARTY */}
         public class ScreenHarness{
         static void require(boolean condition,String reason){if(!condition)throw new AssertionError(reason);}
         public static void run(){for(int[]size:new int[][]{{320,180},{320,240},{427,240},{640,360},{960,540}})for(Screen screen:List.of(new SkillScreen(),new RunScreen(),new ProfileScreen(),new EquipmentScreen(),new QuestScreen(),new VillageScreen(),new InvestigationScreen(),new PartyScreen())){
