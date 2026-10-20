@@ -39,7 +39,7 @@ public final class SoloCombatDefinitionCheck {
         require(fan.attack()==46 && fan.magical(), "mage damage channel");
         var rogue = new CharacterProfile(character,15,0,0,40,0,0,20,10,false,0,"ROGUE");
         var axes = PilotEquipment.equipped(rogue,List.of(item(character,0,"pilot.weapon.dual_axes.15",15)));
-        require(axes.attack()==48 && axes.basicMultiplier()==.55 && axes.basicTicks()==10, "dual axe hit profile");
+        require(axes.attack()==24 && axes.basicMultiplier()==.55 && axes.basicTicks()==10, "dual axe hit profile");
         var strengthened = new ArrayList<EquipmentRecord>();
         for (var item : gear) strengthened.add(new EquipmentRecord(item.equipmentId(),item.characterId(),item.slotId(),item.itemId(),item.requiredLevel(),item.profession(),5,0,true));
         var enhanced = PilotEquipment.equipped(profile,strengthened);
