@@ -15,5 +15,37 @@
       "inputs": [{"itemId": "material.iron_ingot", "quantity": 1}],
       "output": {"itemId": "material.basic_fitting", "quantity": 1, "binding": "FREE"}
     }
+  ],
+  "learned": [
+    {
+      "id": "craft.iron_blade",
+      "job": "blacksmith",
+      "proficiency": 21,
+      "station": "station.forge",
+      "attribute": "keen",
+      "inputs": [{"itemId": "material.iron_ingot", "quantity": 1}],
+      "output": {"itemId": "gear.iron_blade", "quantity": 1, "binding": "FREE", "equipment": true}
+    },
+    {
+      "id": "craft.iron_guard",
+      "job": "blacksmith",
+      "proficiency": 21,
+      "station": "station.forge",
+      "inputs": [{"itemId": "material.basic_fitting", "quantity": 1}],
+      "output": {"itemId": "material.iron_guard", "quantity": 1, "binding": "FREE", "equipment": false}
+    }
+  ],
+  "research": [
+    {
+      "id": "clue.blade",
+      "job": "blacksmith",
+      "proficiency": 21,
+      "station": "station.forge",
+      "candidates": ["craft.iron_blade", "craft.iron_guard"],
+      "trials": [
+        {"materialId": "material.iron_ingot", "binding": "FREE", "quantity": 1, "drops": ["craft.iron_guard"]},
+        {"materialId": "material.basic_fitting", "binding": "FREE", "quantity": 1, "drops": ["craft.iron_blade"]}
+      ]
+    }
   ]
 }

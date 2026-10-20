@@ -238,6 +238,27 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if (request != null) ClientPlayNetworking.send(request);
     }
 
+    public static void requestCraftResearch() {
+        var body = new com.google.gson.JsonObject();
+        var materials = new com.google.gson.JsonArray();
+        var line = new com.google.gson.JsonObject();
+        line.addProperty("materialId", "material.iron_ingot");
+        line.addProperty("binding", "FREE");
+        line.addProperty("quantity", 1);
+        materials.add(line);
+        body.addProperty("clueId", "clue.blade");
+        body.add("materials", materials);
+        var request = ClientRequestState.begin(ClientCraftState.nextId(), "research_craft", body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
+    public static void requestLearnedCraft() {
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("recipeId", "craft.iron_blade");
+        var request = ClientRequestState.begin(ClientCraftState.nextId(), "craft_learned", body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
     public static void requestLifeLearn(String job) {
         var body = new com.google.gson.JsonObject();
         body.addProperty("job", job);
@@ -443,6 +464,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("invest_stat".equals(request.operation())){acceptStatOperation(request,receipt);return;}
         if("learn_skill".equals(request.operation())){acceptSkillOperation(request,receipt);return;}
         if("learn_life".equals(request.operation())||"specialize_life".equals(request.operation())||"complete_life_task".equals(request.operation())){ClientLifeState.acceptLearn(receipt.result(),"rejected".equals(receipt.state()));return;}
+        if("research_craft".equals(request.operation())||"craft_learned".equals(request.operation())){ClientCraftState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
         else{

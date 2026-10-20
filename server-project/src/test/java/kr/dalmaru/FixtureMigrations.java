@@ -6,7 +6,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Applies existing V038 to V045 when this fixture stopped at V037. */
+/** Applies existing V038 to V046 when this fixture stopped at V037. */
 public final class FixtureMigrations {
 	private FixtureMigrations() { }
 
@@ -17,6 +17,7 @@ public final class FixtureMigrations {
 		apply(41, "V041__run_kick_votes.sql");
 		apply(42, "V042__kick_vote_removed_outcome.sql");
 		apply(45, "V045__life_professions.sql");
+		apply(46, "V046__craft_research.sql");
 	}
 
 	private static void apply(int version, String name) throws Exception {

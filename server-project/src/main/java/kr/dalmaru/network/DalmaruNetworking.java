@@ -69,6 +69,7 @@ public final class DalmaruNetworking {
 	private static final AccountRepository ACCOUNTS = new AccountRepository();
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
 	private static final kr.dalmaru.life.LifeProfessionRepository LIFE = new kr.dalmaru.life.LifeProfessionRepository();
+	private static final kr.dalmaru.craft.CraftResearchRepository RESEARCH = new kr.dalmaru.craft.CraftResearchRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -559,6 +560,14 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("job")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString())throw new IllegalArgumentException("Invalid life task body");
                         completeLifeTask(context,payload.correlationId(),body.get("job").getAsString(),envelope);
                     }
+                case "research_craft"->{
+                        if(body.size()!=2||!body.has("clueId")||!body.get("clueId").isJsonPrimitive()||!body.getAsJsonPrimitive("clueId").isString()||!body.has("materials")||!body.get("materials").isJsonArray())throw new IllegalArgumentException("Invalid craft research body");
+                        researchCraft(context,payload.correlationId(),body.get("clueId").getAsString(),envelope);
+                    }
+                case "craft_learned"->{
+                        if((body.size()!=1&&body.size()!=2)||!body.has("recipeId")||!body.get("recipeId").isJsonPrimitive()||!body.getAsJsonPrimitive("recipeId").isString())throw new IllegalArgumentException("Invalid learned craft body");
+                        craftLearned(context,payload.correlationId(),body.get("recipeId").getAsString(),envelope);
+                    }
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -685,6 +694,36 @@ public final class DalmaruNetworking {
             var learned=LIFE.completeTaskJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,envelope);
             var receipt=learned.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void researchCraft(ServerPlayNetworking.Context context,long correlation,String clueId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=RESEARCH.researchJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),clueId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void craftLearned(ServerPlayNetworking.Context context,long correlation,String recipeId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=RESEARCH.craftJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),recipeId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
             if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
