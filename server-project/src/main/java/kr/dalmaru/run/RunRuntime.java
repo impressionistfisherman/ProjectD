@@ -444,6 +444,7 @@ public final class RunRuntime implements RunMechanicAccess {
             try{
                 if(player.isSpectator())player.setGameMode(state.returnMode);
                 player.teleportTo(state.returnLevel,state.returnPosition.x,state.returnPosition.y,state.returnPosition.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
+                RunExitRecovery.restore(player);
                 returned=true;
             }catch(RuntimeException error){LOGGER.warn("Run exit return failed for {}: {}",playerId,error.getClass().getName());}
             player.sendSystemMessage(Component.literal(switch(reason){case VOLUNTARY->"파티를 나가 던전 밖으로 돌아왔습니다.";case KICKED->"파티에서 추방되어 던전 밖으로 돌아왔습니다.";case RECONNECT_EXPIRED->"재접속 시간이 지나 던전 밖으로 돌아왔습니다.";}));
@@ -556,7 +557,7 @@ public final class RunRuntime implements RunMechanicAccess {
             partyActivator.forget(runId);
             for(var entry:new ArrayList<>(playerRuns.entrySet()))if(entry.getValue().runId.equals(runId)){
                 State state=entry.getValue();ServerPlayer player=server.getPlayerList().getPlayer(entry.getKey());
-                try{if(player!=null){if(player.isSpectator())player.setGameMode(state.returnMode);player.teleportTo(state.returnLevel,state.returnPosition.x,state.returnPosition.y,state.returnPosition.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);}else releaseDisconnected.accept(entry.getKey());}
+                try{if(player!=null){if(player.isSpectator())player.setGameMode(state.returnMode);player.teleportTo(state.returnLevel,state.returnPosition.x,state.returnPosition.y,state.returnPosition.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);RunExitRecovery.restore(player);}else releaseDisconnected.accept(entry.getKey());}
                 catch(RuntimeException error){if(failure==null)failure=error;else failure.addSuppressed(error);}
                 finally{playerRuns.remove(entry.getKey());}
             }

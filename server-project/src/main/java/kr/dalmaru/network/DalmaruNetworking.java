@@ -972,6 +972,7 @@ public final class DalmaruNetworking {
             if(level==null)throw new IllegalStateException("Return dimension unavailable.");
             player.teleportTo(level,position.x(),position.y(),position.z(),java.util.Set.of(),player.getYRot(),player.getXRot(),false);
             player.setGameMode(net.minecraft.world.level.GameType.byName(position.mode()));
+            kr.dalmaru.run.RunExitRecovery.restore(player);
             serverFor(player).getPlayerList().saveAll();
             CompletableFuture.runAsync(()->{try{RUNS.acknowledgeReturn(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),position.runId());}catch(Exception error){LOGGER.warn("Failed to acknowledge restored return.",error);}},LIFECYCLE_DB);
         }catch(Exception error){ConnectionState state=CONNECTIONS.get(player.getUUID());if(state!=null)state.accountFailure="공략 복귀 실패";LOGGER.error("Failed to restore run return location.",error);player.connection.disconnect(Component.literal("공략 복귀 위치를 확인하지 못했습니다. 운영자에게 문의하세요."));throw new IllegalStateException("Run return recovery failed.",error);}

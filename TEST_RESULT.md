@@ -1217,3 +1217,9 @@
 ## P4 쌍도끼 검사 기대값 (2026-10-20, MDF-23)
 - verifySoloCombatDefinitions PASS. `Solo equipment ownership/budget, RPG units, and 208/277 strike reference verified.` DB 없음.
 - Toby 잠금 대기 5회 뒤 grok_p3_fixture 잠금 전체 회귀 exit 0. 벽시계 352초. FAIL 0. verifySoloCombatDefinitions 포함 73개와 p1_integration_smoke.ps1 PASS. RunRespawnMixin PASS. 잠금은 끝나고 삭제. push 없음.
+
+
+## MDF-22 런 귀환 회복
+- verifyRunExitRecovery 집중 하네스 PASS: 완주/실패/이탈의 실제 회복 본문, 현재 최대 HP/비율, 허기, 재적용, 귀환 호출 연결.
+- 전체 fixture 회귀(oscar_p3_fixture): 75개 중 74개 PASS, verifyPremergeRuntime 하네스 컴파일 FAIL 1개. 신규 회복 함수 본문과 FoodData 대역 연결 후 해당 검사 재실행 PASS(BUILD SUCCESSFUL). 합산 75개 PASS이며, 전체 일괄 실행 종료값은 1로 보존.
+- 배포 JAR 부팅·RunRespawnMixin PASS(25575/oscar_p4_playtest_b). 자체 서버 종료, 25575 리스너 없음, 회귀 락 반환 확인. 첫 컴파일 실패(FoodData.setExhaustion API 부재)도 로그 보존. 실제 게임 종료 세 경로 조작은 미실행.
