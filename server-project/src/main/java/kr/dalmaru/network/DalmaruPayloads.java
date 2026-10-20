@@ -154,21 +154,13 @@ public final class DalmaruPayloads {
 		public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 	}
 
-	public record CharacterProfileData(int level, long experience, int unspentStatPoints, int strength, int dexterity, int arcana, int vitality, int spirit, boolean freeResetAvailable, int unspentSkillPoints, String profession) {
+	public record CharacterProfileData(int level, long experience, int unspentStatPoints, int strength, int dexterity, int arcana, int vitality, int spirit, boolean freeResetAvailable, int unspentSkillPoints, String profession, String branch, boolean advance30, boolean advance50, boolean advance60, boolean rogueResetAvailable, long revision) {
+		public CharacterProfileData(int level, long experience, int unspentStatPoints, int strength, int dexterity, int arcana, int vitality, int spirit, boolean freeResetAvailable, int unspentSkillPoints, String profession) { this(level, experience, unspentStatPoints, strength, dexterity, arcana, vitality, spirit, freeResetAvailable, unspentSkillPoints, profession, "", false, false, false, false, 0); }
 		public CharacterProfileData(int level, long experience, int unspentStatPoints, int strength, int dexterity, int arcana, int vitality, int spirit, boolean freeResetAvailable) { this(level, experience, unspentStatPoints, strength, dexterity, arcana, vitality, spirit, freeResetAvailable, 0, ""); }
-		public static final StreamCodec<RegistryFriendlyByteBuf, CharacterProfileData> CODEC = StreamCodec.composite(
-			ByteBufCodecs.VAR_INT, CharacterProfileData::level,
-			ByteBufCodecs.VAR_LONG, CharacterProfileData::experience,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::unspentStatPoints,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::strength,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::dexterity,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::arcana,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::vitality,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::spirit,
-			ByteBufCodecs.BOOL, CharacterProfileData::freeResetAvailable,
-			ByteBufCodecs.VAR_INT, CharacterProfileData::unspentSkillPoints,
-			ByteBufCodecs.STRING_UTF8, CharacterProfileData::profession,
-			CharacterProfileData::new);
+		public static final StreamCodec<RegistryFriendlyByteBuf, CharacterProfileData> CODEC = new StreamCodec<>() {
+			public CharacterProfileData decode(RegistryFriendlyByteBuf b) { return new CharacterProfileData(b.readVarInt(), b.readVarLong(), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readVarInt(), b.readBoolean(), b.readVarInt(), b.readUtf(), b.readUtf(32), b.readBoolean(), b.readBoolean(), b.readBoolean(), b.readBoolean(), b.readVarLong()); }
+			public void encode(RegistryFriendlyByteBuf b, CharacterProfileData p) { b.writeVarInt(p.level); b.writeVarLong(p.experience); b.writeVarInt(p.unspentStatPoints); b.writeVarInt(p.strength); b.writeVarInt(p.dexterity); b.writeVarInt(p.arcana); b.writeVarInt(p.vitality); b.writeVarInt(p.spirit); b.writeBoolean(p.freeResetAvailable); b.writeVarInt(p.unspentSkillPoints); b.writeUtf(p.profession); b.writeUtf(p.branch == null ? "" : p.branch, 32); b.writeBoolean(p.advance30); b.writeBoolean(p.advance50); b.writeBoolean(p.advance60); b.writeBoolean(p.rogueResetAvailable); b.writeVarLong(p.revision); }
+		};
 	}
 
 	public record CharacterProfileResponse(UUID characterId, CharacterProfileData profile) implements CustomPacketPayload {
@@ -245,12 +237,13 @@ public record QuestResponse(long requestId, String status) implements CustomPack
 	@Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 }
 
-public record CombatStateResponse(int currentStamina,int maximumStamina,boolean inCombat,boolean combatMode,int remainingCombatTicks,List<Integer> cooldowns,List<String> slots,int dodgeCharges,int guardMeter) implements CustomPacketPayload {
+public record CombatStateResponse(int currentStamina,int maximumStamina,boolean inCombat,boolean combatMode,int remainingCombatTicks,List<Integer> cooldowns,List<String> slots,int dodgeCharges,int guardMeter,String resourceKind,int resourceCurrent,int resourceMaximum) implements CustomPacketPayload {
+    public CombatStateResponse(int currentStamina,int maximumStamina,boolean inCombat,boolean combatMode,int remainingCombatTicks,List<Integer> cooldowns,List<String> slots,int dodgeCharges,int guardMeter){this(currentStamina,maximumStamina,inCombat,combatMode,remainingCombatTicks,cooldowns,slots,dodgeCharges,guardMeter,"",0,0);}
     public CombatStateResponse(int current,int maximum,boolean combat){this(current,maximum,combat,combat,0,List.of(0,0,0,0,0),List.of("","","","",""),2,100);}
     public static final Type<CombatStateResponse> TYPE=DalmaruPayloads.type("combat_state_response");
     public static final StreamCodec<RegistryFriendlyByteBuf,CombatStateResponse> CODEC=new StreamCodec<>(){
-        public CombatStateResponse decode(RegistryFriendlyByteBuf b){int current=b.readVarInt(),max=b.readVarInt();boolean combat=b.readBoolean(),mode=b.readBoolean();int remaining=b.readVarInt();var cooldowns=new ArrayList<Integer>();var slots=new ArrayList<String>();for(int i=0;i<5;i++){cooldowns.add(b.readVarInt());slots.add(b.readUtf(128));}return new CombatStateResponse(current,max,combat,mode,remaining,cooldowns,slots,b.readVarInt(),b.readVarInt());}
-        public void encode(RegistryFriendlyByteBuf b,CombatStateResponse p){b.writeVarInt(p.currentStamina);b.writeVarInt(p.maximumStamina);b.writeBoolean(p.inCombat);b.writeBoolean(p.combatMode);b.writeVarInt(p.remainingCombatTicks);for(int i=0;i<5;i++){b.writeVarInt(p.cooldowns.get(i));b.writeUtf(p.slots.get(i));}b.writeVarInt(p.dodgeCharges);b.writeVarInt(p.guardMeter);}
+        public CombatStateResponse decode(RegistryFriendlyByteBuf b){int current=b.readVarInt(),max=b.readVarInt();boolean combat=b.readBoolean(),mode=b.readBoolean();int remaining=b.readVarInt();var cooldowns=new ArrayList<Integer>();var slots=new ArrayList<String>();for(int i=0;i<5;i++){cooldowns.add(b.readVarInt());slots.add(b.readUtf(128));}return new CombatStateResponse(current,max,combat,mode,remaining,cooldowns,slots,b.readVarInt(),b.readVarInt(),b.readUtf(32),b.readVarInt(),b.readVarInt());}
+        public void encode(RegistryFriendlyByteBuf b,CombatStateResponse p){b.writeVarInt(p.currentStamina);b.writeVarInt(p.maximumStamina);b.writeBoolean(p.inCombat);b.writeBoolean(p.combatMode);b.writeVarInt(p.remainingCombatTicks);for(int i=0;i<5;i++){b.writeVarInt(p.cooldowns.get(i));b.writeUtf(p.slots.get(i));}b.writeVarInt(p.dodgeCharges);b.writeVarInt(p.guardMeter);b.writeUtf(p.resourceKind==null?"":p.resourceKind,32);b.writeVarInt(p.resourceCurrent);b.writeVarInt(p.resourceMaximum);}
     };
     public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
@@ -416,7 +409,12 @@ public record EquipmentEnhanceResponse(long requestId, boolean accepted, boolean
         ByteBufCodecs.BOOL,RunReviveState::failed,RunReviveState::new);
     @Override public Type<? extends CustomPacketPayload> type(){return TYPE;}
 }
-    public record RunResponse(long requestId, boolean accepted, UUID runId, int partySize, int scalingTier, String state, String status) implements CustomPacketPayload { public static final CustomPacketPayload.Type<RunResponse> TYPE = DalmaruPayloads.type("run_response"); public static final StreamCodec<RegistryFriendlyByteBuf, RunResponse> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, RunResponse::requestId, ByteBufCodecs.BOOL, RunResponse::accepted, ByteBufCodecs.VAR_LONG, response -> response.runId().getMostSignificantBits(), ByteBufCodecs.VAR_LONG, response -> response.runId().getLeastSignificantBits(), ByteBufCodecs.VAR_INT, RunResponse::partySize, ByteBufCodecs.VAR_INT, RunResponse::scalingTier, ByteBufCodecs.STRING_UTF8, RunResponse::state, ByteBufCodecs.STRING_UTF8, RunResponse::status, (requestId, accepted, most, least, partySize, tier, state, status) -> new RunResponse(requestId, accepted, new UUID(most, least), partySize, tier, state, status)); @Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; } }
+    public record RunResponse(long requestId, boolean accepted, UUID runId, int partySize, int scalingTier, String state, String status, String difficulty) implements CustomPacketPayload {
+        public RunResponse(long requestId, boolean accepted, UUID runId, int partySize, int scalingTier, String state, String status) { this(requestId, accepted, runId, partySize, scalingTier, state, status, ""); }
+        public static final CustomPacketPayload.Type<RunResponse> TYPE = DalmaruPayloads.type("run_response");
+        public static final StreamCodec<RegistryFriendlyByteBuf, RunResponse> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, RunResponse::requestId, ByteBufCodecs.BOOL, RunResponse::accepted, ByteBufCodecs.VAR_LONG, response -> response.runId().getMostSignificantBits(), ByteBufCodecs.VAR_LONG, response -> response.runId().getLeastSignificantBits(), ByteBufCodecs.VAR_INT, RunResponse::partySize, ByteBufCodecs.VAR_INT, RunResponse::scalingTier, ByteBufCodecs.STRING_UTF8, RunResponse::state, ByteBufCodecs.STRING_UTF8, RunResponse::status, ByteBufCodecs.stringUtf8(32), RunResponse::difficulty, (requestId, accepted, most, least, partySize, tier, state, status, difficulty) -> new RunResponse(requestId, accepted, new UUID(most, least), partySize, tier, state, status, difficulty));
+        @Override public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
  public record SkillLearnRequest(long requestId, String skillId) implements CustomPacketPayload {
 	public static final CustomPacketPayload.Type<SkillLearnRequest> TYPE = DalmaruPayloads.type("skill_learn_request");
 	public static final StreamCodec<RegistryFriendlyByteBuf, SkillLearnRequest> CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, SkillLearnRequest::requestId, ByteBufCodecs.STRING_UTF8, SkillLearnRequest::skillId, SkillLearnRequest::new);

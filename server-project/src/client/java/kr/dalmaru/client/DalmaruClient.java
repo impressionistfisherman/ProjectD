@@ -455,6 +455,26 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientProfileState.delegateResetRetry();ClientPlayNetworking.send(request);
     }
 
+    public static void requestAdvancement(String stage, String branch) {
+        var current = ClientProfileState.current();
+        if (current == null || stage == null || branch == null || branch.isBlank()) return;
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("stage", stage); body.addProperty("branch", branch); body.addProperty("expectedRevision", current.profile().revision());
+        long correlation = ClientProfileState.nextGrowth();
+        var request = ClientRequestState.begin(correlation, "confirm_advancement", body);
+        if (request != null) { ClientProfileState.note("승급을 확인하는 중입니다."); ClientPlayNetworking.send(request); }
+    }
+
+    public static void requestRogueReset(int strength, int dexterity) {
+        var current = ClientProfileState.current();
+        if (current == null || !current.profile().rogueResetAvailable()) return;
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("strengthAllocated", strength); body.addProperty("dexterityAllocated", dexterity); body.addProperty("expectedRevision", current.profile().revision());
+        long correlation = ClientProfileState.nextGrowth();
+        var request = ClientRequestState.begin(correlation, "reallocate_rogue", body);
+        if (request != null) { ClientProfileState.note("힘과 재주 재배분을 확인하는 중입니다."); ClientPlayNetworking.send(request); }
+    }
+
     public static void requestProfession(String profession) {
         if(!ClientProfileState.beginProfession(profession))return;
         long correlation=ClientProfileState.currentProfessionRequestId();
@@ -615,6 +635,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("move_equipment".equals(request.operation())){acceptEquipmentMoveOperation(receipt);return;}
         if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}
         if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}
+        if("confirm_advancement".equals(request.operation())||"reallocate_rogue".equals(request.operation())){ClientProfileState.note("rejected".equals(receipt.state())?"승급 또는 재배분 조건을 확인하세요.":receipt.replayed()?"이미 처리된 요청입니다.":"처리했습니다.");return;}
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
         if("delete_character".equals(request.operation())||"restore_character".equals(request.operation())){acceptLifeOperation(request,receipt);return;}
         if("list_villages".equals(request.operation())||"open_village".equals(request.operation())){ClientVillageState.accept(request.operation(),receipt.result(),"rejected".equals(receipt.state()));return;}

@@ -1,5 +1,9 @@
 # 검증 결과
 
+- 2026-10-21 통신 35: `verifyProtocolVersion` PASS. 34 Hello는 거절, 35는 허용. 파티 `party.json` protocol 34는 유지.
+
+- 2026-10-21 화면 연결: `verifyClientScreenBounds`, `verifyProtocolVersion` PASS. `oscar_p3_fixture` 전체 회귀 검증 95개와 스모크 PASS, FAIL 0. 락 반환. 이 회귀는 통신 버전 34에서 돌렸다. 그 JAR 해시는 미커밋 트리라 폐기한다. 플레이테스트 배포는 하지 않았다.
+
 - 2026-10-21 시련/극한: `verifyP5RunDifficulties`, `verifyP5GrowthReleaseCap`, `verifyPremergeRuntime` PASS. `oscar_p3_fixture` 전체 회귀 검증 95개와 스모크 PASS, FAIL 0. 락 반환. 첫 실행은 premerge 하네스에 `revives()`가 없어 실패했고, 메서드를 넣은 뒤 다시 통과했다.
 
 - 2026-10-21 거래소: `verifyP5MarketExchange`, `verifyP5MarketStall`, `verifyClientScreenBounds` PASS. `oscar_p3_fixture` 전체 회귀 검증 93개와 스모크 PASS, FAIL 0. 락 반환.

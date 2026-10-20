@@ -22,14 +22,15 @@ final class ClientRunState {
         return pendingRequestId = requestId++;
     }
     static boolean accept(DalmaruPayloads.RunResponse response) {
-        if(preparing&&"CANCELLED".equals(response.state())&&response.runId().equals(preparationId)){preparing=false;waiting=false;preparationId=null;status=response.status();return false;}
-        if(preparing&&response.requestId()==pendingRequestId&&response.accepted()&&"ACTIVE".equals(response.state())){preparing=false;waiting=false;status=response.status();return true;}
+        if(preparing&&"CANCELLED".equals(response.state())&&response.runId().equals(preparationId)){preparing=false;waiting=false;preparationId=null;status=shown(response);return false;}
+        if(preparing&&response.requestId()==pendingRequestId&&response.accepted()&&"ACTIVE".equals(response.state())){preparing=false;waiting=false;status=shown(response);return true;}
         if (!waiting || response.requestId() != pendingRequestId) return false;
         waiting = false;preparing=false;
-        status = response.status();
+        status = shown(response);
         return response.accepted();
     }
-    static boolean prepare(DalmaruPayloads.RunResponse response){if(!"READY".equals(response.state()))return false;preparing=true;waiting=false;pendingRequestId=response.requestId();preparationId=response.runId();status=response.status();return true;}
+    static boolean prepare(DalmaruPayloads.RunResponse response){if(!"READY".equals(response.state()))return false;preparing=true;waiting=false;pendingRequestId=response.requestId();preparationId=response.runId();status=shown(response);return true;}
+    private static String shown(DalmaruPayloads.RunResponse response){if(response.difficulty()==null||response.difficulty().isEmpty())return response.status();String name=switch(response.difficulty()){case "FIRST_STEP"->"초행";case "TRAINING"->"수련";case "TRIAL"->"시련";case "EXTREME"->"극한";default->response.difficulty();};return response.status()+" · "+name;}
     static boolean preparing(){return preparing;}
     static java.util.UUID preparationId(){return preparationId;}
     static String status() { return status; }

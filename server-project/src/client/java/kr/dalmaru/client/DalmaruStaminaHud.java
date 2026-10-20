@@ -19,22 +19,32 @@ final class DalmaruStaminaHud {
 			graphics.fill(x + 1, y + 1, x + 1 + filled, y + 5, response.inCombat() ? 0xFFE28A2A : 0xFF3696D6);
             var client=net.minecraft.client.Minecraft.getInstance();
             String mode=response.combatMode()?"전투 · 회피 "+response.dodgeCharges()+" · 방어 "+response.guardMeter():"생활";
-            graphics.text(client.font,mode+(response.remainingCombatTicks()>0?" · "+((response.remainingCombatTicks()+19)/20)+"초":""),x,y-12,0xFFFFFFFF,false);
+            String resource=response.resourceKind()==null||response.resourceKind().isEmpty()||response.resourceMaximum()<1?"":" · "+resourceLabel(response.resourceKind())+" "+response.resourceCurrent()+"/"+response.resourceMaximum();
+            graphics.text(client.font,mode+resource+(response.remainingCombatTicks()>0?" · "+((response.remainingCombatTicks()+19)/20)+"초":""),x,y-12,0xFFFFFFFF,false);
             if(response.combatMode()){
                 int slotWidth=Math.min(70,(graphics.guiWidth()-20)/5),left=(graphics.guiWidth()-slotWidth*5)/2;
                 var profile=ClientProfileState.current();
                 for(int slot=0;slot<5;slot++){
-                    String id=response.slots().get(slot),name=slot==4?"궁극 잠금":"비움";
+                    String id=response.slots().get(slot),name=slot==4?"궁극":"비움";
                     boolean unlearned=!id.isEmpty()&&ClientSkillState.rank(id)<1;
                     if(profile!=null&&!profile.profile().profession().isBlank()&&!id.isEmpty())try{name=kr.dalmaru.skill.SkillDefinition.find(kr.dalmaru.account.CharacterProfession.valueOf(profile.profile().profession()),id).koreanName();}catch(IllegalArgumentException ignored){name="미해금";}
                     if(unlearned)name="미습득 (잠금)";
                     String key=client.options.keyHotbarSlots[slot].getTranslatedKeyMessage().getString();int cooldown=response.cooldowns().get(slot);
                     name=client.font.plainSubstrByWidth(name,Math.max(0,slotWidth-4-client.font.width(key+" ")));
-                    graphics.text(client.font,key+" "+name,left+slot*slotWidth,y-34,unlearned||slot==4||cooldown>0?0xFFAAAAAA:0xFFFFFFFF,false);
+                    graphics.text(client.font,key+" "+name,left+slot*slotWidth,y-34,unlearned||id.isEmpty()||cooldown>0?0xFFAAAAAA:0xFFFFFFFF,false);
                     if(cooldown>0)graphics.text(client.font,((cooldown+19)/20)+"초",left+slot*slotWidth,y-24,0xFFE28A2A,false);
                 }
             }
 
 		});
+	}
+	private static String resourceLabel(String kind) {
+		return switch (kind) {
+			case "sword_force" -> "검세";
+			case "guard_force" -> "기세";
+			case "reload" -> "장전";
+			case "seal" -> "인장";
+			default -> kind;
+		};
 	}
 }

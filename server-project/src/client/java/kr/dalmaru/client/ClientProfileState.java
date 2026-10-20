@@ -18,6 +18,7 @@ final class ClientProfileState {
 	private static long currentProfessionRequestId;
 	private static boolean professionWaiting;
 	private static long nextSkillRequestId = 1;
+	private static long nextGrowthRequestId = 1;
 	private static long currentSkillRequestId;
 	private static boolean skillWaiting;
 	private static java.util.UUID character;
@@ -125,6 +126,8 @@ final class ClientProfileState {
 	static DalmaruPayloads.CharacterStatResetRequest retryReset(){if(!resetWaiting||tick<resetDeadline)return null;resetDeadline=tick+100;return resetRequest;}
 	static DalmaruPayloads.CharacterProfessionRequest retryProfession(){if(!professionWaiting||tick<professionDeadline)return null;professionDeadline=tick+100;return professionRequest;}
 	static DalmaruPayloads.SkillLearnRequest retrySkill(){if(!skillWaiting||tick<skillDeadline)return null;skillDeadline=tick+100;return skillRequest;}
+	static long nextGrowth(){return nextGrowthRequestId++;}
+	static void note(String message){status=message==null?"":message;}
 	static boolean canLearn(){return current!=null&&current.profile().unspentSkillPoints()>0&&!skillWaiting;}
 	static DalmaruPayloads.CharacterProfileResponse current() { return current; }
 	static long currentInvestmentRequestId() { return currentInvestmentRequestId; }

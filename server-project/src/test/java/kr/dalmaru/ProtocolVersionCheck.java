@@ -11,14 +11,15 @@ import kr.dalmaru.party.P4Contract;
 import kr.dalmaru.party.PartyReturnAdapter;
 import kr.dalmaru.party.PartyRules;
 
-/** Protocol 34 gate: constant, handshake codecs, and an explicit reject of a P3 client. */
+/** Protocol 35 gate: constant, handshake codecs, and an explicit reject of a protocol 34 client. */
 public final class ProtocolVersionCheck {
     public static void main(String[] args) throws Exception {
         net.minecraft.SharedConstants.tryDetectVersion();
         net.minecraft.server.Bootstrap.bootStrap();
-        require(DalmaruNetworking.PROTOCOL_VERSION == 34, "PROTOCOL_VERSION is not 34");
+        require(DalmaruNetworking.PROTOCOL_VERSION == 35, "PROTOCOL_VERSION is not 35");
         require(!DalmaruNetworking.acceptsProtocol(33), "P3 protocol 33 must be rejected");
-        require(DalmaruNetworking.acceptsProtocol(34), "Protocol 34 must be accepted");
+        require(!DalmaruNetworking.acceptsProtocol(34), "Protocol 34 must be rejected");
+        require(DalmaruNetworking.acceptsProtocol(35), "Protocol 35 must be accepted");
         var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         try {
             for (int version : new int[]{32, 33, 34}) {
@@ -106,7 +107,7 @@ public final class ProtocolVersionCheck {
         require(brazierState.contains("임시 보스 체력") && brazierState.contains("자세") && brazierState.contains("붕괴") && brazierState.contains("면역") && server.contains("snapshot.bosses()") && server.contains("bossHooks"), "Boss HUD missing");
         require(client.contains("cancel_brazier") && brazierState.contains("채널 진행") && !hud.contains("성공") && !brazierState.contains("성공"), "Brazier HUD shows success");
         require(client.contains("SoundEvents.BELL_BLOCK") && client.contains("SoundEvents.PLAYER_HURT") && client.contains("!\"WARNING\".equals(previous)") && client.contains("!\"DAMAGING\".equals(previous)") && !hud.contains("playSound"), "Neglect sound is not a one-shot vanilla transition");
-        System.out.println("Protocol 34 constant/handshake/P3-mismatch-reject PASS");
+        System.out.println("Protocol 35 constant/handshake/34-mismatch-reject PASS");
     }
 
     private static void require(boolean ok, String message) { if (!ok) throw new AssertionError(message); }

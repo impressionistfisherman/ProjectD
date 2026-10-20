@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 
 public final class DalmaruNetworking {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
-	public static final int PROTOCOL_VERSION = 34;
+	public static final int PROTOCOL_VERSION = 35;
 	public static boolean acceptsProtocol(int version) { return version == PROTOCOL_VERSION; }
 	private static final long HELLO_TIMEOUT_TICKS = 200;
 	private static final long RATE_LIMIT_NANOS = 1_000_000_000L;
@@ -616,6 +616,8 @@ public final class DalmaruNetworking {
                 case "enqueue_production","cancel_production","claim_production"->productionJournal(context,payload.correlationId(),envelope);
                 case "search_market"->marketSearch(context,payload.correlationId(),envelope);
                 case "stash_market","list_market","buy_market","cancel_market","claim_market"->marketJournal(context,payload.correlationId(),envelope);
+                case "confirm_advancement"->confirmAdvancement(context,payload.correlationId(),envelope);
+                case "reallocate_rogue"->reallocateRogue(context,payload.correlationId(),envelope);
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -879,6 +881,47 @@ public final class DalmaruNetworking {
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
     }
+    private static void confirmAdvancement(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());var body=envelope.payload();
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null||body.size()!=3||!body.has("stage")||!body.has("branch")||!body.has("expectedRevision")){rejectOperation(player,correlation,envelope.requestId());return;}
+        kr.dalmaru.account.AdvancementStage stage;long revision;
+        try{stage=kr.dalmaru.account.AdvancementStage.valueOf(body.get("stage").getAsString());revision=body.get("expectedRevision").getAsBigDecimal().longValueExact();}
+        catch(RuntimeException error){rejectOperation(player,correlation,envelope.requestId());return;}
+        String branch=body.get("branch").getAsString();var session=state.accountSession;var position=storyPosition(player);
+        java.util.concurrent.CompletableFuture.supplyAsync(()->{
+            try{var result=CHARACTERS.confirmAdvancementJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),stage,branch,revision,position,envelope);return new GrowthSend(result,CHARACTERS.profile(session.activeCharacterId()));}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(sent->context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            sendCharacterProfile(player,sent.profile());var receipt=sent.result().receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),sent.result().originalResult().toString(),sent.result().replayed()));
+        })).exceptionally(error->{context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        });return null;});
+    }
+    private static void reallocateRogue(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());var body=envelope.payload();
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null||body.size()!=3||!body.has("strengthAllocated")||!body.has("dexterityAllocated")||!body.has("expectedRevision")){rejectOperation(player,correlation,envelope.requestId());return;}
+        int strength,dexterity;long revision;
+        try{strength=body.get("strengthAllocated").getAsBigDecimal().intValueExact();dexterity=body.get("dexterityAllocated").getAsBigDecimal().intValueExact();revision=body.get("expectedRevision").getAsBigDecimal().longValueExact();}
+        catch(RuntimeException error){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        java.util.concurrent.CompletableFuture.supplyAsync(()->{
+            try{var result=CHARACTERS.reallocateRogueJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),strength,dexterity,revision,envelope);return new GrowthSend(result,CHARACTERS.profile(session.activeCharacterId()));}
+            catch(Exception error){throw new IllegalStateException(error);}
+        }).thenAccept(sent->context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            sendCharacterProfile(player,sent.profile());var receipt=sent.result().receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),sent.result().originalResult().toString(),sent.result().replayed()));
+        })).exceptionally(error->{context.server().execute(()->{
+            if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        });return null;});
+    }
+    private record GrowthSend(kr.dalmaru.account.CharacterRepository.GrowthResult result,CharacterProfile profile){}
     private static void professionRequest(ServerPlayNetworking.Context context,long correlation,String name,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){
@@ -1590,7 +1633,7 @@ public final class DalmaruNetworking {
             ConnectionState state=CONNECTIONS.get(player.getUUID());if(state==null||!state.compatible||state.accountFailure!=null)continue;
 			CombatRuntime.StaminaState stamina = COMBAT.stamina(player.getUUID(), currentTick);
             int remaining=kr.dalmaru.combat.CombatRules.remainingModeTicks(RUN_RUNTIME.runId(player)==null&&!town(player),COMBAT.remainingCombatTicks(player.getUUID(),currentTick),state.manualUntil,currentTick);
-			if (stamina != null) ServerPlayNetworking.send(player, new DalmaruPayloads.CombatStateResponse((int)Math.round(stamina.current()),(int)Math.round(stamina.maximum()),stamina.inCombat(),combatMode(player,state),remaining,state.loadout==null?java.util.List.of(0,0,0,0,0):state.loadout.slots().stream().map(id->COMBAT.cooldown(player.getUUID(),id,currentTick)).toList(),state.loadout==null?java.util.List.of("","","","",""):state.loadout.slots(),COMBAT.defenseState(player.getUUID()).charges(currentTick),(int)Math.round(COMBAT.defenseState(player.getUUID()).meter(currentTick))));
+			if (stamina != null) { var resource=COMBAT.branchResourceSnapshot(player.getUUID()); ServerPlayNetworking.send(player, new DalmaruPayloads.CombatStateResponse((int)Math.round(stamina.current()),(int)Math.round(stamina.maximum()),stamina.inCombat(),combatMode(player,state),remaining,state.loadout==null?java.util.List.of(0,0,0,0,0):state.loadout.slots().stream().map(id->COMBAT.cooldown(player.getUUID(),id,currentTick)).toList(),state.loadout==null?java.util.List.of("","","","",""):state.loadout.slots(),COMBAT.defenseState(player.getUUID()).charges(currentTick),(int)Math.round(COMBAT.defenseState(player.getUUID()).meter(currentTick)),resource.resourceKind(),resource.current(),resource.maximum())); }
 		}
 	}
 
@@ -1638,7 +1681,7 @@ public final class DalmaruNetworking {
 		ConnectionState state = CONNECTIONS.get(player.getUUID());
 		profile = applyProfile(player, profile);
 		refreshCombat(player, profile);
-		ServerPlayNetworking.send(player, new DalmaruPayloads.CharacterProfileResponse(profile.characterId(), profileData(profile)));
+		ServerPlayNetworking.send(player, new DalmaruPayloads.CharacterProfileResponse(profile.characterId(), profileData(player, profile)));
         if(state!=null&&state.accountSession!=null)ServerPlayNetworking.send(player,new DalmaruPayloads.RequestContext(state.accountSession.connectionGeneration(),profile.characterId()));
 	}
 
@@ -1757,33 +1800,42 @@ public final class DalmaruNetworking {
 	private static void sendCharacterStatInvestment(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {
 		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
-		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
+		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(context.player(), profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterStatInvestmentResponse(requestId, characterId, accepted, replayed, status, data));
 	}
 
 	private static void sendCharacterStatReset(ServerPlayNetworking.Context context, long requestId, UUID characterId, boolean accepted, boolean replayed, String status, CharacterProfile profile) {
 		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
-		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
+		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(context.player(), profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterStatResetResponse(requestId, characterId, accepted, replayed, status, data));
 	}
 
 	private static void sendCharacterProfession(ServerPlayNetworking.Context context, long requestId, boolean accepted, String status, CharacterProfile profile) {
 		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
-		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
+		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(context.player(), profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.CharacterProfessionResponse(requestId, accepted, status, data));
 	}
 
 	private static void sendSkillLearn(ServerPlayNetworking.Context context, long requestId, boolean accepted, String status, CharacterProfile profile) {
 		if (accepted && profile != null) profile = applyProfile(context.player(), profile);
 		if (accepted && profile != null) refreshCombat(context.player(), profile);
-		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(profile);
+		DalmaruPayloads.CharacterProfileData data = profile == null ? new DalmaruPayloads.CharacterProfileData(0, 0, 0, 0, 0, 0, 0, 0, false) : profileData(context.player(), profile);
 		ServerPlayNetworking.send(context.player(), new DalmaruPayloads.SkillLearnResponse(requestId, accepted, status, data));
 	}
 
-	private static DalmaruPayloads.CharacterProfileData profileData(CharacterProfile profile) {
-		return new DalmaruPayloads.CharacterProfileData(profile.level(), profile.experience(), profile.unspentStatPoints(), profile.strength(), profile.dexterity(), profile.arcana(), profile.vitality(), profile.spirit(), profile.freeResetAvailable(), profile.unspentSkillPoints(), profile.profession());
+	private static DalmaruPayloads.CharacterProfileData profileData(ServerPlayer player, CharacterProfile profile) {
+		String branch = ""; boolean advance30 = false, advance50 = false, advance60 = false, rogue = false;
+		var state = CONNECTIONS.get(player.getUUID());
+		if (state != null && state.accountSession != null && profile.characterId().equals(state.accountSession.activeCharacterId())) {
+			try {
+				var snap = CHARACTERS.growthSnapshot(state.accountSession.accountId(), state.accountSession.connectionGeneration(), profile.characterId());
+				branch = snap.branch() == null ? "" : snap.branch();
+				advance30 = snap.advance30(); advance50 = snap.advance50(); advance60 = snap.advance60(); rogue = snap.rogueResetAvailable();
+			} catch (RuntimeException | java.sql.SQLException error) { LOGGER.warn("Advancement snapshot skipped for {}", profile.characterId(), error); }
+		}
+		return new DalmaruPayloads.CharacterProfileData(profile.level(), profile.experience(), profile.unspentStatPoints(), profile.strength(), profile.dexterity(), profile.arcana(), profile.vitality(), profile.spirit(), profile.freeResetAvailable(), profile.unspentSkillPoints(), profile.profession(), branch, advance30, advance50, advance60, rogue, profile.revision());
 	}
 
 	private static ConnectionState stateFor(UUID playerId) {
@@ -2021,15 +2073,15 @@ public final class DalmaruNetworking {
         var state=CONNECTIONS.get(context.player().getUUID());if(state==null||!state.compatible||state.accountSession==null||payload.requestId()<1||state.startPending)return;
         try{var players=PARTIES.members(context.player().getUUID());partyCharacterIds(context.player());for(UUID id:players){var player=context.server().getPlayerList().getPlayer(id);var member=CONNECTIONS.get(id);if(player==null||member==null||member.accountFailure!=null||member.activeProfile==null||!player.isAlive()||player.isSpectator()||!town(player)||!cachedForActive(member)||FIELD_REVIVES.containsKey(id)||RUN_RUNTIME.runId(player)!=null||member.startPending)throw new IllegalArgumentException("Party must prepare in town with loaded slots.");}
             for(UUID id:players){cancelPreparation(id,"새 준비 요청으로 이전 준비가 취소되었습니다.");}
-            var preparation=new PreparedRun(payload,context,players);for(UUID id:players){PREPARATIONS.put(id,preparation);ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,preparation.preparationId,players.size(),players.size()==3?4:players.size(),"READY","전원이 준비 완료를 누르면 공략을 시작합니다."));}
+            var preparation=new PreparedRun(payload,context,players);for(UUID id:players){PREPARATIONS.put(id,preparation);ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,preparation.preparationId,players.size(),players.size()==3?4:players.size(),"READY","전원이 준비 완료를 누르면 공략을 시작합니다.",payload.difficulty()));}
         }catch(Exception error){sendRunFailure(context,payload.requestId(),error);}
     }
     private static void cancelPreparation(UUID playerId,String reason){
         var prep=PREPARATIONS.get(playerId);if(prep==null)return;
-        for(UUID id:prep.players){PREPARATIONS.remove(id);var player=prep.context.server().getPlayerList().getPlayer(id);if(player!=null)ServerPlayNetworking.send(player,new DalmaruPayloads.RunResponse(prep.payload.requestId(),false,prep.preparationId,prep.players.size(),prep.players.size()==3?4:prep.players.size(),"CANCELLED",reason));}
+        for(UUID id:prep.players){PREPARATIONS.remove(id);var player=prep.context.server().getPlayerList().getPlayer(id);if(player!=null)ServerPlayNetworking.send(player,new DalmaruPayloads.RunResponse(prep.payload.requestId(),false,prep.preparationId,prep.players.size(),prep.players.size()==3?4:prep.players.size(),"CANCELLED",reason,prep.payload.difficulty()));}
     }
     private static void notifyPreparation(PreparedRun prep,String reason){
-        for(UUID id:prep.players){var player=prep.context.server().getPlayerList().getPlayer(id);if(player!=null)ServerPlayNetworking.send(player,new DalmaruPayloads.RunResponse(prep.payload.requestId(),true,prep.preparationId,prep.players.size(),prep.players.size()==3?4:prep.players.size(),"READY",reason));}
+        for(UUID id:prep.players){var player=prep.context.server().getPlayerList().getPlayer(id);if(player!=null)ServerPlayNetworking.send(player,new DalmaruPayloads.RunResponse(prep.payload.requestId(),true,prep.preparationId,prep.players.size(),prep.players.size()==3?4:prep.players.size(),"READY",reason,prep.payload.difficulty()));}
     }
     private static void readyRun(ServerPlayer player,UUID preparationId,boolean ready){
         var prep=PREPARATIONS.get(player.getUUID());if(prep==null||!prep.preparationId.equals(preparationId))return;
@@ -2084,7 +2136,7 @@ public final class DalmaruNetworking {
                         var participants=java.util.Set.copyOf(RUN_RUNTIME.participantIds(run.runId()));
                         if(!RUN_RUNTIME.ownsEntry(run.runId(),started.owner())||!participants.equals(java.util.Set.copyOf(players))){sendRunFailure(context,payload.requestId(),new IllegalStateException("Active run replay owner or party changed."));return;}
                         for(UUID id:players){var member=CONNECTIONS.get(id);if(member==null||member.accountSession!=prep.sessions.get(players.indexOf(id))||!characters.get(players.indexOf(id)).equals(member.accountSession.activeCharacterId())||context.server().getPlayerList().getPlayer(id)==null){sendRunFailure(context,payload.requestId(),new IllegalStateException("Active run replay roster changed."));return;}}
-                        for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"기존 공략 예약입니다."));
+                        for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"기존 공략 예약입니다.",run.difficulty().name()));
                         return;
                     }
                     validatePreparedRun(prep);
@@ -2094,7 +2146,7 @@ public final class DalmaruNetworking {
                     for(UUID id:players){var member=CONNECTIONS.get(id);var frozen=started.loadouts().get(member.accountSession.activeCharacterId());if(frozen==null||!frozen.characterId().equals(member.accountSession.activeCharacterId()))throw new IllegalStateException("Entry snapshot owner changed.");}
                     for(UUID id:players){var member=CONNECTIONS.get(id);member.loadout=started.loadouts().get(member.accountSession.activeCharacterId());}
                     enterPartyRun(context.server(),players,run,started.owner(),started.content());clearStarting(prep);
-                    for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"폐봉수대 공략을 시작했습니다."));
+                    for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"폐봉수대 공략을 시작했습니다.",run.difficulty().name()));
                 }catch(Exception error){failPreparedRun(context.server(),prep,session,payload.requestId(),run.runId(),started.owner(),error);}
             })).exceptionally(error->{
                 Throwable cause=error;while(cause.getCause()!=null&&(cause instanceof java.util.concurrent.CompletionException||cause instanceof java.util.concurrent.ExecutionException))cause=cause.getCause();
