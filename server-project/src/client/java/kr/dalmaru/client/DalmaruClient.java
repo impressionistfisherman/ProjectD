@@ -260,6 +260,42 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if (request != null) ClientPlayNetworking.send(request);
     }
 
+    public static void requestCraftOrderPlace() {
+        var body = new com.google.gson.JsonObject();
+        var materials = new com.google.gson.JsonArray();
+        var line = new com.google.gson.JsonObject();
+        line.addProperty("materialId", "material.iron_ingot");
+        line.addProperty("binding", "FREE");
+        line.addProperty("quantity", 1);
+        materials.add(line);
+        body.addProperty("recipeId", "craft.iron_blade");
+        body.add("materials", materials);
+        body.addProperty("copper", 25);
+        var request = ClientRequestState.begin(ClientCraftOrderState.nextId(), "place_craft_order", body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
+    public static void requestCraftOrderAccept() {
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("orderId", "00000000-0000-4000-8000-0000000000e3");
+        var request = ClientRequestState.begin(ClientCraftOrderState.nextId(), "accept_craft_order", body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
+    public static void requestCraftOrderSettle() {
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("orderId", "00000000-0000-4000-8000-0000000000e3");
+        var request = ClientRequestState.begin(ClientCraftOrderState.nextId(), "settle_craft_order", body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
+    public static void requestCraftOrderCancel() {
+        var body = new com.google.gson.JsonObject();
+        body.addProperty("orderId", "00000000-0000-4000-8000-0000000000e3");
+        var request = ClientRequestState.begin(ClientCraftOrderState.nextId(), "cancel_craft_order", body);
+        if (request != null) ClientPlayNetworking.send(request);
+    }
+
     public static void requestPrecisionStep(int step, String choice) {
         var body = new com.google.gson.JsonObject();
         body.addProperty("orderId", "00000000-0000-4000-8000-0000000000e2");
@@ -483,6 +519,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("learn_life".equals(request.operation())||"specialize_life".equals(request.operation())||"complete_life_task".equals(request.operation())){ClientLifeState.acceptLearn(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("research_craft".equals(request.operation())||"craft_learned".equals(request.operation())){ClientCraftState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("begin_precision".equals(request.operation())||"step_precision".equals(request.operation())){ClientPrecisionState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
+        if("place_craft_order".equals(request.operation())||"accept_craft_order".equals(request.operation())||"settle_craft_order".equals(request.operation())||"cancel_craft_order".equals(request.operation())){ClientCraftOrderState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
         else{

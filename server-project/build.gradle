@@ -164,6 +164,11 @@ tasks.register('verifyP5CraftPrecision', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = 'kr.dalmaru.P5CraftPrecisionCheck'
 }
+tasks.register('verifyP5CraftOrders', JavaExec) {
+	group = 'verification'
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'kr.dalmaru.P5CraftOrdersCheck'
+}
 tasks.register('verifyP5CraftResearch', JavaExec) {
 	group = 'verification'
 	classpath = sourceSets.test.runtimeClasspath
