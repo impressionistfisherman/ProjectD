@@ -60,7 +60,8 @@ public final class ContentCatalogCheck {
             var mob=catalog.encounter().mob(kinds[i]);
             check(mob.health()==health[i]&&mob.physicalDefense()==physicalDefense[i]&&mob.magicDefense()==magicDefense[i]&&mob.damage()==damage[i]&&mob.interval()==interval[i]&&mob.range()==range[i]&&mob.magic()==(i==1||i==2),"J02 mob values changed");
         }
-        check(catalog.encounter().gatekeeperHealth()==10800&&catalog.encounter().finalBossHealth()==14400,"Boss health changed");
+        check(catalog.encounter().gatekeeperHealth()==9300&&catalog.encounter().finalBossHealth()==14400,"Boss health changed");
+        check(catalog.encounter().mobDamageScale()==0.11&&catalog.encounter().gatekeeperDamageScale()==0.05,"P4 balance multipliers changed");
         var changed=JsonParser.parseString(source).getAsJsonObject();var encounter=changed.getAsJsonObject("encounter");
         encounter.getAsJsonArray("mobs").get(0).getAsJsonObject().addProperty("health",999);
         encounter.getAsJsonArray("groups").get(0).getAsJsonArray().set(0,new JsonPrimitive("SOLDIER"));

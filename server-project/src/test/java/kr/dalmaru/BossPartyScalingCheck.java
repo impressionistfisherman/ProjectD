@@ -38,7 +38,14 @@ public final class BossPartyScalingCheck {
         check(!bossCode.contains(" attack(encounter") && !bossCode.contains("(attack(encounter"), "Boss patterns must use the scaled boss attack");
         int mobs = runtime.indexOf("    private void tickMobs("), mobsEnd = runtime.indexOf("    private void tickBoss(");
         String mobCode = runtime.substring(mobs, mobsEnd);
-        check(!mobCode.contains("bossAttack(") && mobCode.contains("attack(encounter,definition.damage())*BeaconTowerMobs.damageScale(encounter.content,encounter.partySize)"), "Mobs must keep their single scale");
+        check(!mobCode.contains("bossAttack(") && mobCode.contains("attack(encounter,definition.damage())*BeaconTowerMobs.mobDamageScale(encounter.content,encounter.partySize)"), "Mobs must keep their single scale");
+        // P4 balance: mob attack 0.11x (all groups, party scale kept), gatekeeper 9,300 HP with 1.8/3.25 party HP scale, untelegraphed gatekeeper attacks scaled once.
+        for (int size = 1; size <= 3; size++) same(BeaconTowerMobs.mobDamageScale(content, size), damage[size - 1] * 0.11, "Mob damage scale " + size);
+        same(BossScaling.health(content, RunDifficulty.FIRST_STEP, content.encounter().gatekeeperHealth(), 1), 9300, "Gatekeeper solo HP");
+        same(BossScaling.health(content, RunDifficulty.FIRST_STEP, content.encounter().gatekeeperHealth(), 2), 16740, "Gatekeeper duo HP");
+        same(BossScaling.health(content, RunDifficulty.FIRST_STEP, content.encounter().gatekeeperHealth(), 3), 30225, "Gatekeeper trio HP");
+        check(bossCode.contains("gatekeeperAttack(encounter, 150)") && bossCode.contains("gatekeeperAttack(encounter, 130)") && bossCode.contains("gatekeeperAttack(encounter, 110)") && runtime.contains("bossAttack(encounter, base) * encounter.content.encounter().gatekeeperDamageScale()"), "Gatekeeper attacks must use the content scale once");
+        check(bossCode.contains("startTelegraph(") && !runtime.substring(runtime.indexOf("private void startTelegraph("), runtime.indexOf("private void tickTelegraphs(")).contains("gatekeeperAttack("), "Telegraphed patterns must not be scaled again");
         check(runtime.contains("bossHealth(encounter, encounter.content.encounter().finalBossHealth())") && runtime.contains("bossHealth(encounter,encounter.content.encounter().gatekeeperHealth())"), "Boss spawn must use scaled health");
         check(runtime.contains("beginPosture(encounter,false)") && runtime.contains("beginPosture(encounter, true)"), "Each boss starts its own posture");
         check(runtime.split("partySize=partySize", -1).length == 2 && !runtime.contains("encounter.partySize=") && !runtime.contains("encounter.partySize--") && !runtime.contains("e.partySize="), "Starting party size must stay fixed");

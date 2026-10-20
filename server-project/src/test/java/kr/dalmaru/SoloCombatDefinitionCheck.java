@@ -27,8 +27,8 @@ public final class SoloCombatDefinitionCheck {
         var combat = CombatCalculator.derive(effective,48);
         int hit = CombatCalculator.damage(stats.attack(),combat.strengthMultiplier(),1,false,80);
         require(combat.maximumHealth()==740 && hit==52, "documented solo reference");
-        require(Math.ceil(10800.0/hit)==208 && Math.ceil(14400.0/hit)==277, "boss strike counts");
-        require(CombatUnits.maximumHealth(10800)==540 && CombatUnits.maximumHealth(14400)==720, "uncapped boss HP");
+        require(Math.ceil(9300.0/hit)==179 && Math.ceil(14400.0/hit)==277, "boss strike counts");
+        require(CombatUnits.maximumHealth(9300)==465 && CombatUnits.maximumHealth(14400)==720, "uncapped boss HP");
         require(Math.abs(CombatUnits.toRpg(CombatUnits.maximumHealth(14400*1.38))-19872)<.01, "training HP round trip");
         require(Math.abs(CombatUnits.toRpg(CombatUnits.toEngine(hit))-hit)<.001, "damage round trip");
         require(PilotEquipment.equipped(profile,List.of(item(character,0,"starter.slot.0",1))).attack()==0, "no invented starter attack");

@@ -1521,8 +1521,10 @@
       1.12,
       1.25
     ],
-    "gatekeeperHealth": 10800,
-    "finalBossHealth": 14400
+    "gatekeeperHealth": 9300,
+    "finalBossHealth": 14400,
+    "mobDamageScale": 0.11,
+    "gatekeeperDamageScale": 0.05
   },
   "supplies": [
     {"grant": "starter", "kind": "equipment", "item": "supply.training_gear", "quantity": 1},

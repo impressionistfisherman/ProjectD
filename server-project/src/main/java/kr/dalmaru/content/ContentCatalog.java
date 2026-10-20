@@ -27,7 +27,7 @@ public final class ContentCatalog {
     public record Quest(String id,String version,String target,int goal,int experience,boolean enabled,List<String> requires){}
     public record Run(String id,String version,int minPlayers,int maxPlayers,boolean enabled,List<String> requires){}
     public record Mob(String id,String kind,String label,int health,int physicalDefense,int magicDefense,int damage,int interval,boolean magic,int range,boolean enabled){}
-    public record EncounterDefinition(Map<String,Mob> mobs,List<List<String>> groups,List<Double> healthScales,List<Double> damageScales,int gatekeeperHealth,int finalBossHealth){
+    public record EncounterDefinition(Map<String,Mob> mobs,List<List<String>> groups,List<Double> healthScales,List<Double> damageScales,int gatekeeperHealth,int finalBossHealth,double mobDamageScale,double gatekeeperDamageScale){
         public EncounterDefinition {mobs=Map.copyOf(mobs);groups=groups.stream().map(List::copyOf).toList();healthScales=List.copyOf(healthScales);damageScales=List.copyOf(damageScales);}
         public Mob mob(String kind){var value=mobs.get(kind);if(value==null||!value.enabled())throw new IllegalArgumentException("Unknown/disabled encounter mob");return value;}
     }
@@ -181,7 +181,8 @@ public final class ContentCatalog {
             }
             int gatekeeper=integer(encounterSource,"gatekeeperHealth"),finalBoss=integer(encounterSource,"finalBossHealth");
             if(groups.size()!=4||totalMobs>64||commanders!=1||gatekeeper<1||finalBoss<1||!mobs.get("SOLDIER").enabled())throw new IllegalArgumentException("Invalid encounter roster/bosses");
-            var encounter=new EncounterDefinition(mobs,groups,scales(encounterSource,"healthScales"),scales(encounterSource,"damageScales"),gatekeeper,finalBoss);
+            var encounter=new EncounterDefinition(mobs,groups,scales(encounterSource,"healthScales"),scales(encounterSource,"damageScales"),gatekeeper,finalBoss,number(encounterSource,"mobDamageScale"),number(encounterSource,"gatekeeperDamageScale"));
+            if(encounter.mobDamageScale()<=0||encounter.mobDamageScale()>1||encounter.gatekeeperDamageScale()<=0||encounter.gatekeeperDamageScale()>1)throw new IllegalArgumentException("Invalid encounter damage multiplier");
             BeaconMechanics mechanics=null;
             if(schema>=5){
                 var sourceMechanics=root.getAsJsonObject("mechanics");

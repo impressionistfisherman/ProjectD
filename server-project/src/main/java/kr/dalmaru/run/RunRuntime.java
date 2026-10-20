@@ -710,11 +710,11 @@ public final class RunRuntime implements RunMechanicAccess {
                 if(bounds(encounter).deflate(1).contains(position)&&encounter.level.noCollision(mob,mob.getBoundingBox().move(direction)))mob.teleportTo(position.x,position.y,position.z);
             }
             if(encounter.mobTicks%definition.interval()==0&&distance<=(double)definition.range()*definition.range()&&mob.hasLineOfSight(target)){
-                bossDamage.hit(target,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.damageScale(encounter.content,encounter.partySize)),definition.magic());
+                bossDamage.hit(target,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.mobDamageScale(encounter.content,encounter.partySize)),definition.magic());
                 if(definition.magic())encounter.level.sendParticles(kind==BeaconTowerMobs.Kind.EMBER?ParticleTypes.FLAME:ParticleTypes.SOUL,target.getX(),target.getY()+1,target.getZ(),8,.2,.2,.2,.01);
             }
             }
-            if(encounter.mobTicks%definition.interval()==0)hurtLinger(encounter,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.damageScale(encounter.content,encounter.partySize)),definition.range(),definition.magic());
+            if(encounter.mobTicks%definition.interval()==0)hurtLinger(encounter,mob,(float)(attack(encounter,definition.damage())*BeaconTowerMobs.mobDamageScale(encounter.content,encounter.partySize)),definition.range(),definition.magic());
         }
         if(!encounter.mobs.isEmpty())return;
         if(encounter.stage==Stage.GATEKEEPER&&encounter.bossId==null){
@@ -731,17 +731,17 @@ public final class RunRuntime implements RunMechanicAccess {
         ServerPlayer target = players.isEmpty()?null:players.stream().min(java.util.Comparator.comparingDouble(player -> player.distanceToSqr(boss))).orElseThrow();
         if (encounter.stage == Stage.GATEKEEPER) {
             int slamEvery = boss.getHealth() <= boss.getMaxHealth() * .5F ? 50 : 100;
-            if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, bossAttack(encounter, 150), false, ParticleTypes.CRIT);
+            if (encounter.bossTicks % slamEvery == 0) damage(players, boss, 5, gatekeeperAttack(encounter, 150), false, ParticleTypes.CRIT);
             else if (encounter.bossTicks % 60 == 0) {
                 if (target!=null && target.distanceToSqr(boss) <= 16) {
-                    bossDamage.hit(target, boss, bossAttack(encounter, 130), false);
+                    bossDamage.hit(target, boss, gatekeeperAttack(encounter, 130), false);
                     target.knockback(.4, boss.getX() - target.getX(), boss.getZ() - target.getZ());
                 }
-                hurtLinger(encounter, boss, bossAttack(encounter, 130), 4, false);
+                hurtLinger(encounter, boss, gatekeeperAttack(encounter, 130), 4, false);
             }
             else if (encounter.bossTicks % 40 == 0) {
-                if (target!=null && target.distanceToSqr(boss) <= 16) bossDamage.hit(target, boss, bossAttack(encounter, 110), false);
-                hurtLinger(encounter, boss, bossAttack(encounter, 110), 4, false);
+                if (target!=null && target.distanceToSqr(boss) <= 16) bossDamage.hit(target, boss, gatekeeperAttack(encounter, 110), false);
+                hurtLinger(encounter, boss, gatekeeperAttack(encounter, 110), 4, false);
                 startCharge(encounter, boss, target);
             }
         } else if (encounter.stage == Stage.BEACON) {
@@ -894,6 +894,8 @@ public final class RunRuntime implements RunMechanicAccess {
     }
     private static double health(RunDifficulty difficulty, double base) { return RunEncounterRules.bossHealth(difficulty, base); }
     private static double bossHealth(Encounter encounter, double base) { return BossScaling.health(encounter.content, encounter.difficulty, base, encounter.partySize); }
+    /** Gatekeeper slam/melee have no telegraph, so they carry the content gatekeeper scale; telegraphed patterns do not. */
+    private static float gatekeeperAttack(Encounter encounter, int base) { return (float) (bossAttack(encounter, base) * encounter.content.encounter().gatekeeperDamageScale()); }
     private static float bossAttack(Encounter encounter, int base) { return (float) BossScaling.damage(encounter.content, encounter.difficulty, base, encounter.partySize); }
     private static float attack(Encounter encounter, int base) { return (float) (base * (encounter.difficulty == RunDifficulty.TRAINING ? 1.15 : 1.0)); }
 
