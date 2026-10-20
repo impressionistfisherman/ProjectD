@@ -429,4 +429,5 @@ tasks.register('verifyRunMemberExit', JavaExec) { group = 'verification'; classp
 tasks.register('verifyRunReconnectWindow', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.RunReconnectWindowCheck' }
 tasks.register('verifyP4RunProgression', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P4RunProgressionCheck' }
 tasks.register('verifyDungeonRewardIsolation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.DungeonRewardIsolationCheck' }
+tasks.register('verifyDungeonNaturalSpawn', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.DungeonNaturalSpawnCheck' }
 tasks.register('verifyP4LifecycleRecovery', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P4LifecycleRecoveryCheck' }
