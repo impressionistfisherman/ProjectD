@@ -22,6 +22,9 @@ public final class ContentCatalog {
     public List<RefinementGrade> refinementGrades(){return refinementGrades;}
     public double refinementBonus(int grade){if(grade<0||grade>5)throw new IllegalArgumentException("Invalid refinement grade");return refinementGrades.isEmpty()?0:refinementGrades.get(grade).bonus();}
     private final Map<String,WeaponSlot> weaponSlots;
+    private final Map<String,BranchResource> branchResources;
+    public BranchResource branchResource(String weaponProfile){if(weaponProfile==null||weaponProfile.isEmpty())return BranchResource.NONE;var value=branchResources.get(weaponProfile);if(value==null)throw new IllegalArgumentException("Unknown weapon resource path");return value;}
+    public Map<String,BranchResource> branchResources(){return branchResources;}
     public Map<String,WeaponSlot> weaponSlots(){return weaponSlots;}
     public WeaponSlot weaponSlot(String itemId){if(!itemId.startsWith("pilot.weapon."))return null;int end=itemId.lastIndexOf('.');return end<13?null:weaponSlots.get(itemId.substring(13,end));}
     public record Quest(String id,String version,String target,int goal,int experience,boolean enabled,List<String> requires){}
@@ -34,6 +37,17 @@ public final class ContentCatalog {
     public record Skill(String id,String contentVersion,CharacterProfession profession,SkillDefinition.Kind kind,String name,String description,List<String> weaponProfiles,int unlockLevel,int skillPoints,int maxRank,int energy,int cooldownTicks,Map<String,RankValue> parameters){
         public Skill {weaponProfiles=List.copyOf(weaponProfiles);parameters=Map.copyOf(parameters);}
         public double parameter(String key,int rank){var value=parameters.get(key);if(value==null)throw new IllegalArgumentException("Unknown skill parameter: "+key);return value.at(rank);}
+    }
+    public record BranchResource(String weaponProfile,String resourceKind,String label,int maximum,int initial,int gainOnHit,int gainOnPreciseDefense,int preciseDefenseSpend,int preciseDefenseDiscountPercent,int skillSpend,int skillCooldownTicks,int staminaSpend){
+        public static final BranchResource NONE=new BranchResource("","","",0,0,0,0,0,0,0,0,0);
+        public BranchResource{
+            if(weaponProfile==null||resourceKind==null||label==null)throw new IllegalArgumentException("Invalid branch resource");
+            if(initial<0||maximum<initial||gainOnHit<0||gainOnPreciseDefense<0||preciseDefenseSpend<0||skillSpend<0||skillCooldownTicks<0||staminaSpend<0)throw new IllegalArgumentException("Invalid branch resource");
+            if(preciseDefenseDiscountPercent!=0&&(!weaponProfile.equals("two_handed_sword")||preciseDefenseDiscountPercent!=75))throw new IllegalArgumentException("Precise defense discount is two-handed only");
+            if(resourceKind.isEmpty()!=(maximum==0))throw new IllegalArgumentException("Empty branch resource must stay at zero");
+        }
+        public boolean unused(){return resourceKind.isEmpty();}
+        public int preciseCost(){int discount=weaponProfile.equals("two_handed_sword")?preciseDefenseDiscountPercent:0;return Math.floorDiv(Math.multiplyExact(preciseDefenseSpend,100-discount),100);}
     }
     public record RankValue(double first,double last){public double at(int rank){return kr.dalmaru.combat.CombatRules.rank(first,last,rank);}}
     private final List<Skill> skillDefinitions;
@@ -56,7 +70,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy,BeaconMechanics mechanics){
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy,BeaconMechanics mechanics,Map<String,BranchResource> branchResources){
+        this.branchResources=Map.copyOf(branchResources);
         this.mechanics=mechanics;
         this.refinementPolicy=refinementPolicy;
         this.refinementGrades=List.copyOf(refinementGrades);
@@ -204,7 +219,7 @@ public final class ContentCatalog {
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
             var displays=displays(root,schema,items,skillDefinitions,quests,runs,mobs);
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy,mechanics);
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy,mechanics,branchResources(root));
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static Map<String,Display> displays(JsonObject root,int schema,Map<String,Item> items,List<Skill> skills,Map<String,Quest> quests,Map<String,Run> runs,Map<String,Mob> mobs){
@@ -284,6 +299,29 @@ public final class ContentCatalog {
     private static void visit(String id,Map<String,Quest> quests,Set<String> visiting,Set<String> visited){if(visited.contains(id))return;if(visiting.size()>128||!visiting.add(id))throw new IllegalArgumentException("Cyclic/excessive quest prerequisite");for(String next:quests.get(id).requires())visit(next,quests,visiting,visited);visiting.remove(id);visited.add(id);}
     private static void put(Map<String,Item> items,Set<String> all,String id,Item item){unique(all,id);items.put(id,item);}
     private static void unique(Set<String> ids,String id){if(!ids.add(id))throw new IllegalArgumentException("Duplicate content ID: "+id);}
+    private static Map<String,BranchResource> branchResources(JsonObject root){
+        if(!root.has("branchResources"))return Map.of();
+        var source=root.getAsJsonObject("branchResources");
+        if(source==null||!flag(source,"temporary"))throw new IllegalArgumentException("Branch resources must be labelled temporary");
+        var paths=source.getAsJsonObject("paths");
+        var expected=List.of("two_handed_sword","sword_shield","bow","crossbow","fan","ritual_sword","dual_axes","pirate_sword");
+        if(paths==null||!paths.keySet().equals(new HashSet<>(expected)))throw new IllegalArgumentException("Branch resource paths must match the eight weapons");
+        var result=new LinkedHashMap<String,BranchResource>();
+        for(String profile:expected){
+            var row=paths.getAsJsonObject(profile);
+            String kind=text(row,"resourceKind");
+            String required=switch(profile){case "two_handed_sword"->"sword_force";case "sword_shield"->"guard_force";case "bow","crossbow"->"reload";case "fan","ritual_sword"->"seal";default->"";};
+            if(!kind.equals(required))throw new IllegalArgumentException("Weapon path resource mismatch");
+            String label=text(row,"label");
+            if(!kind.isEmpty()&&!label.startsWith("[임시]"))throw new IllegalArgumentException("Branch resource label must be temporary");
+            int maximum=integer(row,"maximum"),initial=integer(row,"initial"),discount=integer(row,"preciseDefenseDiscountPercent");
+            if(initial!=0)throw new IllegalArgumentException("Branch resource initial state must be zero");
+            if(profile.equals("two_handed_sword")&&(maximum!=100||discount!=75))throw new IllegalArgumentException("Two-handed sword force cap or discount drifted");
+            if(!profile.equals("two_handed_sword")&&discount!=0)throw new IllegalArgumentException("Precise defense discount is two-handed only");
+            result.put(profile,new BranchResource(profile,kind,label,maximum,initial,integer(row,"gainOnHit"),integer(row,"gainOnPreciseDefense"),integer(row,"preciseDefenseSpend"),discount,integer(row,"skillSpend"),integer(row,"skillCooldownTicks"),integer(row,"staminaSpend")));
+        }
+        return Map.copyOf(result);
+    }
     private static String text(JsonObject value,String key){var field=value.get(key);if(field==null||!field.isJsonPrimitive()||!field.getAsJsonPrimitive().isString())throw new IllegalArgumentException("Missing string: "+key);return field.getAsString();}
     private static String id(JsonObject value,String key){String id=text(value,key);if(!id.matches("[a-z0-9_.]{1,128}"))throw new IllegalArgumentException("Invalid content ID");return id;}
     private static String version(JsonObject value,String key){String version=text(value,key);if(!version.matches("[a-z0-9.-]{1,64}"))throw new IllegalArgumentException("Invalid content version");return version;}

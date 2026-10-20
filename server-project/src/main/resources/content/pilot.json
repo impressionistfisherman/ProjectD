@@ -1579,5 +1579,18 @@
         30
       ]
     }
+  },
+  "branchResources": {
+    "temporary": true,
+    "paths": {
+      "two_handed_sword": {"resourceKind": "sword_force", "label": "[임시] 검세", "maximum": 100, "initial": 0, "gainOnHit": 10, "gainOnPreciseDefense": 10, "preciseDefenseSpend": 20, "preciseDefenseDiscountPercent": 75, "skillSpend": 15, "skillCooldownTicks": 40, "staminaSpend": 0},
+      "sword_shield": {"resourceKind": "guard_force", "label": "[임시] 기세", "maximum": 80, "initial": 0, "gainOnHit": 8, "gainOnPreciseDefense": 8, "preciseDefenseSpend": 20, "preciseDefenseDiscountPercent": 0, "skillSpend": 15, "skillCooldownTicks": 40, "staminaSpend": 0},
+      "bow": {"resourceKind": "reload", "label": "[임시] 장전", "maximum": 30, "initial": 0, "gainOnHit": 1, "gainOnPreciseDefense": 1, "preciseDefenseSpend": 0, "preciseDefenseDiscountPercent": 0, "skillSpend": 1, "skillCooldownTicks": 20, "staminaSpend": 0},
+      "crossbow": {"resourceKind": "reload", "label": "[임시] 장전", "maximum": 30, "initial": 0, "gainOnHit": 1, "gainOnPreciseDefense": 1, "preciseDefenseSpend": 0, "preciseDefenseDiscountPercent": 0, "skillSpend": 1, "skillCooldownTicks": 20, "staminaSpend": 0},
+      "fan": {"resourceKind": "seal", "label": "[임시] 인장", "maximum": 50, "initial": 0, "gainOnHit": 5, "gainOnPreciseDefense": 5, "preciseDefenseSpend": 10, "preciseDefenseDiscountPercent": 0, "skillSpend": 10, "skillCooldownTicks": 30, "staminaSpend": 0},
+      "ritual_sword": {"resourceKind": "seal", "label": "[임시] 인장", "maximum": 50, "initial": 0, "gainOnHit": 5, "gainOnPreciseDefense": 5, "preciseDefenseSpend": 10, "preciseDefenseDiscountPercent": 0, "skillSpend": 10, "skillCooldownTicks": 30, "staminaSpend": 0},
+      "dual_axes": {"resourceKind": "", "label": "", "maximum": 0, "initial": 0, "gainOnHit": 0, "gainOnPreciseDefense": 0, "preciseDefenseSpend": 0, "preciseDefenseDiscountPercent": 0, "skillSpend": 0, "skillCooldownTicks": 0, "staminaSpend": 0},
+      "pirate_sword": {"resourceKind": "", "label": "", "maximum": 0, "initial": 0, "gainOnHit": 0, "gainOnPreciseDefense": 0, "preciseDefenseSpend": 0, "preciseDefenseDiscountPercent": 0, "skillSpend": 0, "skillCooldownTicks": 0, "staminaSpend": 0}
+    }
   }
 }

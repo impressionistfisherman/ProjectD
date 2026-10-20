@@ -6,7 +6,7 @@ import kr.dalmaru.account.CharacterProfession;
 import kr.dalmaru.content.ContentCatalog;
 
 public record SkillDefinition(String id,CharacterProfession profession,String koreanName) {
-    public enum Kind { ACTIVE,PASSIVE,ULTIMATE }
+    public enum Kind { ACTIVE,PASSIVE,ULTIMATE,TRAIT }
     // IDs identify executable server capabilities; tuning and display live in content.
     private static final Map<String,CharacterProfession> CAPABILITIES=Map.ofEntries(
         Map.entry("skill.warrior.sweep",CharacterProfession.WARRIOR),

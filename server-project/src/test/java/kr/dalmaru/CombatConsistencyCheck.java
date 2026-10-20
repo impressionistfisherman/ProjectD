@@ -65,6 +65,7 @@ public final class CombatConsistencyCheck {
                 static final long COMBAT_TIMEOUT_TICKS=200;
                 static class Immunity {void attack(){}}
                 Immunity defenseState(UUID id){return new Immunity();}
+                void grantBranchHit(UUID id){}
                 /* METHODS */
                 public static void check(){
                     var runtime=new CombatProof();UUID id=UUID.randomUUID();var state=new RuntimeState();runtime.states.put(id,state);
@@ -102,6 +103,7 @@ public final class CombatConsistencyCheck {
                 DefenseState defense=new DefenseState();CombatEffects effects=new CombatEffects();Map<UUID,Long> evasiveUntil=new HashMap<>();int hits;
                 DefenseState defenseState(UUID id){return defense;}boolean hasShield(UUID id){return true;}boolean resistsStagger(UUID id,long tick){return false;}
                 void recordValidHit(ServerPlayer p,long t){hits++;}void movementEffects(ServerPlayer p,long t){}
+                void preciseDefense(UUID player,long tick){}
                 /* METHOD */
                 static void checkCase(boolean valid)throws Exception{
                     var p=new ServerPlayer();var source=new DamageSource(new Object());

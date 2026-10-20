@@ -60,6 +60,7 @@ public final class SkillRepository {
         var profile=CharacterRepository.profileForUpdate(c,character);
         return new LearningResult(rank,replayed,profile,ranks(c,character),receipt);
     }
+    public static boolean occupiesLoadoutSlot(SkillDefinition.Kind kind){return SkillLoadout.occupiesSlot(kind);}
     public Map<String,Integer> ranks(UUID character)throws SQLException {try(var c=connection()){return ranks(c,character);}}
     private static Map<String,Integer> ranks(Connection c,UUID character)throws SQLException {
         try(var q=c.prepareStatement("SELECT skill_id,rank FROM dalmaru.character_skill_ranks WHERE character_id=?")){

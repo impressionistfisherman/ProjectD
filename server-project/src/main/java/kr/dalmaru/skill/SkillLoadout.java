@@ -21,9 +21,18 @@ public record SkillLoadout(UUID characterId,long revision,List<String> slots) {
             String id=slots.get(index);if(id.isEmpty())continue;
             var skill=SkillDefinition.find(profession,id);
             // Locked initial skills may remain in place, but cannot be newly equipped or moved.
-            if(!seen.add(id)||(ranks.getOrDefault(id,0)<1&&!id.equals(previous.get(index)))||skill.kind()!=(index==4?SkillDefinition.Kind.ULTIMATE:SkillDefinition.Kind.ACTIVE))
+            if(!seen.add(id)||(ranks.getOrDefault(id,0)<1&&!id.equals(previous.get(index))))
                 throw new IllegalArgumentException("Unlearned, duplicate or invalid slot skill.");
+            requireSlot(skill.kind(),index);
         }
+    }
+    public static boolean occupiesSlot(SkillDefinition.Kind kind){
+        return kind==SkillDefinition.Kind.ACTIVE||kind==SkillDefinition.Kind.ULTIMATE;
+    }
+    public static void requireSlot(SkillDefinition.Kind kind,int index){
+        if(index<0||index>4)throw new IllegalArgumentException("Invalid skill slot.");
+        if(!occupiesSlot(kind))throw new IllegalArgumentException("Traits and passives do not use a loadout slot.");
+        if(kind!=(index==4?SkillDefinition.Kind.ULTIMATE:SkillDefinition.Kind.ACTIVE))throw new IllegalArgumentException("Ultimate skills use only the fifth slot.");
     }
     public String skill(int slot){
         if(slot<1||slot>5)throw new IllegalArgumentException("Invalid skill slot.");return slots.get(slot-1);

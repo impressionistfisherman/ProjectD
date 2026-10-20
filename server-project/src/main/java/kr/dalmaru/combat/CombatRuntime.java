@@ -53,6 +53,7 @@ public final class CombatRuntime {
     public void revived(ServerPlayer player,double staminaRatio,boolean combat,long tick){
         RuntimeState state=states.get(player.getUUID());if(state!=null){state.stamina=state.maximumStamina*staminaRatio;if(!combat)state.lastCombatTick=Long.MIN_VALUE;}
         effects.clear(player.getUUID());if(combat)defenseState(player.getUUID()).revive(tick);
+        resetBranchOnDeath(player.getUUID());
     }
     public void movementEffects(ServerPlayer player,long tick){
         var speed=player.getAttribute(Attributes.MOVEMENT_SPEED);if(speed==null)return;
@@ -68,6 +69,7 @@ public final class CombatRuntime {
         boolean blockable=source.getEntity()!=null&&!source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_SHIELD);
         double cost=damage>=180?60:damage>=130?40:damage>=100?20:10;
         double reduced=defense.reduce(damage,tick,blockable,front,hasShield(player.getUUID()),cost,resistsStagger(player.getUUID(),tick));
+        if(defense.takePrecise())preciseDefense(player.getUUID(),tick);
         double beforeShield=reduced;
         reduced=effects.absorb(player.getUUID(),reduced,tick);
         if(validCombat&&reduced<beforeShield)receivedHit.accept(player);
@@ -163,6 +165,7 @@ public final class CombatRuntime {
 	private final Map<UUID, Long> bindingShotCooldowns = new HashMap<>();
 	private final Map<UUID, Long> protectiveTalismanCooldowns = new HashMap<>();
 	private final Map<UUID, Long> shortStepCooldowns = new HashMap<>();
+	private final Map<UUID, Long> branchSkillCooldowns = new HashMap<>();
 
 	public void refresh(ServerPlayer player, CharacterProfile profile) {
 		EquipmentSnapshot snapshot = equipment.get(player.getUUID());
@@ -192,10 +195,12 @@ public final class CombatRuntime {
 	public void equipment(ServerPlayer player, CharacterProfile profile, java.util.List<EquipmentRecord> records) {
 		PilotEquipment.equipped(profile, records,content(player.getUUID()));
 		equipment.put(player.getUUID(), new EquipmentSnapshot(profile.characterId(), java.util.List.copyOf(records)));
+		bindBranch(player.getUUID(), profile.characterId(), weaponProfile(records), false);
 		refresh(player, profile);
 	}
 	public void clearEquipment(ServerPlayer player, CharacterProfile profile) {
 		equipment.remove(player.getUUID());
+		bindBranch(player.getUUID(), profile.characterId(), "", false);
 		refresh(player, profile);
 	}
 	public boolean managed(ServerPlayer player) { return states.containsKey(player.getUUID()); }
@@ -238,7 +243,7 @@ public final class CombatRuntime {
 
 	public void recordValidHit(ServerPlayer player, long tick) {
 		RuntimeState state = states.get(player.getUUID());
-		if (state != null) {state.lastCombatTick = tick;contribution.accept(player,kr.dalmaru.run.RunContribution.Action.EFFECT);}
+		if (state != null) {state.lastCombatTick = tick;contribution.accept(player,kr.dalmaru.run.RunContribution.Action.EFFECT);grantBranchHit(player.getUUID());}
 	}
     public void recordIncomingHit(ServerPlayer player,long tick){
         receivedHit.accept(player);
@@ -444,13 +449,13 @@ public final class CombatRuntime {
     public void shiftCooldowns(UUID playerId,long pausedTicks) {
         if(pausedTicks<=0)return;
         var defense=defenseStates.get(playerId);if(defense!=null)defense.shift(pausedTicks);
-        for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns))cooldown.computeIfPresent(playerId,(id,until)->Math.addExact(until,pausedTicks));
+        for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns,branchSkillCooldowns))cooldown.computeIfPresent(playerId,(id,until)->Math.addExact(until,pausedTicks));
         RuntimeState state=states.get(playerId);
         if(state!=null){state.nextBasicAttackTick=Math.addExact(state.nextBasicAttackTick,pausedTicks);if(state.lastCombatTick!=Long.MIN_VALUE)state.lastCombatTick=Math.addExact(state.lastCombatTick,pausedTicks);}
     }
     public void remove(UUID playerId) {
-        states.remove(playerId);equipment.remove(playerId);disconnected.remove(playerId);skillRanks.remove(playerId);effects.clear(playerId);staggerResistance.remove(playerId);defenseStates.remove(playerId);evasiveUntil.remove(playerId);
-        for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns))cooldown.remove(playerId);
+        states.remove(playerId);equipment.remove(playerId);disconnected.remove(playerId);skillRanks.remove(playerId);effects.clear(playerId);staggerResistance.remove(playerId);defenseStates.remove(playerId);evasiveUntil.remove(playerId);branches.remove(playerId);
+        for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns,branchSkillCooldowns))cooldown.remove(playerId);
     }
 
 	public StaminaState stamina(UUID playerId, long tick) {
@@ -479,5 +484,71 @@ public final class CombatRuntime {
 	}
 	private record EquipmentSnapshot(UUID characterId, java.util.List<EquipmentRecord> records) { }
 	public record StaminaState(double current, double maximum, boolean inCombat) { }
+	public record BranchResourceSnapshot(String resourceKind,int current,int maximum){
+		public BranchResourceSnapshot{if(resourceKind==null||current<0||maximum<current||resourceKind.isEmpty()&&(current!=0||maximum!=0))throw new IllegalArgumentException("Invalid branch resource snapshot");}
+	}
+	public enum ResourceOutcome { APPLIED, RESOURCE, STAMINA, COOLDOWN, UNAVAILABLE }
+	private final Map<UUID,BranchPool> branches=new HashMap<>();
+	private static final class BranchPool { private UUID character; private String profile=""; private int current; }
+	public void bindBranch(UUID player,UUID character,String weaponProfile,boolean ensureStamina){
+		java.util.Objects.requireNonNull(player);java.util.Objects.requireNonNull(character);
+		String profile=weaponProfile==null?"":weaponProfile;
+		var rule=profile.isEmpty()?kr.dalmaru.content.ContentCatalog.BranchResource.NONE:content(player).branchResource(profile);
+		BranchPool pool=branches.get(player);
+		if(pool==null||!character.equals(pool.character)){
+			pool=new BranchPool();pool.character=character;pool.profile=profile;pool.current=rule.initial();branches.put(player,pool);branchSkillCooldowns.remove(player);
+		}else if(!profile.equals(pool.profile)){pool.profile=profile;pool.current=rule.initial();branchSkillCooldowns.remove(player);}
+		if(ensureStamina)states.computeIfAbsent(player,id->new RuntimeState(100,100,0,Long.MIN_VALUE,PilotEquipment.Stats.EMPTY,1));
+	}
+	public BranchResourceSnapshot branchResourceSnapshot(UUID player){
+		BranchPool pool=branches.get(player);
+		if(pool==null||pool.profile.isEmpty())return new BranchResourceSnapshot("",0,0);
+		var rule=content(player).branchResource(pool.profile);
+		if(rule.unused())return new BranchResourceSnapshot("",0,0);
+		return new BranchResourceSnapshot(rule.resourceKind(),pool.current,rule.maximum());
+	}
+	public ResourceOutcome grantBranchHit(UUID player){return gainBranch(player,true);}
+	public ResourceOutcome preciseDefense(UUID player,long tick){
+		if(tick<0)return ResourceOutcome.UNAVAILABLE;
+		BranchPool pool=branches.get(player);if(pool==null)return ResourceOutcome.UNAVAILABLE;
+		var rule=content(player).branchResource(pool.profile);if(rule.unused())return ResourceOutcome.UNAVAILABLE;
+		int cost=rule.preciseCost();if(pool.current<cost)return ResourceOutcome.RESOURCE;
+		int next=pool.current-cost;
+		try{next=Math.addExact(next,rule.gainOnPreciseDefense());}catch(ArithmeticException error){return ResourceOutcome.RESOURCE;}
+		if(next<0)return ResourceOutcome.RESOURCE;
+		pool.current=Math.min(rule.maximum(),next);return ResourceOutcome.APPLIED;
+	}
+	public ResourceOutcome spendBranchSkill(UUID player,long tick){
+		BranchPool pool=branches.get(player);if(pool==null)return ResourceOutcome.UNAVAILABLE;
+		var rule=content(player).branchResource(pool.profile);if(rule.unused())return ResourceOutcome.UNAVAILABLE;
+		if(tick<branchSkillCooldowns.getOrDefault(player,0L))return ResourceOutcome.COOLDOWN;
+		RuntimeState state=states.get(player);if(state==null)return ResourceOutcome.UNAVAILABLE;
+		if(state.stamina<rule.staminaSpend())return ResourceOutcome.STAMINA;
+		if(pool.current<rule.skillSpend())return ResourceOutcome.RESOURCE;
+		state.stamina-=rule.staminaSpend();pool.current-=rule.skillSpend();
+		if(rule.skillCooldownTicks()>0)branchSkillCooldowns.put(player,Math.addExact(tick,rule.skillCooldownTicks()));
+		return ResourceOutcome.APPLIED;
+	}
+	public void resetBranchOnDeath(UUID player){
+		BranchPool pool=branches.get(player);if(pool==null||pool.profile.isEmpty())return;
+		pool.current=content(player).branchResource(pool.profile).initial();
+	}
+	public void dropPreservedBranch(UUID player){branches.remove(player);}
+	private ResourceOutcome gainBranch(UUID player,boolean hit){
+		BranchPool pool=branches.get(player);if(pool==null||pool.profile.isEmpty())return ResourceOutcome.UNAVAILABLE;
+		var rule=content(player).branchResource(pool.profile);if(rule.unused())return ResourceOutcome.UNAVAILABLE;
+		int amount=hit?rule.gainOnHit():rule.gainOnPreciseDefense();
+		int next;try{next=Math.addExact(pool.current,amount);}catch(ArithmeticException error){return ResourceOutcome.RESOURCE;}
+		if(next<0)return ResourceOutcome.RESOURCE;
+		pool.current=Math.min(rule.maximum(),next);return ResourceOutcome.APPLIED;
+	}
+	private static String weaponProfile(java.util.List<EquipmentRecord> records){
+		for(EquipmentRecord item:records){
+			if(item.slotId()!=0)continue;
+			for(String profile:java.util.List.of("two_handed_sword","sword_shield","crossbow","bow","ritual_sword","fan","dual_axes","pirate_sword"))
+				if(item.itemId().contains("."+profile+"."))return profile;
+		}
+		return "";
+	}
 	public enum SweepResult { USED, STAMINA, COOLDOWN, UNAVAILABLE }
 }

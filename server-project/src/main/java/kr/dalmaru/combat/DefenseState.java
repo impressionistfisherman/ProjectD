@@ -3,7 +3,7 @@ package kr.dalmaru.combat;
 /** Fixed 20-tick server clock; no client-supplied immunity or charge timestamps. */
 public final class DefenseState {
     private int charges=2;private long nextCharge,dodgeUntil,dodgeImmuneUntil,reviveUntil;
-    private boolean holding;private long guardStart,lastPerfect=Long.MIN_VALUE,dropped,meterTick,disabledUntil,staggerUntil;
+    private boolean holding,precise;private long guardStart,lastPerfect=Long.MIN_VALUE,dropped,meterTick,disabledUntil,staggerUntil;
     private double meter=100;
     public void refresh(long tick){
         while(charges<2&&tick>=nextCharge){charges++;nextCharge+=100;}
@@ -28,12 +28,13 @@ public final class DefenseState {
     public boolean guarding(long tick){return holding&&tick>=disabledUntil&&tick>=staggerUntil;}
     public boolean staggered(long tick){return tick<staggerUntil;}
     public double meter(long tick){refresh(tick);return meter;}
+    public boolean takePrecise(){boolean value=precise;precise=false;return value;}
     public double reduce(double damage,long tick,boolean blockable,boolean front,boolean shield,double cost,boolean staggerResistance){
-        refresh(tick);if(immune(tick))return 0;
+        refresh(tick);precise=false;if(immune(tick))return 0;
         if(!blockable||!front||!guarding(tick))return damage;
         int window=shield?5:4;
         boolean perfect=tick-guardStart<window&&(lastPerfect==Long.MIN_VALUE||tick-lastPerfect>=16);
-        if(perfect){lastPerfect=tick;if(shield){meter=Math.max(0,meter-cost*.25);if(meter==0)breakGuard(tick,staggerResistance);}return 0;}
+        if(perfect){precise=true;lastPerfect=tick;if(shield){meter=Math.max(0,meter-cost*.25);if(meter==0)breakGuard(tick,staggerResistance);}return 0;}
         if(!shield)return tick-guardStart<9?damage*.7:damage;
         meter=Math.max(0,meter-cost);
         if(meter==0)breakGuard(tick,staggerResistance);
