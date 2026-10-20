@@ -342,9 +342,23 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
 
     public static void requestHome(String operation) {
         var body = new com.google.gson.JsonObject();
-        if ("enter_home".equals(operation)) {
+        if ("enter_home".equals(operation) || "grant_home".equals(operation) || "place_home".equals(operation) || "expand_home".equals(operation)) {
             if (ClientHousingState.housingId() == null) { ClientHousingState.accept("{\"status\":\"ABSENT\"}", true); return; }
             body.addProperty("housingId", ClientHousingState.housingId());
+        }
+        if ("grant_home".equals(operation)) {
+            if (ClientHousingState.targetAccount() == null) { ClientHousingState.accept("{\"status\":\"ABSENT\"}", true); return; }
+            body.addProperty("accountId", ClientHousingState.targetAccount());
+            body.addProperty("permission", ClientHousingState.permission());
+            if (ClientHousingState.targetId() != null) body.addProperty("targetId", ClientHousingState.targetId());
+        }
+        if ("revoke_home".equals(operation)) {
+            if (ClientHousingState.grantId() == null) { ClientHousingState.accept("{\"status\":\"ABSENT\"}", true); return; }
+            body.addProperty("grantId", ClientHousingState.grantId());
+        }
+        if ("place_home".equals(operation) || "expand_home".equals(operation)) {
+            if (ClientHousingState.changeId() == null) { ClientHousingState.accept("{\"status\":\"ABSENT\"}", true); return; }
+            body.addProperty("changeId", ClientHousingState.changeId());
         }
         var request = ClientRequestState.begin(ClientHousingState.nextId(), operation, body);
         if (request != null) ClientPlayNetworking.send(request);
@@ -535,7 +549,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("research_craft".equals(request.operation())||"craft_learned".equals(request.operation())){ClientCraftState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("begin_precision".equals(request.operation())||"step_precision".equals(request.operation())){ClientPrecisionState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if("place_craft_order".equals(request.operation())||"accept_craft_order".equals(request.operation())||"settle_craft_order".equals(request.operation())||"cancel_craft_order".equals(request.operation())){ClientCraftOrderState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
-        if("create_home".equals(request.operation())||"enter_home".equals(request.operation())||"leave_home".equals(request.operation())){ClientHousingState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
+        if("create_home".equals(request.operation())||"enter_home".equals(request.operation())||"leave_home".equals(request.operation())||"grant_home".equals(request.operation())||"revoke_home".equals(request.operation())||"place_home".equals(request.operation())||"expand_home".equals(request.operation())){ClientHousingState.accept(receipt.result(),"rejected".equals(receipt.state()));return;}
         if(!"enhance_item".equals(request.operation()))return;
         if("rejected".equals(receipt.state()))ClientEquipmentState.accept(new DalmaruPayloads.EquipmentEnhanceResponse(receipt.correlationId(),false,false,0,0,"\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4."));
         else{

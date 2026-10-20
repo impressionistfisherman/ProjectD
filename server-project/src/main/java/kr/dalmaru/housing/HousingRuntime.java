@@ -12,6 +12,26 @@ public final class HousingRuntime {
 		return homes.createJournaled(account, generation, correlation, character, envelope);
 	}
 
+	public String permit(UUID account, UUID housingId, String action, String target) throws SQLException {
+		return homes.permit(account, housingId, action, target);
+	}
+
+	public HousingRepository.Journaled grantJournaled(UUID account, long generation, long correlation, UUID character, RequestEnvelope envelope) throws SQLException {
+		return homes.grantJournaled(account, generation, correlation, character, envelope);
+	}
+
+	public HousingRepository.Journaled revokeJournaled(UUID account, long generation, long correlation, UUID character, RequestEnvelope envelope) throws SQLException {
+		return homes.revokeJournaled(account, generation, correlation, character, envelope);
+	}
+
+	public HousingRepository.Journaled placeJournaled(UUID account, long generation, long correlation, UUID character, RequestEnvelope envelope) throws SQLException {
+		return homes.placeJournaled(account, generation, correlation, character, envelope);
+	}
+
+	public HousingRepository.Journaled expandJournaled(UUID account, long generation, long correlation, UUID character, RequestEnvelope envelope) throws SQLException {
+		return homes.expandJournaled(account, generation, correlation, character, envelope);
+	}
+
 	public HousingRepository.Snapshot enter(UUID account, UUID character, UUID housingId, String returnDimension, int x, int y, int z) throws SQLException {
 		return enter(account, character, housingId, returnDimension, x, y, z, false);
 	}

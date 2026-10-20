@@ -40,6 +40,16 @@ CREATE TABLE dalmaru.account_home_grants (
     revoked_at TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS account_home_grants_active ON dalmaru.account_home_grants (housing_id, account_id, permission, (COALESCE(target_id, ''))) WHERE revoked_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS dalmaru.account_home_changes (
+    housing_id UUID NOT NULL REFERENCES dalmaru.account_homes(housing_id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('PLACE', 'EXPAND')),
+    change_key TEXT NOT NULL,
+    size INTEGER NOT NULL CHECK (size > 0),
+    PRIMARY KEY (housing_id, kind, change_key)
+);
+
 INSERT INTO dalmaru.schema_migrations(version, description)
 VALUES (48, 'account homes, spaces, and reserved grants')
 ON CONFLICT (version) DO NOTHING;
