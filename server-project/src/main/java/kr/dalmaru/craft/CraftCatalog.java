@@ -31,6 +31,10 @@ public final class CraftCatalog {
 
 	private CraftCatalog() { }
 
+	public static boolean queuesPrecision(String id) { return PRECISION.containsKey(id); }
+
+	public static Recipe basic(String id) { return RECIPES.get(id); }
+
 	public static Recipe recipe(String id) {
 		Recipe recipe = RECIPES.get(id);
 		if (recipe == null) throw new IllegalArgumentException("Unknown recipe: " + id);

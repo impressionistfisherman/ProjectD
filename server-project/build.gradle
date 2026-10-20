@@ -507,3 +507,8 @@ tasks.register('verifyP5HousingPermissions', JavaExec) {
 tasks.register('verifyP5HousingCrops', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5HousingCropsCheck'
 }
+
+// P5 Oscar
+tasks.register('verifyP5CraftProductionQueue', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5CraftProductionQueueCheck'
+}
