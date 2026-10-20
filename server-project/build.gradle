@@ -447,3 +447,8 @@ tasks.register('verifyP5GrowthAdvancement', JavaExec) {
 tasks.register('verifyP5GrowthRogueReset', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5GrowthRogueResetCheck'
 }
+
+// P5 Oscar
+tasks.register('verifyP5GrowthStoryGates', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5GrowthStoryGatesCheck'
+}
