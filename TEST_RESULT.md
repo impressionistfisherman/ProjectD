@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-20 보스 체력 한도: `verifyBossEngineHealth`, `verifyBossPartyScaling`, `verifySoloCombatDefinitions` 통과. `grok_p3_fixture` 전체 회귀 75 PASS, FAIL 0 (`hive/research/MDF_P4_BOSSHP_GROK_regression.log`). `gradlew build -x test` 통과. JAR SHA256 `BE790E5175CC2FE6FA7C7AB7920C03848C8E87CD220750595CEE053D41B78B5A`. 3인 봇은 철문수장 30225/30225 생성·피해·자세를 봤고 서버는 죽지 않았다. 처치와 추방 OPEN/REMOVED는 미확인.
+
 - 2026-09-28 CTP-001 컴파일: 통과. `compileJava compileClientJava --no-daemon`으로 폐봉수대 맵·보스·화로 전환 코드를 확인했다. 실제 Minecraft 조작 검증은 미실행이다.
 
 > 문서 ID: EVD-001 · 분류: 현황·증적 · 상태: 증적 기록
