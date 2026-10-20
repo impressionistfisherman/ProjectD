@@ -31,14 +31,113 @@ public final class CharacterRepository {
 	private final String url;
 	private final String username;
 	private final String password;
+	private final kr.dalmaru.quest.StoryQuestRepository advancementStory;
 
 	public CharacterRepository() {
+		this(null);
+	}
+
+	public CharacterRepository(kr.dalmaru.quest.StoryQuestRepository advancementStory) {
+		this.advancementStory = advancementStory;
 		String host = System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost");
 		String port = System.getenv().getOrDefault("DALMARU_DB_PORT", "15432");
 		String database = System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
 		url = "jdbc:postgresql://" + host + ":" + port + "/" + database + "?connectTimeout=1&loginTimeout=1&socketTimeout=2&options=-c%20statement_timeout%3D250ms%20-c%20lock_timeout%3D200ms";
 		username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
 		password = System.getenv("DALMARU_DB_PASSWORD");
+	}
+
+	public static final class GrowthException extends IllegalArgumentException {
+		private final String status, reason;
+		public GrowthException(String status, String reason) { super(reason); this.status=status; this.reason=reason; }
+		public String status() { return status; }
+		public String reason() { return reason; }
+	}
+	public record GrowthSnapshot(CharacterProfile profile, String branch, boolean advance30, boolean advance50,
+		boolean advance60, boolean rogueResetAvailable, int levelCap, String contentVersion) { }
+	public record GrowthResult(RequestJournal.Receipt receipt, JsonObject originalResult, boolean replayed) {
+		public GrowthResult { originalResult=originalResult.deepCopy(); }
+		@Override public JsonObject originalResult() { return originalResult.deepCopy(); }
+	}
+	private record Advancement(String branch, boolean advance30, boolean advance50, boolean advance60, boolean rogueUsed) {
+		boolean completed(AdvancementStage stage) { return switch(stage) {
+			case BRANCH_30 -> advance30; case ADVANCE_50 -> advance50; case MASTER_60 -> advance60;
+		}; }
+	}
+	private static boolean developmentAdvancementEnabled() {
+		// Only fixture JVMs may exercise later milestones before S07 opens the product cap.
+		return Boolean.getBoolean("dalmaru.p5.development")
+			&& List.of("oscar_p3_fixture", "grok_p3_fixture").contains(System.getenv("DALMARU_DB_NAME"));
+	}
+	private static void activeGrowthCharacter(java.sql.Connection c, UUID account, long generation, UUID character) throws SQLException {
+		try(var q=c.prepareStatement("SELECT connection_generation,active_character_id FROM dalmaru.accounts WHERE account_id=? FOR UPDATE")) {
+			q.setObject(1,account); try(var row=q.executeQuery()) {
+				if(!row.next() || row.getLong(1)!=generation || !character.equals(row.getObject(2,UUID.class)))
+					throw new GrowthException("STALE_SESSION","inactive_character");
+			}
+		}
+	}
+	private static Advancement advancement(java.sql.Connection c, UUID character, boolean lock) throws SQLException {
+		try(var q=c.prepareStatement("SELECT branch,advanced_30_at IS NOT NULL,advanced_50_at IS NOT NULL,advanced_60_at IS NOT NULL,rogue_reset_used FROM dalmaru.character_advancements WHERE character_id=?"+(lock?" FOR UPDATE":""))) {
+			q.setObject(1,character);try(var row=q.executeQuery()) {
+				return row.next()?new Advancement(row.getString(1)==null?"":row.getString(1),row.getBoolean(2),row.getBoolean(3),row.getBoolean(4),row.getBoolean(5))
+					:new Advancement("",false,false,false,false);
+			}
+		}
+	}
+	public GrowthSnapshot growthSnapshot(UUID account,long generation,UUID character) throws SQLException {
+		if(account==null || character==null || generation<1)throw new GrowthException("FIELD_LIMIT","invalid_payload");
+		try(var c=DriverManager.getConnection(url,username,password)) {
+			c.setAutoCommit(false);try {
+				activeGrowthCharacter(c,account,generation,character);
+				own(c,account,character);var profile=profileForUpdate(c,character);var state=advancement(c,character,false);
+				var result=new GrowthSnapshot(profile,state.branch,state.advance30,state.advance50,state.advance60,
+					"ROGUE".equals(profile.profession())&&state.advance30&&!state.rogueUsed,
+					TRIAL_LEVEL_CAP,kr.dalmaru.content.ContentCatalog.current().version());
+				c.commit();return result;
+			}catch(SQLException|RuntimeException error){c.rollback();throw error;}
+		}
+	}
+	public GrowthResult confirmAdvancementJournaled(UUID account,long generation,long correlation,UUID character,
+		AdvancementStage stage,String branch,long expectedRevision,kr.dalmaru.quest.StoryQuestRepository.Position position,RequestEnvelope envelope) throws SQLException {
+		if(account==null||character==null||stage==null||branch==null||position==null||generation<1||correlation<1||expectedRevision<0)
+			throw new GrowthException("FIELD_LIMIT","invalid_payload");
+		var profession=AdvancementStage.profession(branch);
+		var body=new JsonObject();body.addProperty("stage",stage.name());body.addProperty("branch",branch);body.addProperty("expectedRevision",expectedRevision);
+		if(envelope==null||envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(character)
+			||!envelope.operation().equals("confirm_advancement")||!envelope.payload().equals(body))throw new GrowthException("FIELD_LIMIT","invalid_payload");
+		try(var c=DriverManager.getConnection(url,username,password)) {
+			c.setAutoCommit(false);try {
+				activeGrowthCharacter(c,account,generation,character);
+				var stored=RequestJournal.begin(c,account,correlation,envelope);
+				if(stored.result()!=null){c.commit();return new GrowthResult(stored.receipt(),stored.result(),true);}
+				own(c,account,character);var before=profileForUpdate(c,character);
+				try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r USING(run_id) LEFT JOIN dalmaru.run_member_lifecycle m ON m.run_id=p.run_id AND m.character_id=p.character_id WHERE p.character_id=? AND r.state='ACTIVE' AND m.left_at IS NULL")) {
+					q.setObject(1,character);try(var row=q.executeQuery()){if(row.next())throw new GrowthException("FORBIDDEN","in_run");}
+				}
+				try(var q=c.prepareStatement("INSERT INTO dalmaru.character_advancements(character_id) VALUES(?) ON CONFLICT DO NOTHING")){q.setObject(1,character);q.executeUpdate();}
+				var state=advancement(c,character,true);
+				if(!developmentAdvancementEnabled())throw new GrowthException("NOT_RELEASED","level_cap_closed");
+				if(before.revision()!=expectedRevision)throw new GrowthException("CONFLICT","stale_revision");
+				if(!profession.name().equals(before.profession()))throw new GrowthException("FORBIDDEN","profession_mismatch");
+				if(state.completed(stage))throw new GrowthException("DUPLICATE","already_advanced");
+				if(before.level()<stage.requiredLevel())throw new GrowthException("NOT_READY","level_required");
+				if(stage!=AdvancementStage.BRANCH_30&&!state.branch.equals(branch))throw new GrowthException("FORBIDDEN","branch_mismatch");
+				if(stage==AdvancementStage.ADVANCE_50&&!state.advance30||stage==AdvancementStage.MASTER_60&&!state.advance50)
+					throw new GrowthException("NOT_READY","quest_required");
+				var story=advancementStory==null?new kr.dalmaru.quest.StoryQuestRepository(kr.dalmaru.quest.QuestStageRepository::reportConfirmed):advancementStory;
+				var storyResult=story.confirmAdvancement(c,character,stage,branch,position);
+				String column=switch(stage){case BRANCH_30->"advanced_30_at";case ADVANCE_50->"advanced_50_at";case MASTER_60->"advanced_60_at";};
+				try(var q=c.prepareStatement("UPDATE dalmaru.character_advancements SET branch=?,"+column+"=CURRENT_TIMESTAMP WHERE character_id=?")){q.setString(1,branch);q.setObject(2,character);if(q.executeUpdate()!=1)throw new SQLException("Advancement row missing");}
+				try(var q=c.prepareStatement("UPDATE dalmaru.character_profiles SET unspent_skill_points=unspent_skill_points+? WHERE character_id=?")){q.setInt(1,stage.bonus());q.setObject(2,character);if(q.executeUpdate()!=1)throw new SQLException("Advancement profile missing");}
+				var after=profileForUpdate(c,character);state=advancement(c,character,false);
+				var result=new JsonObject();result.addProperty("status","OK");result.addProperty("operation","confirm_advancement");result.addProperty("characterId",character.toString());
+				result.addProperty("profileRevision",after.revision());result.addProperty("stage",stage.name());result.addProperty("branch",branch);result.addProperty("skillPointsGranted",stage.bonus());
+				result.addProperty("advance30",state.advance30);result.addProperty("advance50",state.advance50);result.addProperty("advance60",state.advance60);
+				result.addProperty("rogueResetAvailable",profession==CharacterProfession.ROGUE&&state.advance30&&!state.rogueUsed);result.add("story",storyResult);
+				var receipt=RequestJournal.confirm(c,stored,result);c.commit();return new GrowthResult(receipt,result,false);
+			}catch(SQLException|RuntimeException error){c.rollback();throw error;}
+		}
 	}
 
 	public CharacterRecord create(UUID accountId, int slot, String displayName) throws SQLException {

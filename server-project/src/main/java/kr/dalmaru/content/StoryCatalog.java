@@ -11,7 +11,7 @@ public final class StoryCatalog {
     public enum Proof { PROFESSION_VILLAGE,PROFESSION,PROFESSION_TRIAL,INVESTIGATION,FIRST_STEP_CLEAR }
     public enum RewardOwner { STORY,S07 }
     public record Chapter(String id,String title,int questXP,int combatXP,int targetLevel,List<String> npcs,CombatScope combatScope,Set<Proof> proofs,String supplyGrant,String dialogue,RewardOwner rewardOwner) {
-        public Chapter {npcs=List.copyOf(npcs);proofs=Set.copyOf(proofs);if(id.isBlank()||title.isBlank()||questXP<1||combatXP<0||targetLevel<2||targetLevel>20||npcs.isEmpty()||!Set.of("",StarterSupply.PROFESSION,StarterSupply.INVESTIGATION).contains(supplyGrant))throw new IllegalArgumentException("Invalid story chapter");}
+        public Chapter {npcs=List.copyOf(npcs);proofs=Set.copyOf(proofs);var advancement=kr.dalmaru.account.AdvancementStage.forQuest(id);if(id.isBlank()||title.isBlank()||questXP<1||combatXP<0||targetLevel<2||(advancement==null?targetLevel>20:targetLevel!=advancement.requiredLevel()||rewardOwner!=RewardOwner.STORY||!supplyGrant.isEmpty())||npcs.isEmpty()||!Set.of("",StarterSupply.PROFESSION,StarterSupply.INVESTIGATION).contains(supplyGrant))throw new IllegalArgumentException("Invalid story chapter");}
     }
     private static final StoryCatalog CURRENT=load();
     private final String version;

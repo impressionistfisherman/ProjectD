@@ -22,11 +22,12 @@ public final class StoryQuestRepository {
             var npcs=new JsonArray();if(chapter!=null)chapter.npcs().forEach(npcs::add);data.add("npcs",npcs);var requirements=new JsonArray();missing.forEach(requirements::add);data.add("missing",requirements);return data;
         }
     }
-    private static final StoryCatalog CATALOG=StoryCatalog.current();
+    private final StoryCatalog catalog;
     private final InvestigationEvidence investigation;
     // Unconfigured callers stay closed; networking injects the server's transactional evidence reader.
     public StoryQuestRepository(){this((connection,character)->false);}
-    public StoryQuestRepository(InvestigationEvidence investigation){this.investigation=Objects.requireNonNull(investigation);}
+    public StoryQuestRepository(InvestigationEvidence investigation){this(investigation,StoryCatalog.current());}
+    public StoryQuestRepository(InvestigationEvidence investigation,StoryCatalog catalog){this.investigation=Objects.requireNonNull(investigation);this.catalog=Objects.requireNonNull(catalog);}
     private Connection connection()throws SQLException {
         String password=System.getenv("DALMARU_DB_PASSWORD");if(password==null||password.isBlank())throw new SQLException("DALMARU_DB_PASSWORD not configured");
         return DriverManager.getConnection("jdbc:postgresql://"+System.getenv().getOrDefault("DALMARU_DB_HOST","localhost")+":"+System.getenv().getOrDefault("DALMARU_DB_PORT","15432")+"/"+System.getenv().getOrDefault("DALMARU_DB_NAME","ProjectD")+"?connectTimeout=1&socketTimeout=2&options=-c%20statement_timeout%3D250ms%20-c%20lock_timeout%3D200ms",System.getenv().getOrDefault("DALMARU_DB_USER","postgres"),password);
@@ -34,24 +35,24 @@ public final class StoryQuestRepository {
     private static void owner(Connection c,UUID account,long generation,UUID character)throws SQLException {
         try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.accounts WHERE account_id=? AND connection_generation=? AND active_character_id=? FOR UPDATE")){q.setObject(1,account);q.setLong(2,generation);q.setObject(3,character);try(var row=q.executeQuery()){if(!row.next())throw new IllegalArgumentException("이야기 캐릭터 세션이 바뀌었습니다.");}}
     }
-    private static StoryCatalog.Chapter current(Connection c,UUID character)throws SQLException {
-        var rewarded=new HashSet<String>();try(var q=c.prepareStatement("SELECT quest_id FROM dalmaru.character_quest_progress WHERE character_id=? AND content_version=? AND state='REWARDED'")){q.setObject(1,character);q.setString(2,CATALOG.version());try(var row=q.executeQuery()){while(row.next())rewarded.add(row.getString(1));}}
-        var chapter=CATALOG.chapters().stream().filter(entry->!rewarded.contains(entry.id())).findFirst().orElse(null);
-        if(chapter!=null)try(var q=c.prepareStatement("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state) VALUES(?,?,?,'ACTIVE') ON CONFLICT DO NOTHING")){q.setObject(1,character);q.setString(2,chapter.id());q.setString(3,CATALOG.version());q.executeUpdate();}
+    private StoryCatalog.Chapter current(Connection c,UUID character)throws SQLException {
+        var rewarded=new HashSet<String>();try(var q=c.prepareStatement("SELECT quest_id FROM dalmaru.character_quest_progress WHERE character_id=? AND content_version=? AND state='REWARDED'")){q.setObject(1,character);q.setString(2,catalog.version());try(var row=q.executeQuery()){while(row.next())rewarded.add(row.getString(1));}}
+        var chapter=catalog.chapters().stream().filter(entry->!rewarded.contains(entry.id())).findFirst().orElse(null);
+        if(chapter!=null)try(var q=c.prepareStatement("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state) VALUES(?,?,?,'ACTIVE') ON CONFLICT DO NOTHING")){q.setObject(1,character);q.setString(2,chapter.id());q.setString(3,catalog.version());q.executeUpdate();}
         return chapter;
     }
-    private static boolean completed(Connection c,UUID character,String id)throws SQLException {
-        try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? AND state IN ('COMPLETED','REWARDED')")){q.setObject(1,character);q.setString(2,id);q.setString(3,CATALOG.version());try(var row=q.executeQuery()){return row.next();}}
+    private boolean completed(Connection c,UUID character,String id)throws SQLException {
+        try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? AND state IN ('COMPLETED','REWARDED')")){q.setObject(1,character);q.setString(2,id);q.setString(3,catalog.version());try(var row=q.executeQuery()){return row.next();}}
     }
-    private static void proof(Connection c,UUID character,String id,int progress,String state)throws SQLException {
-        try(var q=c.prepareStatement("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state,progress_count) VALUES(?,?,?,?,?) ON CONFLICT(character_id,quest_id,content_version) DO UPDATE SET progress_count=GREATEST(dalmaru.character_quest_progress.progress_count,EXCLUDED.progress_count),state=CASE WHEN dalmaru.character_quest_progress.state IN ('COMPLETED','REWARDED') THEN dalmaru.character_quest_progress.state ELSE EXCLUDED.state END,updated_at=CURRENT_TIMESTAMP")){q.setObject(1,character);q.setString(2,id);q.setString(3,CATALOG.version());q.setString(4,state);q.setInt(5,progress);q.executeUpdate();}
+    private void proof(Connection c,UUID character,String id,int progress,String state)throws SQLException {
+        try(var q=c.prepareStatement("INSERT INTO dalmaru.character_quest_progress(character_id,quest_id,content_version,state,progress_count) VALUES(?,?,?,?,?) ON CONFLICT(character_id,quest_id,content_version) DO UPDATE SET progress_count=GREATEST(dalmaru.character_quest_progress.progress_count,EXCLUDED.progress_count),state=CASE WHEN dalmaru.character_quest_progress.state IN ('COMPLETED','REWARDED') THEN dalmaru.character_quest_progress.state ELSE EXCLUDED.state END,updated_at=CURRENT_TIMESTAMP")){q.setObject(1,character);q.setString(2,id);q.setString(3,catalog.version());q.setString(4,state);q.setInt(5,progress);q.executeUpdate();}
     }
     private static String profession(Connection c,UUID character)throws SQLException {
         try(var q=c.prepareStatement("SELECT base_job FROM dalmaru.character_professions WHERE character_id=?")){q.setObject(1,character);try(var row=q.executeQuery()){return row.next()?row.getString(1):"";}}
     }
     private static String professionKey(String job,String suffix){return "profession."+job.toLowerCase(Locale.ROOT)+"."+suffix;}
-    private static int progress(Connection c,UUID character,String id)throws SQLException {
-        try(var q=c.prepareStatement("SELECT progress_count FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? FOR UPDATE")){q.setObject(1,character);q.setString(2,id);q.setString(3,CATALOG.version());try(var row=q.executeQuery()){return row.next()?row.getInt(1):0;}}
+    private int progress(Connection c,UUID character,String id)throws SQLException {
+        try(var q=c.prepareStatement("SELECT progress_count FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version=? FOR UPDATE")){q.setObject(1,character);q.setString(2,id);q.setString(3,catalog.version());try(var row=q.executeQuery()){return row.next()?row.getInt(1):0;}}
     }
     private static boolean firstClear(Connection c,UUID character)throws SQLException {
         try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.run_reward_grants g JOIN dalmaru.run_instances r ON r.run_id=g.run_id WHERE g.character_id=? AND r.difficulty='FIRST_STEP' AND r.state='COMPLETED'")){q.setObject(1,character);try(var row=q.executeQuery()){return row.next();}}
@@ -78,9 +79,27 @@ public final class StoryQuestRepository {
     public void visit(UUID account,long generation,UUID character,Position position)throws SQLException {
         try(var c=connection()){c.setAutoCommit(false);try{owner(c,account,generation,character);visit(c,character,position);c.commit();}catch(SQLException|RuntimeException error){c.rollback();throw error;}}
     }
-    private static void visit(Connection c,UUID character,Position position)throws SQLException {
+    private void visit(Connection c,UUID character,Position position)throws SQLException {
         for(var village:VillageCatalog.current())if(!village.profession().isEmpty()&&position.inside(village))proof(c,character,professionKey(village.profession(),"village_visit"),0,"COMPLETED");
     }
+    public JsonObject confirmAdvancement(Connection c,UUID character,AdvancementStage stage,String branch,Position position)throws SQLException {
+        if(c.getAutoCommit())throw new IllegalArgumentException("Advancement requires caller transaction");
+        var chapter=current(c,character);
+        if(chapter==null||!chapter.id().equals(stage.questId()))throw new CharacterRepository.GrowthException("NOT_READY","quest_required");
+        String job=profession(c,character);
+        if(!AdvancementStage.profession(branch).name().equals(job))throw new CharacterRepository.GrowthException("FORBIDDEN","profession_mismatch");
+        boolean atNpc=VillageCatalog.current().stream().anyMatch(v->position.inside(v)&&job.equals(v.profession())&&v.npcs().stream().anyMatch(n->chapter.npcs().contains(n.id())));
+        if(!atNpc)throw new CharacterRepository.GrowthException("NOT_READY","npc_required");
+        if(!status(c,character,chapter).ready())throw new CharacterRepository.GrowthException("NOT_READY","quest_required");
+        try(var q=c.prepareStatement("UPDATE dalmaru.character_quest_progress SET state='REWARDED',claimed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND quest_id=? AND content_version=? AND state='ACTIVE'")) {
+            q.setObject(1,character);q.setString(2,chapter.id());q.setString(3,catalog.version());
+            if(q.executeUpdate()!=1)throw new SQLException("Advancement story reward lost reservation");
+        }
+        CharacterRepository.grantExperience(c,character,chapter.questXP());
+        var result=new JsonObject();result.addProperty("chapterId",chapter.id());result.addProperty("questXP",chapter.questXP());result.addProperty("contentVersion",catalog.version());
+        return result;
+    }
+
     public Result operate(UUID account,long generation,long correlation,UUID character,RequestEnvelope envelope,Position position)throws SQLException {
         var body=envelope.payload();
         if(!Set.of("story_interact","story_report").contains(envelope.operation())||envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(character)||body.size()!=2||!string(body,"chapterId")||!string(body,"npcId"))throw new IllegalArgumentException("Invalid story operation body");
@@ -94,8 +113,9 @@ public final class StoryQuestRepository {
             visit(c,character,position);var outcome=body.deepCopy();outcome.addProperty("operation",envelope.operation());
             if(envelope.operation().equals("story_interact")){proof(c,character,chapter.id()+".npc."+npc,0,"COMPLETED");outcome.addProperty("questXP",0);}
             else {
+                if(AdvancementStage.forQuest(chapter.id())!=null)throw new CharacterRepository.GrowthException("NOT_READY","advancement_confirmation_required");
                 var state=status(c,character,chapter);if(!state.ready())throw new IllegalArgumentException(String.join(" · ",state.missing()));
-                try(var q=c.prepareStatement("UPDATE dalmaru.character_quest_progress SET state='REWARDED',claimed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND quest_id=? AND content_version=? AND state='ACTIVE'")){q.setObject(1,character);q.setString(2,chapter.id());q.setString(3,CATALOG.version());if(q.executeUpdate()!=1)throw new SQLException("Story report lost its active chapter");}
+                try(var q=c.prepareStatement("UPDATE dalmaru.character_quest_progress SET state='REWARDED',claimed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND quest_id=? AND content_version=? AND state='ACTIVE'")){q.setObject(1,character);q.setString(2,chapter.id());q.setString(3,catalog.version());if(q.executeUpdate()!=1)throw new SQLException("Story report lost its active chapter");}
                 int reward=chapter.rewardOwner()==StoryCatalog.RewardOwner.STORY?chapter.questXP():0;
                 if(reward>0)CharacterRepository.grantExperience(c,character,reward);if(!chapter.supplyGrant().isEmpty())StarterSupply.grant(c,character,chapter.supplyGrant());outcome.addProperty("questXP",reward);outcome.addProperty("accountedQuestXP",chapter.questXP());current(c,character);
             }
@@ -116,7 +136,7 @@ public final class StoryQuestRepository {
                 if(chapter.combatScope()==StoryCatalog.CombatScope.PROFESSION_VILLAGE)for(var village:VillageCatalog.current())if(!village.profession().isEmpty()&&killer.inside(village)&&killed.inside(village)){
                     String key=professionKey(village.profession(),"trial");int trial=(int)Math.min(chapter.combatXP(),(long)progress(c,character,key)+amount);proof(c,character,key,trial,trial>=chapter.combatXP()?"COMPLETED":"ACTIVE");credit=true;
                 }
-                if(credit)try(var q=c.prepareStatement("UPDATE dalmaru.character_quest_progress SET progress_count=LEAST(?,progress_count::bigint+?)::integer,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND quest_id=? AND content_version=? AND state='ACTIVE'")){q.setInt(1,chapter.combatXP());q.setInt(2,amount);q.setObject(3,character);q.setString(4,chapter.id());q.setString(5,CATALOG.version());q.executeUpdate();}
+                if(credit)try(var q=c.prepareStatement("UPDATE dalmaru.character_quest_progress SET progress_count=LEAST(?,progress_count::bigint+?)::integer,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND quest_id=? AND content_version=? AND state='ACTIVE'")){q.setInt(1,chapter.combatXP());q.setInt(2,amount);q.setObject(3,character);q.setString(4,chapter.id());q.setString(5,catalog.version());q.executeUpdate();}
             }
             var outcome=body.deepCopy();outcome.addProperty("credited",true);RequestJournal.confirm(c,stored,outcome);RequestJournal.applied(c,account,generation,request);c.commit();return profile;
         }catch(SQLException|RuntimeException error){c.rollback();throw error;}}
