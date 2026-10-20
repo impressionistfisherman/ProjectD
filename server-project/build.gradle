@@ -420,6 +420,8 @@ tasks.register('verifyRunKickVote', JavaExec) { group = 'verification'; classpat
 
 tasks.register('verifyBossPartyScaling', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossPartyScalingCheck' }
 
+tasks.register('verifyBossEngineHealth', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossEngineHealthCheck' }
+
 tasks.register('verifyBossPosture', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossPostureCheck' }
 
 tasks.register('verifyBossTelegraph', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.BossTelegraphCheck' }

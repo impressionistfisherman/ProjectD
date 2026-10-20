@@ -618,14 +618,14 @@ public final class DalmaruNetworking {
 	public static float incomingDamage(LivingEntity target, DamageSource source, float amount) {
 		if(source.getEntity() instanceof ServerPlayer attacker && !RUN_RUNTIME.mayTarget(attacker,target))return 0;
         if(target instanceof ServerPlayer victim && !RUN_RUNTIME.mayReceive(victim,source.getEntity()))return 0;
-        if (CombatRuntime.explicitRpgDamage(target)) return target instanceof ServerPlayer victim?CombatUnits.toEngine(COMBAT.protect(victim,source,CombatUnits.toRpg(amount),currentTick,hostileCombatEntity(victim,source.getEntity()))):amount;
+        if (CombatRuntime.explicitRpgDamage(target)) return target instanceof ServerPlayer victim?CombatUnits.toEngine(COMBAT.protect(victim,source,CombatUnits.toRpg(amount),currentTick,hostileCombatEntity(victim,source.getEntity()))):RUN_RUNTIME.scaleBossDamage(target.getUUID(), amount);
 		if (!Float.isFinite(amount) || amount < 0) throw new IllegalArgumentException("Invalid incoming damage.");
 		if (amount == 0) return 0;
 		if (source.getEntity() instanceof ServerPlayer attacker && COMBAT.managed(attacker) && playerAttack(source)) {
             interruptWaypoint(attacker,"공격으로 귀환이 취소되었습니다.");COMBAT.attackStarted(attacker);boolean magic = COMBAT.magical(attacker);
 			int defense = target instanceof ServerPlayer player ? COMBAT.defense(player, magic) : RUN_RUNTIME.bossDefense(target.getUUID(), magic);
 			double multiplier = source.is(DamageTypeTags.IS_PROJECTILE)&&source.getDirectEntity()!=null?Math.min(1,source.getDirectEntity().getDeltaMovement().length()/3.0):1;
-			return CombatUnits.toEngine(COMBAT.targetedAttack(attacker,target,multiplier,defense,true,currentTick));
+			return RUN_RUNTIME.scaleBossDamage(target.getUUID(), CombatUnits.toEngine(COMBAT.targetedAttack(attacker,target,multiplier,defense,true,currentTick)));
 		}
 		if (target instanceof ServerPlayer player && COMBAT.managed(player)) {
 			boolean magic = source.is(DamageTypes.MAGIC) || source.is(DamageTypes.INDIRECT_MAGIC) || source.is(DamageTypeTags.IS_FIRE);

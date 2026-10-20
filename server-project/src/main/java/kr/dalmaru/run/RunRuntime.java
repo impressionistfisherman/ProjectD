@@ -638,6 +638,10 @@ public final class RunRuntime implements RunMechanicAccess {
     public UUID runId(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? null : state.runId; }
     public int revivesRemaining(ServerPlayer player) { State state = playerRuns.get(player.getUUID()); return state == null ? 0 : state.revivesRemaining; }
     public boolean isBoss(UUID id){return encounters.values().stream().anyMatch(e->id.equals(e.bossId));}
+    public float scaleBossDamage(UUID id, float engineDamage) {
+        for (Encounter encounter : encounters.values()) if (id.equals(encounter.bossId) && encounter.bossRpgMaximum > 0) return kr.dalmaru.combat.CombatUnits.scaleEngineDamage(engineDamage, encounter.bossRpgMaximum);
+        return engineDamage;
+    }
     public int bossDefense(UUID bossId, boolean magic) {
         for(Encounter encounter:encounters.values()){var kind=encounter.mobs.get(bossId);if(kind!=null)return (magic?encounter.content.encounter().mob(kind.name()).magicDefense():encounter.content.encounter().mob(kind.name()).physicalDefense())+(encounter.difficulty==RunDifficulty.TRAINING?20:0);}
         for (Encounter encounter : encounters.values()) if (bossId.equals(encounter.bossId)) {
@@ -662,7 +666,7 @@ public final class RunRuntime implements RunMechanicAccess {
     private void spawnFinalBoss(Encounter encounter) {
         encounter.stage = Stage.BEACON;encounter.revision++;
         BeaconTowerMap.open(encounter.level, encounter.floor, 45);
-        encounter.bossId = spawnBoss(encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", bossHealth(encounter, encounter.content.encounter().finalBossHealth()));
+        encounter.bossId = spawnBoss(encounter, encounter.level, encounter.floor.offset(0, 1, 54), "원혼봉수장", bossHealth(encounter, encounter.content.encounter().finalBossHealth()));
         BeaconTowerBosses.style(encounter.level, encounter.bossId, true);
         beginPosture(encounter, true);
     }
@@ -719,7 +723,7 @@ public final class RunRuntime implements RunMechanicAccess {
         if(!encounter.mobs.isEmpty())return;
         if(encounter.stage==Stage.GATEKEEPER&&encounter.bossId==null){
             if(encounter.group==0){partyActivator.request(encounter.runId);spawnGroup(encounter,1);return;}
-            encounter.bossId=spawnBoss(encounter.level,encounter.floor.offset(0,1,22),"철문수장",bossHealth(encounter,encounter.content.encounter().gatekeeperHealth()));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);beginPosture(encounter,false);
+            encounter.bossId=spawnBoss(encounter,encounter.level,encounter.floor.offset(0,1,22),"철문수장",bossHealth(encounter,encounter.content.encounter().gatekeeperHealth()));BeaconTowerBosses.style(encounter.level,encounter.bossId,false);beginPosture(encounter,false);
         }else if(encounter.stage==Stage.APPROACH)spawnFinalBoss(encounter);
     }
 
@@ -764,7 +768,10 @@ public final class RunRuntime implements RunMechanicAccess {
 
     private List<BossView> bossViews(Encounter e) {
         if(e.posture==null||e.bossId==null||!(e.level.getEntity(e.bossId) instanceof Mob boss)||!boss.isAlive())return List.of();
-        return List.of(new BossView(e.bossId,kr.dalmaru.combat.CombatUnits.toRpg(boss.getHealth()),kr.dalmaru.combat.CombatUnits.toRpg(boss.getMaxHealth()),e.posture.posture(),e.posture.maximum(),e.posture.state(),e.posture.remainingTicks()));
+        float engineMaximum = boss.getMaxHealth();
+        double rpgMaximum = e.bossRpgMaximum > 0 ? e.bossRpgMaximum : kr.dalmaru.combat.CombatUnits.toRpg(engineMaximum);
+        double rpg = kr.dalmaru.combat.CombatUnits.hudRpg(rpgMaximum, boss.getHealth(), engineMaximum);
+        return List.of(new BossView(e.bossId,rpg,rpgMaximum,e.posture.posture(),e.posture.maximum(),e.posture.state(),e.posture.remainingTicks()));
     }
     private static void beginPosture(Encounter encounter, boolean finalBoss) {
         encounter.charge.cancel();encounter.postureHits.clear();encounter.telegraphs.clear();encounter.bossCycles=0;
@@ -872,10 +879,11 @@ public final class RunRuntime implements RunMechanicAccess {
     private static void teleport(ServerPlayer player, Encounter encounter) {
         player.teleportTo(encounter.level,encounter.floor.getX()+.5,encounter.floor.getY()+1,encounter.floor.getZ()+.5,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
     }
-    private static UUID spawnBoss(ServerLevel level, BlockPos position, String name, double health) {
+    private static UUID spawnBoss(Encounter encounter, ServerLevel level, BlockPos position, String name, double health) {
         Mob boss = EntityType.ZOMBIE.create(level, EntitySpawnReason.EVENT);
         if (boss == null) throw new IllegalStateException("Boss could not spawn.");
-        float engineHealth = kr.dalmaru.combat.CombatUnits.maximumHealth(health);
+        encounter.bossRpgMaximum = health;
+        float engineHealth = kr.dalmaru.combat.CombatUnits.cappedEngineMaximum(health);
         boss.getAttribute(Attributes.MAX_HEALTH).setBaseValue(engineHealth);
         boss.setHealth(engineHealth);
         // Only the scripted RPG patterns deal damage, not the zombie's extra melee attack.
@@ -907,7 +915,7 @@ public final class RunRuntime implements RunMechanicAccess {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
         private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
-        private final java.util.Set<UUID> removed=new java.util.HashSet<>(); private long revision=1; private BossPosture posture; private final List<BossTelegraph.Active> telegraphs=new ArrayList<>(); private int bossCycles; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
+        private final java.util.Set<UUID> removed=new java.util.HashSet<>(); private long revision=1; private BossPosture posture; private final List<BossTelegraph.Active> telegraphs=new ArrayList<>(); private int bossCycles; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private double bossRpgMaximum; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
         private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize);this.neglect=content.mechanics()==null?null:new BrazierNeglect(content.mechanics().brazier()); }
     }
 }
