@@ -15,6 +15,8 @@ public final class RunEncounterRules {
     public static boolean reconnectAllowed(long disconnectedAt,long now){return disconnectedAt==0||now-disconnectedAt<=RECONNECT_WINDOW_MS;}
     /** Whole-run pause is capped at the same 180 seconds; the individual window and run limits still take precedence. */
     public static boolean pauseExpired(long pausedAt,long now){return pausedAt!=0&&now-pausedAt>RECONNECT_WINDOW_MS;}
+    /** Whole-run pause start after a presence check: a living member lifts it (revive/reconnect); nobody keeps or starts it. */
+    public static long pausedAfterCheck(long pausedAt,boolean survivorPresent,long now){return survivorPresent?0:(pausedAt!=0?pausedAt:now);}
     public static boolean lingering(long disconnectedAt,long now){return disconnectedAt!=0&&now-disconnectedAt<DISCONNECT_LINGER_MS;}
     public static boolean countsAsSurvivor(boolean connected,boolean dead,long disconnectedAt,long now){return !dead&&(connected||lingering(disconnectedAt,now));}
 

@@ -463,9 +463,11 @@ public final class RunRuntime implements RunMechanicAccess {
         pauseIfQuiet(encounters.get(state.runId),state.disconnectedAt);
     }
     private void pauseIfQuiet(Encounter encounter,long now){
-        if(encounter==null||encounter.pausedAt!=0||encounter.failed)return;
+        if(encounter==null||encounter.failed)return;
         boolean present=playerRuns.values().stream().anyMatch(member->member.runId.equals(encounter.runId)&&kr.dalmaru.run.RunEncounterRules.countsAsSurvivor(member.connected,member.dead,member.disconnectedAt,now));
-        if(!present){encounter.pausedAt=now;encounter.pausedTick=tickCount;}
+        long next=kr.dalmaru.run.RunEncounterRules.pausedAfterCheck(encounter.pausedAt,present,now);
+        if(encounter.pausedAt==0&&next!=0)encounter.pausedTick=tickCount;
+        encounter.pausedAt=next;
     }
     private void spawnLinger(ServerPlayer player){
         State state=playerRuns.get(player.getUUID());

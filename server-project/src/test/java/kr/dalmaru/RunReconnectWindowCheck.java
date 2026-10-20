@@ -30,6 +30,21 @@ public final class RunReconnectWindowCheck {
         check(RunEncounterRules.lingering(at, at + 9_999L) && !RunEncounterRules.lingering(at, at + 10_000L), "10-second linger changed");
         check(RunEncounterRules.countsAsSurvivor(false, false, at, at + 9_999L) && !RunEncounterRules.countsAsSurvivor(false, false, at, at + 10_000L), "Survivor rule changed");
 
+        // MDF-23: solo death pauses the run, a revive lifts it and the next wave may spawn; nobody left still closes at 180s.
+        long dead = at;
+        boolean soloDeadPresent = RunEncounterRules.countsAsSurvivor(true, true, 0, dead);
+        long paused = RunEncounterRules.pausedAfterCheck(0, soloDeadPresent, dead);
+        check(!soloDeadPresent && paused == dead, "Solo death did not pause the run");
+        check(RunEncounterRules.pausedAfterCheck(paused, soloDeadPresent, dead + 60_000L) == dead, "Pause start moved while still dead");
+        boolean revivedPresent = RunEncounterRules.countsAsSurvivor(true, false, 0, dead + 5_000L);
+        check(RunEncounterRules.pausedAfterCheck(paused, revivedPresent, dead + 5_000L) == 0, "Revive did not lift the pause");
+        check(!RunEncounterRules.pauseExpired(RunEncounterRules.pausedAfterCheck(paused, revivedPresent, dead + 5_000L), dead + 400_000L), "Revived run still expires from the old pause");
+        long gone = RunEncounterRules.pausedAfterCheck(0, RunEncounterRules.countsAsSurvivor(false, false, at, at + 10_000L), at + 10_000L);
+        check(gone == at + 10_000L && !RunEncounterRules.pauseExpired(gone, gone + 180_000L) && RunEncounterRules.pauseExpired(gone, gone + 180_001L), "All-members-gone 180s close changed");
+        check(RunEncounterRules.pausedAfterCheck(gone, false, gone + 90_000L) == gone, "Pause restarted while nobody was present");
+        String quiet = Files.readString(Path.of("src/main/java/kr/dalmaru/run/RunRuntime.java"));
+        check(quiet.contains("RunEncounterRules.pausedAfterCheck(encounter.pausedAt,present,now)") && !quiet.contains("encounter==null||encounter.pausedAt!=0||encounter.failed)return;\n        boolean present"), "Runtime does not lift the pause through the rule");
+
         // The runtime uses the rules everywhere the old 5-minute limit lived and rejects removed members.
         String runtime = Files.readString(Path.of("src/main/java/kr/dalmaru/run/RunRuntime.java"));
         check(!runtime.contains("300000"), "A 5-minute pause limit survived in the runtime");
