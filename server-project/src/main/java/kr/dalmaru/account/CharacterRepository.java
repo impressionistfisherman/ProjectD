@@ -69,6 +69,9 @@ public final class CharacterRepository {
 		return Boolean.getBoolean("dalmaru.p5.development")
 			&& List.of("oscar_p3_fixture", "grok_p3_fixture").contains(System.getenv("DALMARU_DB_NAME"));
 	}
+	public static boolean advancementEnabled() {
+		return TRIAL_LEVEL_CAP>=60 || developmentAdvancementEnabled();
+	}
 	private static void activeGrowthCharacter(java.sql.Connection c, UUID account, long generation, UUID character) throws SQLException {
 		try(var q=c.prepareStatement("SELECT connection_generation,active_character_id FROM dalmaru.accounts WHERE account_id=? FOR UPDATE")) {
 			q.setObject(1,account); try(var row=q.executeQuery()) {
@@ -157,7 +160,7 @@ public final class CharacterRepository {
 				rejectGrowthRun(c,character);
 				try(var q=c.prepareStatement("INSERT INTO dalmaru.character_advancements(character_id) VALUES(?) ON CONFLICT DO NOTHING")){q.setObject(1,character);q.executeUpdate();}
 				var state=advancement(c,character,true);
-				if(!developmentAdvancementEnabled())throw new GrowthException("NOT_RELEASED","level_cap_closed");
+				if(!advancementEnabled())throw new GrowthException("NOT_RELEASED","level_cap_closed");
 				if(before.revision()!=expectedRevision)throw new GrowthException("CONFLICT","stale_revision");
 				if(!profession.name().equals(before.profession()))throw new GrowthException("FORBIDDEN","profession_mismatch");
 				if(state.completed(stage))throw new GrowthException("DUPLICATE","already_advanced");

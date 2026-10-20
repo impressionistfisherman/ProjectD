@@ -11,7 +11,7 @@ public final class StoryCatalog {
     public enum Proof { PROFESSION_VILLAGE,PROFESSION,PROFESSION_TRIAL,INVESTIGATION,FIRST_STEP_CLEAR }
     public enum RewardOwner { STORY,S07 }
     public record Chapter(String id,String title,int questXP,int combatXP,int targetLevel,List<String> npcs,CombatScope combatScope,Set<Proof> proofs,String supplyGrant,String dialogue,RewardOwner rewardOwner) {
-        public Chapter {npcs=List.copyOf(npcs);proofs=Set.copyOf(proofs);var advancement=kr.dalmaru.account.AdvancementStage.forQuest(id);if(id.isBlank()||title.isBlank()||questXP<1||combatXP<0||targetLevel<2||(advancement==null?targetLevel>20:targetLevel!=advancement.requiredLevel()||rewardOwner!=RewardOwner.STORY||!supplyGrant.isEmpty())||npcs.isEmpty()||!Set.of("",StarterSupply.PROFESSION,StarterSupply.INVESTIGATION).contains(supplyGrant))throw new IllegalArgumentException("Invalid story chapter");}
+        public Chapter {npcs=List.copyOf(npcs);proofs=Set.copyOf(proofs);var advancement=kr.dalmaru.account.AdvancementStage.forQuest(id);if(id.isBlank()||title.isBlank()||questXP<(advancement==null?1:0)||combatXP<0||targetLevel<2||(advancement==null?targetLevel>20:targetLevel!=advancement.requiredLevel()||rewardOwner!=RewardOwner.STORY||!supplyGrant.isEmpty())||npcs.isEmpty()||!Set.of("",StarterSupply.PROFESSION,StarterSupply.INVESTIGATION).contains(supplyGrant))throw new IllegalArgumentException("Invalid story chapter");}
     }
     private static final StoryCatalog CURRENT=load();
     private final String version;
@@ -34,6 +34,9 @@ public final class StoryCatalog {
             if(!ids.add(chapter.id())||!registered.containsAll(npcs))throw new IllegalArgumentException("Duplicate chapter or unknown NPC");chapters.add(chapter);
         }
         if(chapters.isEmpty())throw new IllegalArgumentException("Story chapters required");
+        var milestones=chapters.stream().filter(chapter->kr.dalmaru.account.AdvancementStage.forQuest(chapter.id())!=null).map(Chapter::id).toList();
+        var expected=Arrays.stream(kr.dalmaru.account.AdvancementStage.values()).map(kr.dalmaru.account.AdvancementStage::questId).toList();
+        if(!milestones.isEmpty()&&(!milestones.equals(expected)||!chapters.subList(chapters.size()-milestones.size(),chapters.size()).stream().map(Chapter::id).toList().equals(expected)))throw new IllegalArgumentException("Advancement chapters must end in 30/50/60 order");
         return new StoryCatalog(version,chapters);
     }
     private static StoryCatalog load(){

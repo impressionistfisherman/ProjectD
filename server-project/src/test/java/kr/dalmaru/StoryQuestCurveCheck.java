@@ -24,7 +24,7 @@ public final class StoryQuestCurveCheck {
                 check(value("SELECT count(*) FROM dalmaru.character_quest_progress WHERE character_id=? AND quest_id=? AND content_version='pilot-2' AND state='COMPLETED'",character,CharacterRepository.professionGateFlags(CharacterProfession.valueOf(village.profession())).getFirst())==1,"Village profession key casing mismatch");
             }
             long total=0;RequestEnvelope last=null;
-            for(int index=0;index<StoryCatalog.current().chapters().size();index++) {
+            for(int index=0;index<11;index++) {
                 var chapter=StoryCatalog.current().chapters().get(index);String npc=chapter.npcs().getFirst();var village=forNpc(npc);var here=position(village);
                 check(repo.status(account,generation,character).chapter().id().equals(chapter.id()),"Story order changed");
                 RequestEnvelope early=envelope(generation,character,"story_report",chapter.id(),npc);
@@ -81,7 +81,7 @@ public final class StoryQuestCurveCheck {
                 check(experience(profile)==total&&profile.level()==chapter.targetLevel(),"Growth curve mismatch at "+chapter.id()+" expectedXP="+total+" actual="+experience(profile));
                 check(operate(repo,account,generation,character,report,here).replayed()&&experience(characters.profile(character))==total,"Report replay duplicated rewards");last=report;
             }
-            check(total==7920&&repo.status(account,generation,character).chapter()==null,"Story did not finish at 7920 XP");
+            check(total==7920&&repo.status(account,generation,character).chapter().id().equals("story.branch_30")&&!repo.status(account,generation,character).ready(),"Story did not finish at 7920 XP");
             var profile=characters.profile(character);check(profile.level()==20&&profile.experience()==35&&profile.unspentSkillPoints()==16,"Level20/overflow/skill points mismatch");
             check(value("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?",character)==60&&value("SELECT quantity FROM dalmaru.character_materials WHERE character_id=? AND material_id='supply.recovery'",character)==8,"Investigation supplies duplicated or missing");
             check(value("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=?",character)==3&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE character_id=? AND required_level=15",character)==6,"Profession/investigation kit ownership mismatch");
@@ -109,7 +109,7 @@ public final class StoryQuestCurveCheck {
         }finally{EnhancementReplayCheck.cleanup(account);}
     }
     private static void definitions()throws Exception {
-        var chapters=StoryCatalog.current().chapters();check(chapters.size()==11&&StoryCatalog.current().version().equals(CharacterRepository.PROFESSION_GATE_VERSION),"Story/gate contract version mismatch");
+        var chapters=StoryCatalog.current().chapters();check(chapters.size()==14&&StoryCatalog.current().version().equals(CharacterRepository.PROFESSION_GATE_VERSION),"Story/gate contract version mismatch");
         int[] quest={100,220,250,300,360,400,450,600,800,700,400},combat={0,190,220,280,300,200,300,450,500,550,350};
         for(int i=0;i<11;i++)check(chapters.get(i).questXP()==quest[i]&&chapters.get(i).combatXP()==combat[i]&&chapters.get(i).dialogue().isEmpty(),"Approved XP/name-only content changed");
         String json=java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources/content/story.json"));

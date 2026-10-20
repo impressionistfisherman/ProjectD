@@ -139,6 +139,7 @@ public final class P5GrowthAdvancementCheck {
     }
     private static StoryCatalog catalog(String npc)throws Exception {
         var root=JsonParser.parseString(Files.readString(Path.of("src/main/resources/content/story.json"))).getAsJsonObject();
+        var pilot=new JsonArray();for(var chapter:root.getAsJsonArray("chapters"))if(AdvancementStage.forQuest(chapter.getAsJsonObject().get("id").getAsString())==null)pilot.add(chapter);root.add("chapters",pilot);
         for(var stage:AdvancementStage.values()) {
             var row=new JsonObject();row.addProperty("id",stage.questId());row.addProperty("title","[fixture] advancement");row.addProperty("questXP",1);row.addProperty("combatXP",0);row.addProperty("targetLevel",stage.requiredLevel());
             var npcs=new JsonArray();npcs.add(npc);row.add("npcs",npcs);row.addProperty("combatScope","FIELD");var proofs=new JsonArray();proofs.add("PROFESSION");row.add("proofs",proofs);

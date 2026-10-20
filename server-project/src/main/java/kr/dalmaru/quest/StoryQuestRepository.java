@@ -18,7 +18,8 @@ public final class StoryQuestRepository {
     public record Status(StoryCatalog.Chapter chapter,int combatXP,List<String> missing) {
         public boolean ready(){return chapter!=null&&missing.isEmpty();}
         public JsonObject json(){
-            var data=new JsonObject();data.addProperty("finished",chapter==null);data.addProperty("chapterId",chapter==null?"":chapter.id());data.addProperty("title",chapter==null?"1~20 이야기 완료":chapter.title());data.addProperty("combatXP",combatXP);data.addProperty("combatGoal",chapter==null?0:chapter.combatXP());data.addProperty("ready",ready());
+            var data=new JsonObject();data.addProperty("finished",chapter==null);data.addProperty("chapterId",chapter==null?"":chapter.id());data.addProperty("title",chapter==null?"이야기 완료":chapter.title());data.addProperty("combatXP",combatXP);data.addProperty("combatGoal",chapter==null?0:chapter.combatXP());data.addProperty("ready",ready());
+            var advancement=chapter==null?null:AdvancementStage.forQuest(chapter.id());data.addProperty("advancementStage",advancement==null?"":advancement.name());data.addProperty("requiredLevel",advancement==null?0:advancement.requiredLevel());data.addProperty("dialogue",chapter==null?"":chapter.dialogue());
             var npcs=new JsonArray();if(chapter!=null)chapter.npcs().forEach(npcs::add);data.add("npcs",npcs);var requirements=new JsonArray();missing.forEach(requirements::add);data.add("missing",requirements);return data;
         }
     }
@@ -61,7 +62,9 @@ public final class StoryQuestRepository {
         if(chapter==null)return new Status(null,0,List.of());
         int combat=progress(c,character,chapter.id());boolean clear=firstClear(c,character);
         if(chapter.combatScope()==StoryCatalog.CombatScope.FIRST_STEP_CLEAR&&clear)combat=chapter.combatXP();
-        var missing=new ArrayList<String>();if(combat<chapter.combatXP())missing.add("필수 전투 경험치 "+combat+"/"+chapter.combatXP());
+        var missing=new ArrayList<String>();var advancement=AdvancementStage.forQuest(chapter.id());
+        if(advancement!=null){var failure=advancementFailure(c,character,advancement);if(failure!=null)missing.add(switch(failure.reason()){case "level_cap_closed"->"현재 성장 개방 상한은 20레벨입니다.";case "level_required"->advancement.requiredLevel()+"레벨이 필요합니다.";default->"앞선 승급을 먼저 확정하세요.";});}
+        if(combat<chapter.combatXP())missing.add("필수 전투 경험치 "+combat+"/"+chapter.combatXP());
         boolean npc=false;for(String id:chapter.npcs())if(completed(c,character,chapter.id()+".npc."+id)){npc=true;break;}if(!npc)missing.add("해당 마을 NPC 상호작용");
         String job=profession(c,character);
         for(var requirement:chapter.proofs())switch(requirement){
@@ -95,9 +98,20 @@ public final class StoryQuestRepository {
             q.setObject(1,character);q.setString(2,chapter.id());q.setString(3,catalog.version());
             if(q.executeUpdate()!=1)throw new SQLException("Advancement story reward lost reservation");
         }
-        CharacterRepository.grantExperience(c,character,chapter.questXP());
+        if(chapter.questXP()>0)CharacterRepository.grantExperience(c,character,chapter.questXP());
         var result=new JsonObject();result.addProperty("chapterId",chapter.id());result.addProperty("questXP",chapter.questXP());result.addProperty("contentVersion",catalog.version());
         return result;
+    }
+
+    private CharacterRepository.GrowthException advancementFailure(Connection c,UUID character,AdvancementStage stage)throws SQLException {
+        if(!CharacterRepository.advancementEnabled())return new CharacterRepository.GrowthException("NOT_RELEASED","level_cap_closed");
+        try(var q=c.prepareStatement("SELECT level FROM dalmaru.character_profiles WHERE character_id=?")) {
+            q.setObject(1,character);try(var row=q.executeQuery()){if(!row.next()||row.getInt(1)<stage.requiredLevel())return new CharacterRepository.GrowthException("NOT_READY","level_required");}
+        }
+        if(stage!=AdvancementStage.BRANCH_30)try(var q=c.prepareStatement("SELECT advanced_30_at IS NOT NULL,advanced_50_at IS NOT NULL FROM dalmaru.character_advancements WHERE character_id=?")) {
+            q.setObject(1,character);try(var row=q.executeQuery()){if(!row.next()||!row.getBoolean(stage==AdvancementStage.ADVANCE_50?1:2))return new CharacterRepository.GrowthException("NOT_READY","quest_required");}
+        }
+        return null;
     }
 
     public Result operate(UUID account,long generation,long correlation,UUID character,RequestEnvelope envelope,Position position)throws SQLException {
@@ -111,7 +125,7 @@ public final class StoryQuestRepository {
             if(!chapter.npcs().contains(npc)||!position.inside(village))throw new IllegalArgumentException("해당 이야기 NPC가 있는 마을에서 상호작용하세요.");
             String job=profession(c,character);if(chapter.proofs().contains(StoryCatalog.Proof.PROFESSION)&&!job.isEmpty()&&!job.equals(village.profession()))throw new IllegalArgumentException("선택 직업의 마을 NPC를 찾아가세요.");
             visit(c,character,position);var outcome=body.deepCopy();outcome.addProperty("operation",envelope.operation());
-            if(envelope.operation().equals("story_interact")){proof(c,character,chapter.id()+".npc."+npc,0,"COMPLETED");outcome.addProperty("questXP",0);}
+            if(envelope.operation().equals("story_interact")){var advancement=AdvancementStage.forQuest(chapter.id());if(advancement!=null){var failure=advancementFailure(c,character,advancement);if(failure!=null)throw failure;}proof(c,character,chapter.id()+".npc."+npc,0,"COMPLETED");outcome.addProperty("questXP",0);}
             else {
                 if(AdvancementStage.forQuest(chapter.id())!=null)throw new CharacterRepository.GrowthException("NOT_READY","advancement_confirmation_required");
                 var state=status(c,character,chapter);if(!state.ready())throw new IllegalArgumentException(String.join(" · ",state.missing()));
