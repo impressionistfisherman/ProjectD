@@ -31,6 +31,9 @@ public final class InheritanceJournalCheck {
             var replay=repository.inheritJournaled(account,generation,50,target,source,first);
             check(replay.original().replayed()&&replay.original().credit()==48&&replay.currentCredit()==141&&replay.equipment().stream().noneMatch(e->e.equipmentId().equals(source)||e.equipmentId().equals(secondSource)),"Original credit and latest inventory");
             reject(()->repository.inheritJournaled(account,generation,51,target,thirdSource,envelope(first.requestId(),generation,character,target,thirdSource)));
+            sql("UPDATE dalmaru.character_equipment SET location='EQUIPPED',slot_id=1 WHERE equipment_id=?",thirdSource);
+            rejectUnequip(()->repository.inherit(account,generation,51,target,thirdSource));
+            sql("UPDATE dalmaru.character_equipment SET location='INVENTORY',slot_id=NULL WHERE equipment_id=?",thirdSource);
             reject(()->repository.inheritJournaled(account,generation,51,target,foreign,envelope(UUID.randomUUID(),generation,character,target,foreign)));
             reject(()->repository.inherit(account,generation,51,target,target));
             sql("UPDATE dalmaru.character_equipment SET item_id='foreign.family' WHERE equipment_id=?",thirdSource);reject(()->repository.inherit(account,generation,51,target,thirdSource));sql("UPDATE dalmaru.character_equipment SET item_id=? WHERE equipment_id=?",item,thirdSource);
@@ -60,5 +63,6 @@ public final class InheritanceJournalCheck {
     private static void sql(String text,Object... args)throws SQLException{try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement(text)){for(int i=0;i<args.length;i++)q.setObject(i+1,args[i]);q.executeUpdate();}}
     private static long value(String text,UUID id)throws SQLException{try(var c=EnhancementReplayCheck.connection();var q=c.prepareStatement(text)){q.setObject(1,id);try(var row=q.executeQuery()){row.next();return row.getLong(1);}}}
     private static void reject(Action action)throws Exception{try{action.run();}catch(IllegalArgumentException expected){return;}throw new AssertionError("Invalid inheritance accepted");}
+    private static void rejectUnequip(Action action)throws Exception{try{action.run();}catch(IllegalArgumentException expected){if(!EquipmentRepository.UNEQUIP_BEFORE_INHERIT.equals(expected.getMessage()))throw new AssertionError(expected.getMessage());return;}throw new AssertionError("Equipped source accepted");}
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}
 }

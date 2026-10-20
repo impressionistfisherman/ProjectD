@@ -1,6 +1,8 @@
 package kr.dalmaru.client;
 
 import com.google.gson.JsonObject;
+import kr.dalmaru.content.ContentCatalog;
+import kr.dalmaru.equipment.EquipmentRepository;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -9,6 +11,8 @@ import net.minecraft.network.chat.Component;
 final class DalmaruPlayScreen extends Screen {
 	private final Screen parent;
 	private Button statusButton;
+	private Button inheritButton;
+	private Button equippedNotice;
 	private EditBox partner;
 	private EditBox mail;
 
@@ -19,7 +23,7 @@ final class DalmaruPlayScreen extends Screen {
 
 	@Override
 	protected void init() {
-		int rows = 22;
+		int rows = 23;
 		int left = Math.max(8, (width - 300) / 2);
 		int buttonWidth = Math.min(300, width - 16);
 		int step = Math.max(12, Math.min(20, (height - 16) / rows));
@@ -47,11 +51,13 @@ final class DalmaruPlayScreen extends Screen {
 		addRenderableWidget(mail);
 		addRenderableWidget(Button.builder(Component.literal("임시 우편 수령"), button -> { var body = new JsonObject(); body.addProperty("eventId", mail.getValue().trim()); send("claim_mail", body); }).bounds(left, top + 15 * step, buttonWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("임시 재련"), button -> { var items = ClientEquipmentState.equipment(); if (!items.isEmpty()) DalmaruClient.requestRefinement(items.getFirst().equipmentId()); }).bounds(left, top + 16 * step, buttonWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("임시 계승"), button -> { var items = ClientEquipmentState.equipment(); if (items.size() > 1) DalmaruClient.requestInheritance(items.getFirst().equipmentId(), items.get(1).equipmentId()); }).bounds(left, top + 17 * step, buttonWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("임시 거래 받기"), button -> { var body = new JsonObject(); body.addProperty("action", "pending"); send("direct_trade", body); }).bounds(left, top + 18 * step, buttonWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("임시 경매 보기"), button -> { var run = ClientRunState.preparationId(); if (run == null) return; var body = new JsonObject(); body.addProperty("runId", run.toString()); send("view_auction", body); }).bounds(left, top + 19 * step, buttonWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("임시 경매 입찰"), button -> { var auction = ClientPlayAccessState.auctionId(); int copper = ClientPlayAccessState.minimumBid(); if (auction == null || copper < 1) return; var body = new JsonObject(); body.addProperty("auctionId", auction); body.addProperty("copper", copper); send("bid_auction", body); }).bounds(left, top + 20 * step, buttonWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("임시 경매 이탈"), button -> { var auction = ClientPlayAccessState.auctionId(); if (auction == null) return; var body = new JsonObject(); body.addProperty("auctionId", auction); send("leave_auction", body); }).bounds(left, top + 21 * step, buttonWidth, buttonHeight).build());
+		inheritButton = addRenderableWidget(Button.builder(Component.literal("임시 계승"), button -> inherit()).bounds(left, top + 17 * step, buttonWidth, buttonHeight).build());
+		equippedNotice = addRenderableWidget(Button.builder(Component.literal(EquipmentRepository.UNEQUIP_BEFORE_INHERIT), button -> { }).bounds(left, top + 18 * step, buttonWidth, buttonHeight).build());
+		equippedNotice.active = false;
+		addRenderableWidget(Button.builder(Component.literal("임시 거래 받기"), button -> { var body = new JsonObject(); body.addProperty("action", "pending"); send("direct_trade", body); }).bounds(left, top + 19 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 경매 보기"), button -> { var run = ClientRunState.preparationId(); if (run == null) return; var body = new JsonObject(); body.addProperty("runId", run.toString()); send("view_auction", body); }).bounds(left, top + 20 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 경매 입찰"), button -> { var auction = ClientPlayAccessState.auctionId(); int copper = ClientPlayAccessState.minimumBid(); if (auction == null || copper < 1) return; var body = new JsonObject(); body.addProperty("auctionId", auction); body.addProperty("copper", copper); send("bid_auction", body); }).bounds(left, top + 21 * step, buttonWidth, buttonHeight).build());
+		addRenderableWidget(Button.builder(Component.literal("임시 경매 이탈"), button -> { var auction = ClientPlayAccessState.auctionId(); if (auction == null) return; var body = new JsonObject(); body.addProperty("auctionId", auction); send("leave_auction", body); }).bounds(left, top + 22 * step, buttonWidth, buttonHeight).build());
 	}
 
 	private static JsonObject vault(String direction) {
@@ -89,8 +95,30 @@ final class DalmaruPlayScreen extends Screen {
 
 	private static void send(String operation, JsonObject body) { DalmaruClient.requestPlay(operation, body); }
 
+	private static void inherit() {
+		var worn = ClientEquipmentState.equipment().stream().filter(item -> item.slotId() >= 0).findFirst();
+		var bag = ClientEquipmentState.equipment().stream().filter(item -> item.slotId() < 0).findFirst();
+		if (worn.isEmpty() || bag.isEmpty()) return;
+		DalmaruClient.requestInheritance(worn.get().equipmentId(), bag.get().equipmentId());
+	}
+
 	@Override
-	public void tick() { statusButton.setMessage(Component.literal(ClientPlayAccessState.text())); }
+	public void tick() {
+		statusButton.setMessage(Component.literal(ClientPlayAccessState.text()));
+		var items = ClientEquipmentState.equipment();
+		var bag = items.stream().filter(item -> item.slotId() < 0).toList();
+		boolean worn = items.stream().anyMatch(item -> item.slotId() >= 0);
+		equippedNotice.visible = worn;
+		equippedNotice.active = false;
+		equippedNotice.setMessage(Component.literal(EquipmentRepository.UNEQUIP_BEFORE_INHERIT));
+		if (bag.isEmpty()) {
+			inheritButton.active = false;
+			inheritButton.setMessage(Component.literal(EquipmentRepository.UNEQUIP_BEFORE_INHERIT));
+		} else {
+			inheritButton.active = worn;
+			inheritButton.setMessage(Component.literal("임시 계승 · " + bag.stream().map(item -> ContentCatalog.current().display(item.itemId()).name()).limit(4).reduce((left, right) -> left + ", " + right).orElse("")));
+		}
+	}
 
 	@Override
 	public void onClose() { minecraft.setScreen(parent); }

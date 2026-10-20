@@ -557,7 +557,7 @@ public final class DalmaruNetworking {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || !state.compatible || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
 			AccountSession session = state.accountSession;
-			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.equipped(session.activeCharacterId()).stream().map(equipment -> new DalmaruPayloads.EquipmentData(equipment.equipmentId(), equipment.slotId(), equipment.itemId(), equipment.enhancement(), equipment.consecutiveFailures(), equipment.bound())).toList(); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(equipment -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "", equipment)); })).exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "장비를 불러올 수 없습니다.", java.util.List.of()))); return null; });
+			CompletableFuture.supplyAsync(() -> { try { return EQUIPMENT.list(session.activeCharacterId()).stream().map(equipment -> new DalmaruPayloads.EquipmentData(equipment.equipmentId(), equipment.slotId(), equipment.itemId(), equipment.enhancement(), equipment.consecutiveFailures(), equipment.bound())).toList(); } catch (Exception exception) { throw new IllegalStateException(exception); } }).thenAccept(equipment -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "", equipment)); })).exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.EquipmentListResponse(payload.requestId(), "장비를 불러올 수 없습니다.", java.util.List.of()))); return null; });
 		});
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE,(payload,context)->prepareRun(payload,context));
 
@@ -832,7 +832,9 @@ public final class DalmaruNetworking {
             }))
             .exceptionally(error->{server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
                 LOGGER.warn("Inheritance request outcome for {}",session.accountId(),error);
-                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();
+                if(EquipmentRepository.UNEQUIP_BEFORE_INHERIT.equals(cause.getMessage())){var body=new com.google.gson.JsonObject();body.addProperty("message",cause.getMessage());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"rejected",body.toString(),false));}
+                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
                 else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             });return null;});
     }

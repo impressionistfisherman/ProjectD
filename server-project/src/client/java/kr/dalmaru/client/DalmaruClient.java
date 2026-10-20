@@ -286,7 +286,8 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
     }
     public static void requestInheritance(java.util.UUID target,java.util.UUID source){
-        if(target==null||source==null||target.equals(source)||ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(target))||ClientEquipmentState.equipment().stream().noneMatch(item->item.equipmentId().equals(source)))return;
+        var targetItem=ClientEquipmentState.equipment().stream().filter(item->item.equipmentId().equals(target)).findFirst().orElse(null);var sourceItem=ClientEquipmentState.equipment().stream().filter(item->item.equipmentId().equals(source)).findFirst().orElse(null);
+        if(target==null||source==null||target.equals(source)||targetItem==null||sourceItem==null||targetItem.slotId()<0||sourceItem.slotId()>=0)return;
         long correlation=ClientEquipmentState.nextRequestId();var body=new com.google.gson.JsonObject();body.addProperty("targetEquipmentId",target.toString());body.addProperty("sourceEquipmentId",source.toString());var request=ClientRequestState.begin(correlation,"inherit_equipment",body);if(request==null)return;
         ClientEquipmentState.queried(correlation);ClientPlayNetworking.send(request);
     }
@@ -301,7 +302,8 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptInheritanceOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
         String message="계승 대상·원본·소유권 조건을 확인하세요.";
-        if(!"rejected".equals(receipt.state()))try{
+        if("rejected".equals(receipt.state())){try{var json=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();if(json.has("message")&&json.get("message").isJsonPrimitive())message=json.get("message").getAsString();}catch(RuntimeException ignored){}ClientEquipmentState.movementStatus(message);requestEquipment();return;}
+        try{
             var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();var expected=com.google.gson.JsonParser.parseString(request.payload()).getAsJsonObject();
             for(String key:new String[]{"targetEquipmentId","sourceEquipmentId"})if(!original.has(key)||!original.get(key).isJsonPrimitive()||!original.getAsJsonPrimitive(key).isString()||!original.get(key).getAsString().equals(expected.get(key).getAsString()))throw new IllegalStateException("Invalid inheritance identity");
             if(!original.has("credit")||!original.get("credit").isJsonPrimitive()||!original.getAsJsonPrimitive("credit").isNumber()||original.get("credit").getAsBigDecimal().intValueExact()<0)throw new IllegalStateException("Invalid inheritance credit");
