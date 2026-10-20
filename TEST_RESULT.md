@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-20 거처 월드: `verifyP5HousingLifecycle` PASS. 구획 입구, 구조 1회 청구, 재입장 재생성 없음, 복귀 좌표, 런·전투 BUSY. `oscar_p3_fixture` 전체 회귀 검증 88개와 스모크 PASS, FAIL 0. 배포 JAR에 `data/dalmaru/dimension/housing.json`이 있다. 사람 클릭 입장은 하지 않았다. 브랜치 `p5/integration`.
+
 - 2026-10-20 계승 커밋 `01caa29` 전체 회귀: `grok_p3_fixture`, 75 PASS, FAIL 0. 로그 `hive/research/MDF_P3_01caa29_regression.log`. 락은 획득 후 반환했다.
 
 - 2026-10-20 던전 자연 스폰: `verifyDungeonNaturalSpawn` PASS. `grok_p3_fixture` 전체 회귀 검증 75개와 스모크 PASS, FAIL 0. 브랜치 `grok/mdf-dungeon-nospawn`.

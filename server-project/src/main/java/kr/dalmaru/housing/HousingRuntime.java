@@ -13,8 +13,14 @@ public final class HousingRuntime {
 	}
 
 	public HousingRepository.Snapshot enter(UUID account, UUID character, UUID housingId, String returnDimension, int x, int y, int z) throws SQLException {
-		return homes.enter(account, character, housingId, returnDimension, x, y, z);
+		return enter(account, character, housingId, returnDimension, x, y, z, false);
 	}
+
+	public HousingRepository.Snapshot enter(UUID account, UUID character, UUID housingId, String returnDimension, int x, int y, int z, boolean combat) throws SQLException {
+		return homes.enter(account, character, housingId, returnDimension, x, y, z, combat);
+	}
+
+	public boolean claimBuild(UUID housingId) throws SQLException { return homes.claimBuild(housingId); }
 
 	public HousingRepository.Snapshot leave(UUID account, UUID character) throws SQLException {
 		return homes.leave(account, character);

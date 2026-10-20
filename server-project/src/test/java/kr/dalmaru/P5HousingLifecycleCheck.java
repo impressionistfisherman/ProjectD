@@ -11,6 +11,7 @@ import kr.dalmaru.account.AccountRepository;
 import kr.dalmaru.account.CharacterRepository;
 import kr.dalmaru.housing.HousingRepository;
 import kr.dalmaru.housing.HousingRuntime;
+import kr.dalmaru.housing.HousingStructure;
 import kr.dalmaru.request.RequestEnvelope;
 
 public final class P5HousingLifecycleCheck {
@@ -48,19 +49,41 @@ public final class P5HousingLifecycleCheck {
 			var entered = new HousingRuntime().enter(account, first, housing, "minecraft:overworld", 10, 64, 12);
 			characters.selectActive(account, generation, 6, second);
 			var shared = new HousingRuntime().enter(account, second, housing, "minecraft:overworld", 14, 64, 16);
-			check("OK".equals(entered.status()) && entered.inside() && entered.housingId().equals(housing) && HousingRepository.DIMENSION.equals(entered.dimension()) && entered.x() == 0 && entered.y() == 64 && entered.z() == 0, "Entry did not use the house origin.");
-			check(shared.housingId().equals(housing) && shared.inside(), "The second character did not share the home.");
+			int parcel = parcel(housing);
+			int origin = HousingStructure.originX(parcel);
+			check("OK".equals(entered.status()) && entered.inside() && entered.housingId().equals(housing) && HousingRepository.DIMENSION.equals(entered.dimension()) && entered.x() == origin && entered.y() == 64 && entered.z() == 0, "Entry did not use the parcel entrance.");
+			check(shared.housingId().equals(housing) && shared.x() == origin && shared.inside(), "The second character did not share the home.");
+			var plan = HousingStructure.plan(origin, 0);
+			check(block(plan, origin, 63, 0, "minecraft:stone") && block(plan, origin + 2, 64, 2, "minecraft:oak_planks") && block(plan, origin + 4, 64, 4, "minecraft:air") && block(plan, origin + 32, 63, 0, "minecraft:farmland") && block(plan, origin + 48, 63, 7, "minecraft:farmland") && block(plan, origin + 64, 63, 0, "minecraft:farmland") && block(plan, origin + 80, 63, 7, "minecraft:farmland") && block(plan, origin + 2, 64, 34, "minecraft:crafting_table"), "The temporary home is missing a floor, room, plot, or workshop.");
+			var next = HousingStructure.plan(origin + HousingStructure.SPACING, 0);
+			check(plan.keySet().stream().noneMatch(next::containsKey), "Adjacent parcels overlap.");
+			check(new HousingRuntime().claimBuild(housing) && !new HousingRuntime().claimBuild(housing), "A second entry rebuilt the home.");
 			var restarted = new HousingRuntime().recover(first);
-			check(restarted.inside() && housing.equals(restarted.housingId()) && restarted.x() == 0 && restarted.z() == 0, "Restart did not restore the stored home.");
+			check(restarted.inside() && housing.equals(restarted.housingId()) && restarted.x() == origin && restarted.z() == 0, "Restart did not restore the stored home.");
 			var back = new HousingRuntime().leave(account, first);
 			check("OK".equals(back.status()) && !back.inside() && "minecraft:overworld".equals(back.dimension()) && back.x() == 10 && back.y() == 64 && back.z() == 12, "Leave did not restore the village point.");
 			var after = new HousingRuntime().recover(first);
 			check(!after.inside() && after.x() == 10 && after.z() == 12, "A later recover put the character back inside.");
+			UUID run = UUID.randomUUID();
+			try (var connection = connection()) {
+				try (var insert = connection.prepareStatement("INSERT INTO dalmaru.run_instances(run_id,content_id,difficulty,week_id,party_size,scaling_tier,state) VALUES(?,'run.bongsudae','FIRST_STEP',CURRENT_DATE,1,1,'ACTIVE')")) { insert.setObject(1, run); insert.executeUpdate(); }
+				try (var member = connection.prepareStatement("INSERT INTO dalmaru.run_participants(run_id, character_id) VALUES(?, ?)")) { member.setObject(1, run); member.setObject(2, first); member.executeUpdate(); }
+			}
+			var busy = new HousingRuntime().enter(account, first, housing, "minecraft:overworld", 8, 64, 8);
+			var stayed = new HousingRuntime().recover(first);
+			check("BUSY".equals(busy.status()) && !stayed.inside() && stayed.x() == 10 && stayed.z() == 12, "An active run entered the home.");
+			try (var connection = connection()) {
+				try (var member = connection.prepareStatement("DELETE FROM dalmaru.run_participants WHERE run_id=?")) { member.setObject(1, run); member.executeUpdate(); }
+				try (var insert = connection.prepareStatement("DELETE FROM dalmaru.run_instances WHERE run_id=?")) { insert.setObject(1, run); insert.executeUpdate(); }
+			}
+			var fighting = new HousingRuntime().enter(account, first, housing, "minecraft:overworld", 9, 64, 9, true);
+			var still = new HousingRuntime().recover(first);
+			check("BUSY".equals(fighting.status()) && !still.inside() && still.x() == 10, "Combat entered the home.");
 			long otherGeneration = new AccountRepository().openSession(other).connectionGeneration();
 			UUID stranger = characters.create(other, otherGeneration, 7, 1, "hc" + other.toString().substring(0, 8)).character().characterId();
 			var refused = new HousingRuntime().enter(other, stranger, housing, "minecraft:overworld", 1, 64, 1);
 			check("FORBIDDEN".equals(refused.status()) && runs(stranger) == 0 && homes(other) == 0, "Another account entered the home.");
-			System.out.println("PASS one home per account, shared characters, separated spaces, enter leave and restart recovery");
+			System.out.println("PASS one home per account, shared characters, separated spaces, one build, enter leave, run and combat refusal, restart recovery");
 		} finally { cleanup(account); cleanup(other); }
 	}
 
@@ -71,6 +94,8 @@ public final class P5HousingLifecycleCheck {
 		}
 	}
 
+	private static int parcel(UUID housing) throws SQLException { return count("SELECT parcel FROM dalmaru.account_homes WHERE housing_id=?", housing); }
+	private static boolean block(java.util.Map<net.minecraft.core.BlockPos, String> plan, int x, int y, int z, String block) { return block.equals(plan.get(new net.minecraft.core.BlockPos(x, y, z))); }
 	private static int homes(UUID account) throws SQLException { return count("SELECT count(*) FROM dalmaru.account_homes WHERE account_id=?", account); }
 	private static int spaces(UUID housing) throws SQLException { return count("SELECT count(*) FROM dalmaru.account_home_spaces WHERE housing_id=?", housing); }
 	private static int plots(UUID housing) throws SQLException { return count("SELECT count(*) FROM dalmaru.account_home_spaces WHERE housing_id=? AND kind='PLOT'", housing); }
@@ -114,6 +139,7 @@ public final class P5HousingLifecycleCheck {
 			connection.setAutoCommit(false);
 			try {
 				for (String sql : java.util.List.of(
+					"DELETE FROM dalmaru.run_participants WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
 					"DELETE FROM dalmaru.account_home_presence WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
 					"DELETE FROM dalmaru.account_homes WHERE account_id=?",
 					"DELETE FROM dalmaru.operation_requests WHERE account_id=?",

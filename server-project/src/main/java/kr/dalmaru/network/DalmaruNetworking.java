@@ -932,11 +932,22 @@ public final class DalmaruNetworking {
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
         var session=state.accountSession;
         boolean enter="enter_home".equals(envelope.operation());
+        boolean blocked=enter&&(COMBAT.remainingCombatTicks(player.getUUID(),currentTick)>0||RUN_RUNTIME.runId(player)!=null);
         String dimension=player.level().dimension().identifier().toString();
         int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
-        CompletableFuture.supplyAsync(()->{try{return enter?HOMES.enter(session.accountId(),session.activeCharacterId(),housingId,dimension,x,y,z):HOMES.leave(session.accountId(),session.activeCharacterId());}catch(Exception error){throw new IllegalStateException(error);}})
-            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var body=new com.google.gson.JsonObject();body.addProperty("status",result.status());if(result.housingId()!=null)body.addProperty("housingId",result.housingId().toString());body.addProperty("dimension",result.dimension());body.addProperty("x",result.x());body.addProperty("y",result.y());body.addProperty("z",result.z());body.addProperty("inside",result.inside());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),UUID.randomUUID(),result.status().equals("OK")?"completed":"rejected",body.toString(),false));}))
+        CompletableFuture.supplyAsync(()->{try{return enter?HOMES.enter(session.accountId(),session.activeCharacterId(),housingId,dimension,x,y,z,blocked):HOMES.leave(session.accountId(),session.activeCharacterId());}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;if("OK".equals(result.status()))moveHome(player,enter,result);var body=new com.google.gson.JsonObject();body.addProperty("status",result.status());if(result.housingId()!=null)body.addProperty("housingId",result.housingId().toString());body.addProperty("dimension",result.dimension());body.addProperty("x",result.x());body.addProperty("y",result.y());body.addProperty("z",result.z());body.addProperty("inside",result.inside());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),UUID.randomUUID(),result.status().equals("OK")?"completed":"rejected",body.toString(),false));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Home move failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void moveHome(ServerPlayer player, boolean enter, kr.dalmaru.housing.HousingRepository.Snapshot result) {
+        var id = net.minecraft.resources.Identifier.parse(result.dimension());
+        var level = id == null ? null : player.level().getServer().getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, id));
+        if (level == null) { LOGGER.warn("Home dimension {} is not loaded", result.dimension()); return; }
+        try {
+            if (enter && HOMES.claimBuild(result.housingId())) kr.dalmaru.housing.HousingStructure.place(level, result.x(), result.z());
+            player.teleportTo(level, result.x() + 0.5, result.y(), result.z() + 0.5, java.util.Set.of(), player.getYRot(), player.getXRot(), false);
+        } catch (Exception error) { LOGGER.warn("Home teleport failed", error); }
     }
 
     private static void villageRequest(ServerPlayNetworking.Context context,long correlation,String villageId,kr.dalmaru.request.RequestEnvelope envelope){

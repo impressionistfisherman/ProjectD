@@ -37,12 +37,18 @@ public final class HousingRepository {
 	}
 
 	public Snapshot enter(UUID account, UUID character, UUID housingId, String returnDimension, int x, int y, int z) throws SQLException {
+		return enter(account, character, housingId, returnDimension, x, y, z, false);
+	}
+
+	public Snapshot enter(UUID account, UUID character, UUID housingId, String returnDimension, int x, int y, int z, boolean combat) throws SQLException {
 		if (housingId == null || returnDimension == null || returnDimension.isBlank() || DIMENSION.equals(returnDimension)) throw new IllegalArgumentException("Invalid home entry.");
+		ensureColumns();
 		try (var connection = connect()) {
 			connection.setAutoCommit(false);
 			try {
 				if (!owns(connection, account, character, housingId)) { connection.rollback(); return new Snapshot("FORBIDDEN", null, "", 0, 0, 0, false); }
-				var house = spot(connection, housingId, "HOUSE", -1);
+				if (combat || inRun(connection, character)) { connection.rollback(); return new Snapshot("BUSY", housingId, "", 0, 0, 0, false); }
+				var house = entrance(connection, housingId);
 				try (var save = connection.prepareStatement("INSERT INTO dalmaru.account_home_presence(character_id, housing_id, inside, return_dimension, return_x, return_y, return_z) VALUES(?, ?, TRUE, ?, ?, ?, ?) ON CONFLICT (character_id) DO UPDATE SET housing_id=EXCLUDED.housing_id, inside=TRUE, return_dimension=EXCLUDED.return_dimension, return_x=EXCLUDED.return_x, return_y=EXCLUDED.return_y, return_z=EXCLUDED.return_z")) {
 					save.setObject(1, character);
 					save.setObject(2, housingId);
@@ -76,16 +82,30 @@ public final class HousingRepository {
 	}
 
 	public Snapshot recover(UUID character) throws SQLException {
+		ensureColumns();
 		try (var connection = connect()) {
-			Snapshot stored = read(connection, character);
-			if (stored == null) return new Snapshot("ABSENT", null, "", 0, 0, 0, false);
-			if (!stored.inside()) return stored;
-			var house = spot(connection, stored.housingId(), "HOUSE", -1);
-			return new Snapshot("OK", stored.housingId(), DIMENSION, house.x(), house.y(), house.z(), true);
+			connection.setAutoCommit(false);
+			try {
+				Snapshot stored = read(connection, character);
+				if (stored == null) { connection.rollback(); return new Snapshot("ABSENT", null, "", 0, 0, 0, false); }
+				if (!stored.inside()) { connection.rollback(); return stored; }
+				var house = entrance(connection, stored.housingId());
+				connection.commit();
+				return new Snapshot("OK", stored.housingId(), DIMENSION, house.x(), house.y(), house.z(), true);
+			} catch (Exception exception) { connection.rollback(); throw exception instanceof SQLException sql ? sql : new SQLException(exception); }
+		}
+	}
+
+	public boolean claimBuild(UUID housingId) throws SQLException {
+		ensureColumns();
+		try (var connection = connect(); var update = connection.prepareStatement("UPDATE dalmaru.account_homes SET built=TRUE WHERE housing_id=? AND built=FALSE")) {
+			update.setObject(1, housingId);
+			return update.executeUpdate() == 1;
 		}
 	}
 
 	private JsonObject create(java.sql.Connection connection, UUID account, UUID character) throws SQLException {
+		ensureColumns();
 		if (!member(connection, account, character)) throw new IllegalArgumentException("Invalid home request.");
 		UUID existing = lockHome(connection, account);
 		var outcome = new JsonObject();
@@ -95,10 +115,12 @@ public final class HousingRepository {
 			return outcome;
 		}
 		UUID housingId = UUID.randomUUID();
-		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.account_homes(account_id, housing_id, dimension) VALUES(?, ?, ?)")) {
+		int parcel = nextParcel(connection);
+		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.account_homes(account_id, housing_id, dimension, parcel) VALUES(?, ?, ?, ?)")) {
 			insert.setObject(1, account);
 			insert.setObject(2, housingId);
 			insert.setString(3, DIMENSION);
+			insert.setInt(4, parcel);
 			insert.executeUpdate();
 		}
 		try (var space = connection.prepareStatement("INSERT INTO dalmaru.account_home_spaces(housing_id, kind, plot_index, origin_x, origin_y, origin_z, size) VALUES(?, ?, ?, ?, 64, ?, ?)")) {
@@ -145,6 +167,51 @@ public final class HousingRepository {
 		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.characters WHERE character_id=? AND account_id=?")) {
 			query.setObject(1, character);
 			query.setObject(2, account);
+			try (var row = query.executeQuery()) { return row.next(); }
+		}
+	}
+
+	private void ensureColumns() throws SQLException {
+		try (var connection = connect(); var statement = connection.createStatement()) {
+			statement.execute("ALTER TABLE dalmaru.account_homes ADD COLUMN IF NOT EXISTS parcel INTEGER");
+			statement.execute("ALTER TABLE dalmaru.account_homes ADD COLUMN IF NOT EXISTS built BOOLEAN NOT NULL DEFAULT FALSE");
+			statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS account_homes_parcel ON dalmaru.account_homes(parcel) WHERE parcel IS NOT NULL");
+		}
+	}
+
+	private int nextParcel(java.sql.Connection connection) throws SQLException {
+		try (var lock = connection.createStatement()) { lock.execute("SELECT pg_advisory_xact_lock(4814)"); }
+		try (var query = connection.createStatement(); var row = query.executeQuery("SELECT COALESCE(MAX(parcel), -1) + 1 FROM dalmaru.account_homes")) {
+			row.next();
+			return row.getInt(1);
+		}
+	}
+
+	private Spot entrance(java.sql.Connection connection, UUID housingId) throws SQLException {
+		int parcel = parcel(connection, housingId);
+		return new Spot(HousingStructure.originX(parcel), 64, 0);
+	}
+
+	private int parcel(java.sql.Connection connection, UUID housingId) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT parcel FROM dalmaru.account_homes WHERE housing_id=? FOR UPDATE")) {
+			query.setObject(1, housingId);
+			try (var row = query.executeQuery()) {
+				if (!row.next()) throw new SQLException("Home row is missing.");
+				if (row.getObject(1) != null) return row.getInt(1);
+			}
+		}
+		int assigned = nextParcel(connection);
+		try (var update = connection.prepareStatement("UPDATE dalmaru.account_homes SET parcel=? WHERE housing_id=? AND parcel IS NULL")) {
+			update.setInt(1, assigned);
+			update.setObject(2, housingId);
+			if (update.executeUpdate() != 1) throw new SQLException("Home parcel was not stored.");
+		}
+		return assigned;
+	}
+
+	private boolean inRun(java.sql.Connection connection, UUID character) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r ON r.run_id=p.run_id WHERE p.character_id=? AND r.state IN ('ACTIVE', 'PAUSED') AND NOT EXISTS (SELECT 1 FROM dalmaru.run_member_lifecycle l WHERE l.run_id=p.run_id AND l.character_id=p.character_id AND l.left_at IS NOT NULL)")) {
+			query.setObject(1, character);
 			try (var row = query.executeQuery()) { return row.next(); }
 		}
 	}

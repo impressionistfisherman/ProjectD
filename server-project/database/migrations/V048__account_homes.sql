@@ -2,8 +2,12 @@ CREATE TABLE dalmaru.account_homes (
     account_id UUID PRIMARY KEY REFERENCES dalmaru.accounts(account_id),
     housing_id UUID NOT NULL UNIQUE,
     dimension TEXT NOT NULL DEFAULT 'dalmaru:housing',
+    parcel INTEGER,
+    built BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS account_homes_parcel ON dalmaru.account_homes(parcel) WHERE parcel IS NOT NULL;
 
 CREATE TABLE dalmaru.account_home_spaces (
     housing_id UUID NOT NULL REFERENCES dalmaru.account_homes(housing_id) ON DELETE CASCADE,
