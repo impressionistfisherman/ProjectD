@@ -39,6 +39,7 @@ public final class SkillRepository {
                 }
                 var profile=CharacterRepository.profileForUpdate(c,character);
                 if(!profession.name().equals(profile.profession())||profile.level()<definition.unlockLevel())throw new IllegalArgumentException("Skill profession/level does not match current profile");
+                var branchSkill=ContentCatalog.current().branchSkills().get(skillId);if(branchSkill!=null)admit(c,character,profile.level(),branchSkill);
                 if(profile.unspentSkillPoints()<definition.skillPoints())throw new IllegalArgumentException("Not enough skill points.");
                 int rank;
                 try(var q=c.prepareStatement("SELECT rank FROM dalmaru.character_skill_ranks WHERE character_id=? AND skill_id=? FOR UPDATE")){
@@ -61,6 +62,13 @@ public final class SkillRepository {
         return new LearningResult(rank,replayed,profile,ranks(c,character),receipt);
     }
     public static boolean occupiesLoadoutSlot(SkillDefinition.Kind kind){return SkillLoadout.occupiesSlot(kind);}
+    private static void admit(Connection c,UUID character,int level,kr.dalmaru.content.BranchSkills.Spec spec)throws SQLException{
+        String branch="";boolean advance30=false,advance50=false,advance60=false;
+        try(var q=c.prepareStatement("SELECT branch,advanced_30_at IS NOT NULL,advanced_50_at IS NOT NULL,advanced_60_at IS NOT NULL FROM dalmaru.character_advancements WHERE character_id=?")){
+            q.setObject(1,character);try(var row=q.executeQuery()){if(row.next()){branch=row.getString(1)==null?"":row.getString(1);advance30=row.getBoolean(2);advance50=row.getBoolean(3);advance60=row.getBoolean(4);}}
+        }
+        spec.admit(level,branch,advance30,advance50,advance60);
+    }
     public Map<String,Integer> ranks(UUID character)throws SQLException {try(var c=connection()){return ranks(c,character);}}
     private static Map<String,Integer> ranks(Connection c,UUID character)throws SQLException {
         try(var q=c.prepareStatement("SELECT skill_id,rank FROM dalmaru.character_skill_ranks WHERE character_id=?")){

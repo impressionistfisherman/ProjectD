@@ -15,11 +15,16 @@ public record SkillLoadout(UUID characterId,long revision,List<String> slots) {
         while(slots.size()<5)slots.add("");return List.copyOf(slots);
     }
     public static void validate(CharacterProfession profession,Map<String,Integer> ranks,List<String> slots,List<String> previous){
+        validate(profession,ranks,slots,previous,"");
+    }
+    public static void validate(CharacterProfession profession,Map<String,Integer> ranks,List<String> slots,List<String> previous,String branch){
         if(slots.size()!=5)throw new IllegalArgumentException("Exactly five slots required.");
         Set<String>seen=new HashSet<>();
         for(int index=0;index<5;index++){
             String id=slots.get(index);if(id.isEmpty())continue;
             var skill=SkillDefinition.find(profession,id);
+            var spec=kr.dalmaru.content.ContentCatalog.current().branchSkills().get(id);
+            if(spec!=null&&!spec.branch().equals(branch==null?"":branch))throw new IllegalArgumentException("Branch skill does not match the confirmed path.");
             // Locked initial skills may remain in place, but cannot be newly equipped or moved.
             if(!seen.add(id)||(ranks.getOrDefault(id,0)<1&&!id.equals(previous.get(index))))
                 throw new IllegalArgumentException("Unlearned, duplicate or invalid slot skill.");

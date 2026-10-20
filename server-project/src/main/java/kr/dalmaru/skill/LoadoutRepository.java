@@ -59,7 +59,7 @@ public final class LoadoutRepository {
             var current=load(c,character);
             if(current.revision()!=expected)throw new IllegalArgumentException("Stale loadout revision.");
             var profession=profession(c,character);if(profession==null)throw new IllegalArgumentException("Profession required.");
-            SkillLoadout.validate(profession,ranks(c,character),slots,current.slots());
+            SkillLoadout.validate(profession,ranks(c,character),slots,current.slots(),branch(c,character));
             long revision=Math.addExact(current.revision(),1);
             try(var update=c.prepareStatement("UPDATE dalmaru.character_skill_loadouts SET slots=?::jsonb,revision=? WHERE character_id=?")){
                 update.setString(1,encode(slots));update.setLong(2,revision);update.setObject(3,character);update.executeUpdate();
@@ -76,6 +76,9 @@ public final class LoadoutRepository {
     }
     public static String encode(List<String> slots){JsonArray array=new JsonArray();slots.forEach(array::add);return array.toString();}
     public static List<String> decode(String value){var array=JsonParser.parseString(value).getAsJsonArray();var slots=new ArrayList<String>();array.forEach(item->slots.add(item.getAsString()));return List.copyOf(slots);}
+    private static String branch(Connection c,UUID character)throws SQLException{
+        try(var q=c.prepareStatement("SELECT branch FROM dalmaru.character_advancements WHERE character_id=?")){q.setObject(1,character);try(var row=q.executeQuery()){return row.next()&&row.getString(1)!=null?row.getString(1):"";}}
+    }
     private static CharacterProfession profession(Connection c,UUID character)throws SQLException{
         try(var q=c.prepareStatement("SELECT base_job FROM dalmaru.character_professions WHERE character_id=?")){q.setObject(1,character);try(var row=q.executeQuery()){return row.next()?CharacterProfession.valueOf(row.getString(1)):null;}}
     }

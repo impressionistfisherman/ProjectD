@@ -452,9 +452,10 @@ public final class CombatRuntime {
         for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns,branchSkillCooldowns))cooldown.computeIfPresent(playerId,(id,until)->Math.addExact(until,pausedTicks));
         RuntimeState state=states.get(playerId);
         if(state!=null){state.nextBasicAttackTick=Math.addExact(state.nextBasicAttackTick,pausedTicks);if(state.lastCombatTick!=Long.MIN_VALUE)state.lastCombatTick=Math.addExact(state.lastCombatTick,pausedTicks);}
+        shiftBranchCasts(playerId,pausedTicks);
     }
     public void remove(UUID playerId) {
-        states.remove(playerId);equipment.remove(playerId);disconnected.remove(playerId);skillRanks.remove(playerId);effects.clear(playerId);staggerResistance.remove(playerId);defenseStates.remove(playerId);evasiveUntil.remove(playerId);branches.remove(playerId);
+        states.remove(playerId);equipment.remove(playerId);disconnected.remove(playerId);skillRanks.remove(playerId);effects.clear(playerId);staggerResistance.remove(playerId);defenseStates.remove(playerId);evasiveUntil.remove(playerId);branches.remove(playerId);armed.remove(playerId);branchCastCooldowns.remove(playerId);
         for(var cooldown:java.util.List.of(sweepCooldowns,advanceCooldowns,risingStrikeCooldowns,battleCryCooldowns,piercingShotCooldowns,spiritTalismanCooldowns,ambushCooldowns,retreatShotCooldowns,bindingTalismanCooldowns,smokeBombCooldowns,shackleStrikeCooldowns,escapeCooldowns,trackingMarkCooldowns,bindingShotCooldowns,protectiveTalismanCooldowns,shortStepCooldowns,branchSkillCooldowns))cooldown.remove(playerId);
     }
 
@@ -489,6 +490,10 @@ public final class CombatRuntime {
 	}
 	public enum ResourceOutcome { APPLIED, RESOURCE, STAMINA, COOLDOWN, UNAVAILABLE }
 	private final Map<UUID,BranchPool> branches=new HashMap<>();
+	private final Map<UUID,ArmedBranch> armed=new HashMap<>();
+	private final Map<UUID,Map<String,Long>> branchCastCooldowns=new HashMap<>();
+	private final Map<UUID,Integer> branchEffects=new HashMap<>();
+	private static final class ArmedBranch { private UUID character; private String branch=""; private boolean advance30,advance50,advance60; private java.util.List<String> slots=java.util.List.of(); }
 	private static final class BranchPool { private UUID character; private String profile=""; private int current; }
 	public void bindBranch(UUID player,UUID character,String weaponProfile,boolean ensureStamina){
 		java.util.Objects.requireNonNull(player);java.util.Objects.requireNonNull(character);
@@ -496,7 +501,7 @@ public final class CombatRuntime {
 		var rule=profile.isEmpty()?kr.dalmaru.content.ContentCatalog.BranchResource.NONE:content(player).branchResource(profile);
 		BranchPool pool=branches.get(player);
 		if(pool==null||!character.equals(pool.character)){
-			pool=new BranchPool();pool.character=character;pool.profile=profile;pool.current=rule.initial();branches.put(player,pool);branchSkillCooldowns.remove(player);
+			pool=new BranchPool();pool.character=character;pool.profile=profile;pool.current=rule.initial();branches.put(player,pool);branchSkillCooldowns.remove(player);armed.remove(player);branchCastCooldowns.remove(player);
 		}else if(!profile.equals(pool.profile)){pool.profile=profile;pool.current=rule.initial();branchSkillCooldowns.remove(player);}
 		if(ensureStamina)states.computeIfAbsent(player,id->new RuntimeState(100,100,0,Long.MIN_VALUE,PilotEquipment.Stats.EMPTY,1));
 	}
@@ -534,6 +539,44 @@ public final class CombatRuntime {
 		pool.current=content(player).branchResource(pool.profile).initial();
 	}
 	public void dropPreservedBranch(UUID player){branches.remove(player);}
+	public void armBranch(UUID player,UUID character,String branch,boolean advance30,boolean advance50,boolean advance60,Map<String,Integer> learned,java.util.List<String> slots,boolean ensureStamina){
+		var spec=kr.dalmaru.content.ContentCatalog.current().branchSkills().path(branch);
+		if(spec.isEmpty())throw new IllegalArgumentException("Unknown branch");
+		bindBranch(player,character,spec.getFirst().weaponProfile(),ensureStamina);
+		var armedBranch=new ArmedBranch();armedBranch.character=character;armedBranch.branch=branch;armedBranch.advance30=advance30;armedBranch.advance50=advance50;armedBranch.advance60=advance60;armedBranch.slots=java.util.List.copyOf(slots);
+		armed.put(player,armedBranch);ranks(player,learned);
+	}
+	public int lastBranchEffect(UUID player){return branchEffects.getOrDefault(player,0);}
+	public ResourceOutcome useBranchSkill(UUID player,String skillId,long tick){
+		if(tick<0||skillId==null)return ResourceOutcome.UNAVAILABLE;
+		var spec=kr.dalmaru.content.ContentCatalog.current().branchSkills().get(skillId);
+		var state=armed.get(player);var pool=branches.get(player);
+		if(spec==null||state==null||pool==null||!spec.branch().equals(state.branch)||!spec.weaponProfile().equals(pool.profile))return ResourceOutcome.UNAVAILABLE;
+		if(!spec.casts())return ResourceOutcome.UNAVAILABLE;
+		boolean ready=switch(spec.unlockLevel()){case 30->state.advance30;case 50->state.advance50;case 60->state.advance60;default->false;};
+		if(!ready||rank(player,skillId)<1)return ResourceOutcome.UNAVAILABLE;
+		int slot=state.slots.indexOf(skillId);
+		if(spec.kind()==kr.dalmaru.skill.SkillDefinition.Kind.ULTIMATE){if(slot!=4)return ResourceOutcome.UNAVAILABLE;}
+		else if(slot<0||slot>3)return ResourceOutcome.UNAVAILABLE;
+		var casts=branchCastCooldowns.computeIfAbsent(player,id->new HashMap<>());
+		if(tick<casts.getOrDefault(skillId,0L))return ResourceOutcome.COOLDOWN;
+		RuntimeState runtime=states.get(player);if(runtime==null)return ResourceOutcome.UNAVAILABLE;
+		if(spec.resourceSpend()>0){
+			var rule=content(player).branchResource(pool.profile);
+			if(rule.unused()||pool.current<spec.resourceSpend())return ResourceOutcome.RESOURCE;
+		}
+		if(spec.resourceSpend()>0)pool.current-=spec.resourceSpend();
+		if(spec.cooldownTicks()>0)casts.put(skillId,Math.addExact(tick,spec.cooldownTicks()));
+		int bonus=0;
+		for(var other:kr.dalmaru.content.ContentCatalog.current().branchSkills().path(spec.branch()))
+			if(!other.casts()&&rank(player,other.id())>=1)bonus=Math.addExact(bonus,other.effectAmount());
+		branchEffects.put(player,Math.addExact(spec.effectAmount(),bonus));
+		return ResourceOutcome.APPLIED;
+	}
+	private void shiftBranchCasts(UUID playerId,long pausedTicks){
+		var casts=branchCastCooldowns.get(playerId);if(casts==null||pausedTicks<=0)return;
+		casts.replaceAll((id,until)->Math.addExact(until,pausedTicks));
+	}
 	private ResourceOutcome gainBranch(UUID player,boolean hit){
 		BranchPool pool=branches.get(player);if(pool==null||pool.profile.isEmpty())return ResourceOutcome.UNAVAILABLE;
 		var rule=content(player).branchResource(pool.profile);if(rule.unused())return ResourceOutcome.UNAVAILABLE;

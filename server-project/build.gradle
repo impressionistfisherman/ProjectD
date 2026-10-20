@@ -457,3 +457,13 @@ tasks.register('verifyP5GrowthStoryGates', JavaExec) {
 tasks.register('verifyP5CombatResources', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5CombatResourcesCheck'
 }
+
+// P5 Oscar
+tasks.register('verifyP5BranchSkillCatalog', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5BranchSkillCatalogCheck'
+}
+
+// P5 Oscar
+tasks.register('verifyP5BranchSkillExecution', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5BranchSkillExecutionCheck'
+}

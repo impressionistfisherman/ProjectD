@@ -51,8 +51,10 @@ public final class ContentCatalog {
     }
     public record RankValue(double first,double last){public double at(int rank){return kr.dalmaru.combat.CombatRules.rank(first,last,rank);}}
     private final List<Skill> skillDefinitions;
+    private final BranchSkills branchSkills;
     public List<Skill> skills(){return skillDefinitions;}
-    public Skill skill(String id){return skillDefinitions.stream().filter(skill->skill.id().equals(id)).findFirst().orElseThrow(()->new IllegalArgumentException("Unknown skill: "+id));}
+    public BranchSkills branchSkills(){return branchSkills;}
+    public Skill skill(String id){var branch=branchSkills.view(id);if(branch!=null)return branch;return skillDefinitions.stream().filter(skill->skill.id().equals(id)).findFirst().orElseThrow(()->new IllegalArgumentException("Unknown skill: "+id));}
     private final BeaconMechanics mechanics;
     public BeaconMechanics mechanics(){return mechanics;}
     private final EncounterDefinition encounter;
@@ -70,7 +72,8 @@ public final class ContentCatalog {
     private final EnhancementPolicy enhancementPolicy;
     private final List<Integer> chances;
     private final List<EnhancementRules.Cost> costs;
-    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy,BeaconMechanics mechanics,Map<String,BranchResource> branchResources){
+    private ContentCatalog(String version,String snapshot,Map<String,Item> items,Map<String,Quest> quests,Map<String,Run> runs,List<Integer> chances,List<EnhancementRules.Cost> costs,EquipmentBonuses bonuses,EnhancementPolicy enhancementPolicy,EncounterDefinition encounter,List<Skill> skillDefinitions,Map<String,Display> displays,Map<String,WeaponSlot> weaponSlots,List<RefinementGrade> refinementGrades,RefinementPolicy refinementPolicy,BeaconMechanics mechanics,Map<String,BranchResource> branchResources,BranchSkills branchSkills){
+        this.branchSkills=branchSkills;
         this.branchResources=Map.copyOf(branchResources);
         this.mechanics=mechanics;
         this.refinementPolicy=refinementPolicy;
@@ -219,7 +222,7 @@ public final class ContentCatalog {
             var policy=new EnhancementPolicy(number(enhancement,"statIncreaseFirstFive"),number(enhancement,"statIncreaseLater"),integer(enhancement,"failureBonus"));
             if(policy.firstFive()>1||policy.later()>1||policy.failureBonus()>100)throw new IllegalArgumentException("Invalid enhancement scaling");
             var displays=displays(root,schema,items,skillDefinitions,quests,runs,mobs);
-            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy,mechanics,branchResources(root));
+            return new ContentCatalog(version,root.toString(),items,quests,runs,chances,costs,bonuses,policy,encounter,skillDefinitions,displays,weaponSlots,refinementGrades,refinementPolicy,mechanics,branchResources(root),BranchSkills.parse(root,version));
         }catch(JsonParseException|IllegalStateException|NullPointerException|ArithmeticException error){throw new IllegalArgumentException("Invalid pilot content structure",error);}
     }
     private static Map<String,Display> displays(JsonObject root,int schema,Map<String,Item> items,List<Skill> skills,Map<String,Quest> quests,Map<String,Run> runs,Map<String,Mob> mobs){
