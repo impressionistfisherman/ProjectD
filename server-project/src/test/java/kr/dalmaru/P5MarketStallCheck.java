@@ -56,7 +56,7 @@ public final class P5MarketStallCheck {
 			UUID extra = UUID.fromString(extraStored.result().get("stashId").getAsString());
 			var full = market.listJournaled(seller.account, seller.generation, seller.take(), seller.character, list(seller, extra, "STALL", 100));
 			var exchange = market.listJournaled(seller.account, seller.generation, seller.take(), seller.character, list(seller, extra, "EXCHANGE", 100));
-			check("FULL".equals(status(full)) && "FORBIDDEN".equals(status(exchange)) && "STASH".equals(location(extra)) && open(seller.character) == 10 && copper(seller.character) == 40, "An eleventh or exchange listing was accepted.");
+			check("FULL".equals(status(full)) && "FULL".equals(status(exchange)) && "STASH".equals(location(extra)) && open(seller.character) == 10 && copper(seller.character) == 40, "An eleventh listing was accepted.");
 			offline(seller.account);
 			wallet(first.character, 100);
 			var purchase = buy(first, listings.get(0), 100);
@@ -223,7 +223,7 @@ public final class P5MarketStallCheck {
 	}
 
 	private static int fees(UUID character) throws SQLException {
-		try (var connection = connection(); var query = connection.prepareStatement("SELECT coalesce(sum(copper_delta), 0) FROM dalmaru.character_currency_ledger WHERE character_id=? AND reason='market.fee'")) {
+		try (var connection = connection(); var query = connection.prepareStatement("SELECT coalesce(sum(copper_delta), 0) FROM dalmaru.character_currency_ledger WHERE character_id=? AND reason='STALL_FEE'")) {
 			query.setObject(1, character);
 			try (var row = query.executeQuery()) { row.next(); return row.getInt(1); }
 		}

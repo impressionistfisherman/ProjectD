@@ -614,6 +614,7 @@ public final class DalmaruNetworking {
                 case "grant_home","revoke_home","place_home","expand_home"->homeJournal(context,payload.correlationId(),envelope);
                 case "plant_crop","tend_crop","harvest_crop"->cropJournal(context,payload.correlationId(),envelope);
                 case "enqueue_production","cancel_production","claim_production"->productionJournal(context,payload.correlationId(),envelope);
+                case "search_market"->marketSearch(context,payload.correlationId(),envelope);
                 case "stash_market","list_market","buy_market","cancel_market","claim_market"->marketJournal(context,payload.correlationId(),envelope);
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
@@ -937,6 +938,17 @@ public final class DalmaruNetworking {
         };}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Production request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void marketSearch(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var payload=envelope.payload();
+        if(payload==null||payload.size()!=3||!payload.has("channel")||!payload.has("query")||!payload.has("offset")){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return MARKET.search(payload.get("channel").getAsString(),payload.get("query").getAsString(),payload.get("offset").getAsInt());}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted",result.toString(),false));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session)rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Market search failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void marketJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){

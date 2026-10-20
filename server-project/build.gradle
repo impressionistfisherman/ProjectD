@@ -517,3 +517,8 @@ tasks.register('verifyP5CraftProductionQueue', JavaExec) {
 tasks.register('verifyP5MarketStall', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5MarketStallCheck'
 }
+
+// P5 Oscar
+tasks.register('verifyP5MarketExchange', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5MarketExchangeCheck'
+}

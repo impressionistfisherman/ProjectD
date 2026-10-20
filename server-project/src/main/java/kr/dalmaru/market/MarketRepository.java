@@ -8,7 +8,7 @@ import kr.dalmaru.account.SupplyStay;
 import kr.dalmaru.request.RequestEnvelope;
 import kr.dalmaru.request.RequestJournal;
 
-/** Stall listings. Exchange search is not sold here. A sale writes the fee ledger once. */
+/** Stall and exchange listings. A sale writes one fee row. Search does not journal. */
 public final class MarketRepository {
 	private final String url = "jdbc:postgresql://" + System.getenv().getOrDefault("DALMARU_DB_HOST", "localhost") + ":" + System.getenv().getOrDefault("DALMARU_DB_PORT", "15432") + "/" + System.getenv().getOrDefault("DALMARU_DB_NAME", "ProjectD");
 	private final String username = System.getenv().getOrDefault("DALMARU_DB_USER", "postgres");
@@ -18,7 +18,12 @@ public final class MarketRepository {
 
 	public Journaled stashJournaled(UUID account, long generation, long correlation, UUID character, RequestEnvelope envelope) throws SQLException {
 		var payload = envelope == null ? null : envelope.payload();
-		if (payload == null || !"stash_market".equals(envelope.operation()) || payload.size() != 2 || !payload.has("materialId") || !payload.has("quantity")) throw new IllegalArgumentException("Invalid market request.");
+		if (payload == null || !"stash_market".equals(envelope.operation())) throw new IllegalArgumentException("Invalid market request.");
+		if (payload.size() == 1 && payload.has("equipmentId")) {
+			UUID equipment = UUID.fromString(payload.get("equipmentId").getAsString());
+			return write(account, generation, correlation, character, envelope, connection -> stashEquipment(connection, account, character, equipment));
+		}
+		if (payload.size() != 2 || !payload.has("materialId") || !payload.has("quantity")) throw new IllegalArgumentException("Invalid market request.");
 		int quantity = payload.get("quantity").getAsInt();
 		if (quantity < 1) throw new IllegalArgumentException("Invalid market request.");
 		String material = payload.get("materialId").getAsString();
@@ -47,6 +52,35 @@ public final class MarketRepository {
 	public Journaled claimJournaled(UUID account, long generation, long correlation, UUID character, RequestEnvelope envelope) throws SQLException {
 		UUID stash = one(envelope, "claim_market", "stashId");
 		return write(account, generation, correlation, character, envelope, connection -> claim(connection, account, character, stash));
+	}
+
+	public JsonObject search(String channel, String query, int offset) throws SQLException {
+		var outcome = new JsonObject();
+		if (channel == null || (!"STALL".equals(channel) && !"EXCHANGE".equals(channel)) || query == null || query.length() > 32 || !query.matches("[a-z0-9._]*") || offset < 0 || offset > 200) {
+			outcome.addProperty("status", "FIELD_LIMIT");
+			return outcome;
+		}
+		if (password == null || password.isBlank()) throw new SQLException("DALMARU_DB_PASSWORD is not configured.");
+		try (var connection = DriverManager.getConnection(url, username, password);
+			var statement = connection.prepareStatement("SELECT l.listing_id, l.price, COALESCE(s.material_id, s.equipment_id::text) FROM dalmaru.market_listings l JOIN dalmaru.market_stashes s ON s.stash_id=l.stash_id WHERE l.channel=? AND l.state='OPEN' AND l.expires_at > clock_timestamp() AND (?='' OR COALESCE(s.material_id, s.equipment_id::text) LIKE ?) ORDER BY l.expires_at LIMIT 20 OFFSET ?")) {
+			statement.setString(1, channel);
+			statement.setString(2, query);
+			statement.setString(3, "%" + query + "%");
+			statement.setInt(4, offset);
+			var rows = new com.google.gson.JsonArray();
+			try (var row = statement.executeQuery()) {
+				while (row.next()) {
+					var line = new JsonObject();
+					line.addProperty("listingId", row.getObject(1, UUID.class).toString());
+					line.addProperty("price", row.getInt(2));
+					line.addProperty("itemId", row.getString(3));
+					rows.add(line);
+				}
+			}
+			outcome.addProperty("status", "OK");
+			outcome.add("rows", rows);
+			return outcome;
+		}
 	}
 
 	private static UUID one(RequestEnvelope envelope, String operation, String field) {
@@ -108,20 +142,52 @@ public final class MarketRepository {
 		return outcome;
 	}
 
+	private JsonObject stashEquipment(java.sql.Connection connection, UUID account, UUID character, UUID equipment) throws SQLException {
+		var outcome = new JsonObject();
+		try (var query = connection.prepareStatement("SELECT item_id, binding, location FROM dalmaru.character_equipment WHERE equipment_id=? AND character_id=? FOR UPDATE")) {
+			query.setObject(1, equipment);
+			query.setObject(2, character);
+			try (var row = query.executeQuery()) {
+				if (!row.next()) { outcome.addProperty("status", "UNKNOWN_ID"); return outcome; }
+				if (!"INVENTORY".equals(row.getString(3))) { outcome.addProperty("status", "CONFLICT"); return outcome; }
+				if (!"FREE".equals(row.getString(2))) { outcome.addProperty("status", "BINDING_REJECTED"); return outcome; }
+				try { SupplyStay.refuseMove(connection, row.getString(1), row.getString(2)); }
+				catch (IllegalArgumentException exception) { outcome.addProperty("status", "SUPPLY_STAY"); return outcome; }
+			}
+		}
+		try (var busy = connection.prepareStatement("SELECT 1 FROM dalmaru.market_stashes WHERE equipment_id=? AND location IN ('STASH','LISTED')")) {
+			busy.setObject(1, equipment);
+			try (var row = busy.executeQuery()) { if (row.next()) { outcome.addProperty("status", "CHANNEL_BUSY"); return outcome; } }
+		}
+		UUID stash = UUID.randomUUID();
+		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.market_stashes(stash_id, account_id, character_id, equipment_id, quantity, binding, location) VALUES(?, ?, ?, ?, 1, 'FREE', 'STASH')")) {
+			insert.setObject(1, stash);
+			insert.setObject(2, account);
+			insert.setObject(3, character);
+			insert.setObject(4, equipment);
+			insert.executeUpdate();
+		}
+		outcome.addProperty("status", "OK");
+		outcome.addProperty("stashId", stash.toString());
+		outcome.addProperty("location", "STASH");
+		return outcome;
+	}
+
 	private JsonObject list(java.sql.Connection connection, UUID account, UUID character, UUID stashId, String channel, int price) throws SQLException {
 		var outcome = new JsonObject();
-		if (!"STALL".equals(channel)) { outcome.addProperty("status", "FORBIDDEN"); return outcome; }
+		if (!"STALL".equals(channel) && !"EXCHANGE".equals(channel)) { outcome.addProperty("status", "FORBIDDEN"); return outcome; }
 		var stash = lockStash(connection, stashId);
 		if (stash == null || !stash.account().equals(account)) { outcome.addProperty("status", "NOT_OWNER"); return outcome; }
 		if (!"STASH".equals(stash.location())) { outcome.addProperty("status", "CHANNEL_BUSY"); return outcome; }
 		if (openListings(connection, character) >= 10) { outcome.addProperty("status", "FULL"); return outcome; }
 		UUID listing = UUID.randomUUID();
-		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.market_listings(listing_id, stash_id, seller_account, seller_character, channel, price, state, expires_at) VALUES(?, ?, ?, ?, 'STALL', ?, 'OPEN', now() + interval '7 days') RETURNING expires_at")) {
+		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.market_listings(listing_id, stash_id, seller_account, seller_character, channel, price, state, expires_at) VALUES(?, ?, ?, ?, ?, ?, 'OPEN', now() + interval '7 days') RETURNING expires_at")) {
 			insert.setObject(1, listing);
 			insert.setObject(2, stashId);
 			insert.setObject(3, account);
 			insert.setObject(4, character);
-			insert.setInt(5, price);
+			insert.setString(5, channel);
+			insert.setInt(6, price);
 			try (var row = insert.executeQuery()) { row.next(); outcome.addProperty("expiresAt", row.getTimestamp(1).toInstant().toString()); }
 		}
 		try (var update = connection.prepareStatement("UPDATE dalmaru.market_stashes SET location='LISTED' WHERE stash_id=? AND location='STASH'")) {
@@ -143,11 +209,13 @@ public final class MarketRepository {
 		int buyer = copper(connection, character);
 		if (buyer < price) { outcome.addProperty("status", "INSUFFICIENT_FUNDS"); return outcome; }
 		copper(connection, listing.sellerCharacter());
-		int fee = (int) ((price * 2L + 50) / 100);
+		int percent = "EXCHANGE".equals(listing.channel()) ? 5 : 2;
+		int fee = (int) ((price * percent + 50L) / 100);
 		addCopper(connection, character, -price);
 		addCopper(connection, listing.sellerCharacter(), price - fee);
-		if (fee > 0) ledger(connection, listing.sellerCharacter(), -fee);
-		give(connection, character, listing.material(), listing.quantity());
+		if (fee > 0) ledger(connection, listing.sellerCharacter(), "EXCHANGE".equals(listing.channel()) ? "EXCHANGE_FEE" : "STALL_FEE", -fee);
+		if (listing.equipment() != null) giveEquipment(connection, character, listing.equipment());
+		else give(connection, character, listing.material(), listing.quantity());
 		try (var sold = connection.prepareStatement("UPDATE dalmaru.market_listings SET state='SOLD', fee=? WHERE listing_id=? AND state='OPEN'")) {
 			sold.setInt(1, fee);
 			sold.setObject(2, listingId);
@@ -192,7 +260,8 @@ public final class MarketRepository {
 		var stash = lockStash(connection, stashId);
 		if (stash == null || !stash.account().equals(account)) { outcome.addProperty("status", "NOT_OWNER"); return outcome; }
 		if (!"STASH".equals(stash.location())) { outcome.addProperty("status", "CONFLICT"); return outcome; }
-		give(connection, character, stash.material(), stash.quantity());
+		if (stash.equipment() != null) giveEquipment(connection, character, stash.equipment());
+		else give(connection, character, stash.material(), stash.quantity());
 		try (var update = connection.prepareStatement("UPDATE dalmaru.market_stashes SET location='CLAIMED' WHERE stash_id=? AND location='STASH'")) {
 			update.setObject(1, stashId);
 			if (update.executeUpdate() != 1) throw new SQLException("Market claim lost its stash.");
@@ -245,12 +314,21 @@ public final class MarketRepository {
 		}
 	}
 
-	private void ledger(java.sql.Connection connection, UUID character, int delta) throws SQLException {
-		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id, character_id, source_run_id, reason, copper_delta) VALUES(?, ?, NULL, 'market.fee', ?)")) {
+	private void ledger(java.sql.Connection connection, UUID character, String reason, int delta) throws SQLException {
+		try (var insert = connection.prepareStatement("INSERT INTO dalmaru.character_currency_ledger(event_id, character_id, source_run_id, reason, copper_delta) VALUES(?, ?, NULL, ?, ?)")) {
 			insert.setObject(1, UUID.randomUUID());
 			insert.setObject(2, character);
-			insert.setInt(3, delta);
+			insert.setString(3, reason);
+			insert.setInt(4, delta);
 			insert.executeUpdate();
+		}
+	}
+
+	private void giveEquipment(java.sql.Connection connection, UUID character, UUID equipment) throws SQLException {
+		try (var update = connection.prepareStatement("UPDATE dalmaru.character_equipment SET character_id=? WHERE equipment_id=?")) {
+			update.setObject(1, character);
+			update.setObject(2, equipment);
+			if (update.executeUpdate() != 1) throw new SQLException("Market delivery lost its equipment.");
 		}
 	}
 
@@ -272,25 +350,25 @@ public final class MarketRepository {
 	}
 
 	private Stash lockStash(java.sql.Connection connection, UUID stashId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT account_id, material_id, quantity, location FROM dalmaru.market_stashes WHERE stash_id=? FOR UPDATE")) {
+		try (var query = connection.prepareStatement("SELECT account_id, material_id, equipment_id, quantity, location FROM dalmaru.market_stashes WHERE stash_id=? FOR UPDATE")) {
 			query.setObject(1, stashId);
 			try (var row = query.executeQuery()) {
-				return row.next() ? new Stash(row.getObject(1, UUID.class), row.getString(2), row.getInt(3), row.getString(4)) : null;
+				return row.next() ? new Stash(row.getObject(1, UUID.class), row.getString(2), row.getObject(3, UUID.class), row.getInt(4), row.getString(5)) : null;
 			}
 		}
 	}
 
 	private Listing lockListing(java.sql.Connection connection, UUID listingId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT l.stash_id, l.seller_account, l.seller_character, l.price, l.state, l.expires_at <= clock_timestamp(), s.material_id, s.quantity FROM dalmaru.market_listings l JOIN dalmaru.market_stashes s ON s.stash_id=l.stash_id WHERE l.listing_id=? FOR UPDATE OF l, s")) {
+		try (var query = connection.prepareStatement("SELECT l.stash_id, l.seller_account, l.seller_character, l.channel, l.price, l.state, l.expires_at <= clock_timestamp(), s.material_id, s.equipment_id, s.quantity FROM dalmaru.market_listings l JOIN dalmaru.market_stashes s ON s.stash_id=l.stash_id WHERE l.listing_id=? FOR UPDATE OF l, s")) {
 			query.setObject(1, listingId);
 			try (var row = query.executeQuery()) {
-				return row.next() ? new Listing(listingId, row.getObject(1, UUID.class), row.getObject(2, UUID.class), row.getObject(3, UUID.class), row.getInt(4), row.getString(5), row.getBoolean(6), row.getString(7), row.getInt(8)) : null;
+				return row.next() ? new Listing(listingId, row.getObject(1, UUID.class), row.getObject(2, UUID.class), row.getObject(3, UUID.class), row.getString(4), row.getInt(5), row.getString(6), row.getBoolean(7), row.getString(8), row.getObject(9, UUID.class), row.getInt(10)) : null;
 			}
 		}
 	}
 
-	private record Stash(UUID account, String material, int quantity, String location) { }
-	private record Listing(UUID id, UUID stash, UUID sellerAccount, UUID sellerCharacter, int price, String state, boolean expired, String material, int quantity) { }
+	private record Stash(UUID account, String material, UUID equipment, int quantity, String location) { }
+	private record Listing(UUID id, UUID stash, UUID sellerAccount, UUID sellerCharacter, String channel, int price, String state, boolean expired, String material, UUID equipment, int quantity) { }
 
 	@FunctionalInterface
 	private interface Step { JsonObject apply(java.sql.Connection connection) throws SQLException; }
