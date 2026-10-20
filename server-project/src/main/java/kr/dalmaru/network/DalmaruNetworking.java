@@ -68,6 +68,10 @@ public final class DalmaruNetworking {
 
 	private static final AccountRepository ACCOUNTS = new AccountRepository();
 	private static final CharacterRepository CHARACTERS = new CharacterRepository();
+	private static final kr.dalmaru.life.LifeProfessionRepository LIFE = new kr.dalmaru.life.LifeProfessionRepository();
+	private static final kr.dalmaru.craft.CraftResearchRepository RESEARCH = new kr.dalmaru.craft.CraftResearchRepository();
+	private static final kr.dalmaru.craft.PrecisionOrderRepository PRECISION = new kr.dalmaru.craft.PrecisionOrderRepository();
+	private static final kr.dalmaru.craft.CraftOrderRepository CRAFT_ORDERS = new kr.dalmaru.craft.CraftOrderRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -164,6 +168,8 @@ public final class DalmaruNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.SkillLearnResponse.TYPE, DalmaruPayloads.SkillLearnResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.SkillRanksRequest.TYPE, DalmaruPayloads.SkillRanksRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.SkillRanksResponse.TYPE, DalmaruPayloads.SkillRanksResponse.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.LifeProfileRequest.TYPE, DalmaruPayloads.LifeProfileRequest.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.LifeProfileResponse.TYPE, DalmaruPayloads.LifeProfileResponse.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DalmaruPayloads.CharacterCreateRequest.TYPE, DalmaruPayloads.CharacterCreateRequest.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(DalmaruPayloads.CharacterCreateResponse.TYPE, DalmaruPayloads.CharacterCreateResponse.CODEC);
 
@@ -544,6 +550,51 @@ public final class DalmaruNetworking {
                     int stat,amount;try{stat=body.get("statId").getAsBigDecimal().intValueExact();amount=body.get("amount").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid stat integer",error);}
                     investStatRequest(context,payload.correlationId(),envelope.activeCharacterId(),stat,amount,envelope);
                 }
+                case "learn_life"->{
+                        if(body.size()!=1||!body.has("job")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString())throw new IllegalArgumentException("Invalid life body");
+                        learnLife(context,payload.correlationId(),body.get("job").getAsString(),envelope);
+                    }
+                case "specialize_life"->{
+                        if(body.size()!=2||!body.has("job")||!body.has("specialization")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString()||!body.get("specialization").isJsonPrimitive()||!body.getAsJsonPrimitive("specialization").isString())throw new IllegalArgumentException("Invalid life specialization body");
+                        specializeLife(context,payload.correlationId(),body.get("job").getAsString(),body.get("specialization").getAsString(),envelope);
+                    }
+                case "complete_life_task"->{
+                        if(body.size()!=1||!body.has("job")||!body.get("job").isJsonPrimitive()||!body.getAsJsonPrimitive("job").isString())throw new IllegalArgumentException("Invalid life task body");
+                        completeLifeTask(context,payload.correlationId(),body.get("job").getAsString(),envelope);
+                    }
+                case "research_craft"->{
+                        if(body.size()!=2||!body.has("clueId")||!body.get("clueId").isJsonPrimitive()||!body.getAsJsonPrimitive("clueId").isString()||!body.has("materials")||!body.get("materials").isJsonArray())throw new IllegalArgumentException("Invalid craft research body");
+                        researchCraft(context,payload.correlationId(),body.get("clueId").getAsString(),envelope);
+                    }
+                case "craft_learned"->{
+                        if((body.size()!=1&&body.size()!=2)||!body.has("recipeId")||!body.get("recipeId").isJsonPrimitive()||!body.getAsJsonPrimitive("recipeId").isString())throw new IllegalArgumentException("Invalid learned craft body");
+                        craftLearned(context,payload.correlationId(),body.get("recipeId").getAsString(),envelope);
+                    }
+                case "begin_precision"->{
+                        if(body.size()!=2||!body.has("recipeId")||!body.get("recipeId").isJsonPrimitive()||!body.getAsJsonPrimitive("recipeId").isString()||!body.has("equipmentId")||!body.get("equipmentId").isJsonPrimitive()||!body.getAsJsonPrimitive("equipmentId").isString())throw new IllegalArgumentException("Invalid precision body");
+                        beginPrecision(context,payload.correlationId(),body.get("recipeId").getAsString(),UUID.fromString(body.get("equipmentId").getAsString()),envelope);
+                    }
+                case "step_precision"->{
+                        if(body.size()!=3||!body.has("orderId")||!body.get("orderId").isJsonPrimitive()||!body.getAsJsonPrimitive("orderId").isString()||!body.has("stepIndex")||!body.get("stepIndex").isJsonPrimitive()||!body.getAsJsonPrimitive("stepIndex").isNumber()||!body.has("choice")||!body.get("choice").isJsonPrimitive()||!body.getAsJsonPrimitive("choice").isString())throw new IllegalArgumentException("Invalid precision body");
+                        stepPrecision(context,payload.correlationId(),UUID.fromString(body.get("orderId").getAsString()),body.get("stepIndex").getAsInt(),body.get("choice").getAsString(),envelope);
+                    }
+                case "place_craft_order"->{
+                        if(body.size()!=3||!body.has("recipeId")||!body.get("recipeId").isJsonPrimitive()||!body.getAsJsonPrimitive("recipeId").isString()||!body.has("materials")||!body.get("materials").isJsonArray()||!body.has("copper")||!body.get("copper").isJsonPrimitive()||!body.getAsJsonPrimitive("copper").isNumber())throw new IllegalArgumentException("Invalid craft order body");
+                        int copper;try{copper=body.get("copper").getAsBigDecimal().intValueExact();}catch(ArithmeticException error){throw new IllegalArgumentException("Invalid craft order body",error);}
+                        placeCraftOrder(context,payload.correlationId(),body.get("recipeId").getAsString(),copper,envelope);
+                    }
+                case "accept_craft_order"->{
+                        if(body.size()!=1||!body.has("orderId")||!body.get("orderId").isJsonPrimitive()||!body.getAsJsonPrimitive("orderId").isString())throw new IllegalArgumentException("Invalid craft order body");
+                        acceptCraftOrder(context,payload.correlationId(),UUID.fromString(body.get("orderId").getAsString()),envelope);
+                    }
+                case "settle_craft_order"->{
+                        if(body.size()!=1||!body.has("orderId")||!body.get("orderId").isJsonPrimitive()||!body.getAsJsonPrimitive("orderId").isString())throw new IllegalArgumentException("Invalid craft order body");
+                        settleCraftOrder(context,payload.correlationId(),UUID.fromString(body.get("orderId").getAsString()),envelope);
+                    }
+                case "cancel_craft_order"->{
+                        if(body.size()!=1||!body.has("orderId")||!body.get("orderId").isJsonPrimitive()||!body.getAsJsonPrimitive("orderId").isString())throw new IllegalArgumentException("Invalid craft order body");
+                        cancelCraftOrder(context,payload.correlationId(),UUID.fromString(body.get("orderId").getAsString()),envelope);
+                    }
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -562,6 +613,14 @@ public final class DalmaruNetworking {
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.RunEnterRequest.TYPE,(payload,context)->prepareRun(payload,context));
 
         ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillLearnRequest.TYPE,(payload,context)->learnSkillRequest(context,payload.requestId(),payload.skillId(),null));
+		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LifeProfileRequest.TYPE, (payload, context) -> {
+			ConnectionState state = stateFor(context.player().getUUID());
+			if (payload.requestId() < 1 || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
+			AccountSession session = state.accountSession;
+			CompletableFuture.supplyAsync(() -> { try { return LIFE.profile(session.accountId(), session.connectionGeneration(), session.activeCharacterId()); } catch (Exception exception) { throw new IllegalStateException(exception); } })
+				.thenAccept(snapshot -> context.server().execute(() -> { if (CONNECTIONS.get(context.player().getUUID()) == state && state.accountSession == session) ServerPlayNetworking.send(context.player(), new DalmaruPayloads.LifeProfileResponse(payload.requestId(), snapshot.get("status").getAsString(), snapshot.toString())); }))
+				.exceptionally(error -> { context.server().execute(() -> ServerPlayNetworking.send(context.player(), new DalmaruPayloads.LifeProfileResponse(payload.requestId(), "STALE_SESSION", "{}"))); return null; });
+		});
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.SkillRanksRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
 			if (payload.requestId() < 1 || state.accountSession == null || state.accountSession.activeCharacterId() == null) return;
@@ -641,6 +700,161 @@ public final class DalmaruNetworking {
 		int damage = COMBAT.targetedAttack(player,target,amount/player.getAttributeValue(Attributes.ATTACK_DAMAGE),defense,false,currentTick);
 		return CombatRuntime.hurtRpg(target, player.damageSources().playerAttack(player), damage);
 	}
+    private static void specializeLife(ServerPlayNetworking.Context context,long correlation,String job,String specialization,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var learned=LIFE.specializeJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,specialization,envelope);
+            var receipt=learned.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void completeLifeTask(ServerPlayNetworking.Context context,long correlation,String job,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var learned=LIFE.completeTaskJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,envelope);
+            var receipt=learned.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void researchCraft(ServerPlayNetworking.Context context,long correlation,String clueId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=RESEARCH.researchJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),clueId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void craftLearned(ServerPlayNetworking.Context context,long correlation,String recipeId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=RESEARCH.craftJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),recipeId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void beginPrecision(ServerPlayNetworking.Context context,long correlation,String recipeId,UUID equipmentId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=PRECISION.beginJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),recipeId,equipmentId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void placeCraftOrder(ServerPlayNetworking.Context context,long correlation,String recipeId,int copper,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var made=CRAFT_ORDERS.placeJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),recipeId,copper,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void acceptCraftOrder(ServerPlayNetworking.Context context,long correlation,UUID orderId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=CRAFT_ORDERS.acceptJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),orderId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void settleCraftOrder(ServerPlayNetworking.Context context,long correlation,UUID orderId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=CRAFT_ORDERS.settleJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),orderId,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void cancelCraftOrder(ServerPlayNetworking.Context context,long correlation,UUID orderId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var made=CRAFT_ORDERS.cancelJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),orderId,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void stepPrecision(ServerPlayNetworking.Context context,long correlation,UUID orderId,int stepIndex,String choice,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        try{
+            var made=PRECISION.stepJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),orderId,stepIndex,choice,dimension,x,y,z,envelope);
+            var receipt=made.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
+    private static void learnLife(ServerPlayNetworking.Context context,long correlation,String job,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        try{
+            var learned=LIFE.learnJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),job,envelope);
+            var receipt=learned.receipt();
+            ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
+        }catch(Exception error){
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
+        }
+    }
     private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
         ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
     }
