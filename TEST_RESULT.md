@@ -1,6 +1,6 @@
 # 검증 결과
 
-- 2026-10-21 거처 권한: `verifyP5HousingPermissions`, `verifyP5HousingLifecycle`, `verifyClientScreenBounds` PASS. `oscar_p3_fixture`. 전체 회귀는 이 기록 다음에 돌린다.
+- 2026-10-21 거처 권한: `verifyP5HousingPermissions` PASS. `oscar_p3_fixture` 전체 회귀 검증 89개와 스모크 PASS, FAIL 0. 락 반환.
 
 - 2026-10-20 거처 월드: `verifyP5HousingLifecycle` PASS. 구획 입구, 구조 1회 청구, 재입장 재생성 없음, 복귀 좌표, 런·전투 BUSY. `oscar_p3_fixture` 전체 회귀 검증 88개와 스모크 PASS, FAIL 0. 배포 JAR에 `data/dalmaru/dimension/housing.json`이 있다. 사람 클릭 입장은 하지 않았다. 브랜치 `p5/integration`.
 

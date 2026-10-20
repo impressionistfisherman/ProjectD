@@ -68,6 +68,9 @@ try {
     # P5 Oscar
     $tasks += 'verifyP5HousingPermissions'
     $expected += 'verifyP5HousingPermissions'
+    # P5 Oscar
+    $tasks += 'verifyP5HousingCrops'
+    $expected += 'verifyP5HousingCrops'
     if ($tasks.Count -eq 0 -or $tasks.Count -ne $expected.Count) { Say 'FAIL task list does not match build.gradle'; exit 1 }
     $log = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.log')
     $err = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.err')

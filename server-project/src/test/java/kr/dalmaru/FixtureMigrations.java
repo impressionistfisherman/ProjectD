@@ -23,6 +23,7 @@ public final class FixtureMigrations {
 		apply(46, "V046__craft_research.sql");
 		apply(47, "V047__craft_orders.sql");
         apply(48, "V048__account_homes.sql");
+        apply(49, "V049__home_crops.sql");
 	}
 
     // P5 Oscar: shared by both fixture migration entry points.

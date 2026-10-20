@@ -73,6 +73,7 @@ public final class DalmaruNetworking {
 	private static final kr.dalmaru.craft.PrecisionOrderRepository PRECISION = new kr.dalmaru.craft.PrecisionOrderRepository();
 	private static final kr.dalmaru.craft.CraftOrderRepository CRAFT_ORDERS = new kr.dalmaru.craft.CraftOrderRepository();
 	private static final kr.dalmaru.housing.HousingRepository HOMES = new kr.dalmaru.housing.HousingRepository();
+	private static final kr.dalmaru.housing.CropRepository CROPS = new kr.dalmaru.housing.CropRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -609,6 +610,7 @@ public final class DalmaruNetworking {
                     homeMove(context,payload.correlationId(),null,envelope);
                 }
                 case "grant_home","revoke_home","place_home","expand_home"->homeJournal(context,payload.correlationId(),envelope);
+                case "plant_crop","tend_crop","harvest_crop"->cropJournal(context,payload.correlationId(),envelope);
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -917,6 +919,20 @@ public final class DalmaruNetworking {
         CompletableFuture.supplyAsync(()->{try{return restore?CHARACTERS.restoreJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope):CHARACTERS.deleteJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Character life request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void cropJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return switch(envelope.operation()){
+            case "plant_crop"->CROPS.plantJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            case "tend_crop"->CROPS.tendJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            case "harvest_crop"->CROPS.harvestJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);
+            default->throw new IllegalArgumentException("Invalid crop request.");
+        };}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Crop request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void homeJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
