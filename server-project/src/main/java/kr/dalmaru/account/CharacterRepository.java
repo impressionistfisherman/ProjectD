@@ -85,6 +85,48 @@ public final class CharacterRepository {
 			}
 		}
 	}
+	private static void rejectGrowthRun(java.sql.Connection c,UUID character) throws SQLException {
+		try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r USING(run_id) LEFT JOIN dalmaru.run_member_lifecycle m ON m.run_id=p.run_id AND m.character_id=p.character_id WHERE p.character_id=? AND r.state IN ('ACTIVE','PAUSED') AND m.left_at IS NULL")) {
+			q.setObject(1,character);try(var row=q.executeQuery()){if(row.next())throw new GrowthException("FORBIDDEN","in_run");}
+		}
+	}
+	/** The networking caller checks live town/combat state; this transaction owns DB eligibility and one-use. */
+	public GrowthResult reallocateRogueJournaled(UUID account,long generation,long correlation,UUID character,
+		int strengthAllocated,int dexterityAllocated,long expectedRevision,RequestEnvelope envelope) throws SQLException {
+		if(account==null||character==null||generation<1||correlation<1||expectedRevision<0||strengthAllocated<0||dexterityAllocated<0)
+			throw new GrowthException("FIELD_LIMIT","invalid_payload");
+		final int target;
+		try{target=Math.addExact(strengthAllocated,dexterityAllocated);}catch(ArithmeticException error){throw new GrowthException("FIELD_LIMIT","invalid_payload");}
+		var body=new JsonObject();body.addProperty("strengthAllocated",strengthAllocated);body.addProperty("dexterityAllocated",dexterityAllocated);body.addProperty("expectedRevision",expectedRevision);
+		if(envelope==null||envelope.connectionGeneration()!=generation||!envelope.activeCharacterId().equals(character)
+			||!envelope.operation().equals("reallocate_rogue")||!envelope.payload().equals(body))throw new GrowthException("FIELD_LIMIT","invalid_payload");
+		try(var c=DriverManager.getConnection(url,username,password)) {
+			c.setAutoCommit(false);try {
+				activeGrowthCharacter(c,account,generation,character);
+				var stored=RequestJournal.begin(c,account,correlation,envelope);
+				if(stored.result()!=null){c.commit();return new GrowthResult(stored.receipt(),stored.result(),true);}
+				own(c,account,character);var before=profileForUpdate(c,character);rejectGrowthRun(c,character);
+				var state=advancement(c,character,true);
+				if(!"ROGUE".equals(before.profession()))throw new GrowthException("FORBIDDEN","profession_mismatch");
+				if(!state.advance30)throw new GrowthException("NOT_READY","quest_required");
+				if(state.rogueUsed)throw new GrowthException("DUPLICATE","rogue_reset_used");
+				if(before.revision()!=expectedRevision)throw new GrowthException("CONFLICT","stale_revision");
+				// Profile stat columns hold investments; base stats and equipment are computed separately.
+				if((long)before.strength()+before.dexterity()!=target)throw new GrowthException("FIELD_LIMIT","invalid_payload");
+				try(var q=c.prepareStatement("UPDATE dalmaru.character_profiles SET strength=?,dexterity=? WHERE character_id=?")) {
+					q.setInt(1,strengthAllocated);q.setInt(2,dexterityAllocated);q.setObject(3,character);
+					if(q.executeUpdate()!=1)throw new SQLException("Rogue profile missing");
+				}
+				try(var q=c.prepareStatement("UPDATE dalmaru.character_advancements SET rogue_reset_used=TRUE WHERE character_id=? AND rogue_reset_used=FALSE")) {
+					q.setObject(1,character);if(q.executeUpdate()!=1)throw new SQLException("Rogue redistribution lost reservation");
+				}
+				var after=profileForUpdate(c,character);var result=new JsonObject();result.addProperty("status","OK");result.addProperty("operation","reallocate_rogue");
+				result.addProperty("characterId",character.toString());result.addProperty("profileRevision",after.revision());result.addProperty("strengthAllocated",strengthAllocated);
+				result.addProperty("dexterityAllocated",dexterityAllocated);result.addProperty("rogueResetAvailable",false);
+				var receipt=RequestJournal.confirm(c,stored,result);c.commit();return new GrowthResult(receipt,result,false);
+			}catch(SQLException|RuntimeException error){c.rollback();throw error;}
+		}
+	}
 	public GrowthSnapshot growthSnapshot(UUID account,long generation,UUID character) throws SQLException {
 		if(account==null || character==null || generation<1)throw new GrowthException("FIELD_LIMIT","invalid_payload");
 		try(var c=DriverManager.getConnection(url,username,password)) {
@@ -112,9 +154,7 @@ public final class CharacterRepository {
 				var stored=RequestJournal.begin(c,account,correlation,envelope);
 				if(stored.result()!=null){c.commit();return new GrowthResult(stored.receipt(),stored.result(),true);}
 				own(c,account,character);var before=profileForUpdate(c,character);
-				try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r USING(run_id) LEFT JOIN dalmaru.run_member_lifecycle m ON m.run_id=p.run_id AND m.character_id=p.character_id WHERE p.character_id=? AND r.state IN ('ACTIVE','PAUSED') AND m.left_at IS NULL")) {
-					q.setObject(1,character);try(var row=q.executeQuery()){if(row.next())throw new GrowthException("FORBIDDEN","in_run");}
-				}
+				rejectGrowthRun(c,character);
 				try(var q=c.prepareStatement("INSERT INTO dalmaru.character_advancements(character_id) VALUES(?) ON CONFLICT DO NOTHING")){q.setObject(1,character);q.executeUpdate();}
 				var state=advancement(c,character,true);
 				if(!developmentAdvancementEnabled())throw new GrowthException("NOT_RELEASED","level_cap_closed");
