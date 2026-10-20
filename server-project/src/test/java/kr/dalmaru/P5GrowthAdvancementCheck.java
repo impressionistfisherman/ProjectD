@@ -14,7 +14,7 @@ public final class P5GrowthAdvancementCheck {
     private static final String FLAG="dalmaru.p5.development";
     private static long correlation=40000;
     public static void main(String[] args)throws Exception {
-        FixtureDatabase.databaseName();FixtureMigrations.apply();apply43();
+        FixtureDatabase.databaseName();FixtureMigrations.apply();
         String previous=System.getProperty(FLAG);System.setProperty(FLAG,"true");
         try {
             run(CharacterProfession.WARRIOR,"warrior.twohand",true);
@@ -63,6 +63,7 @@ public final class P5GrowthAdvancementCheck {
                 fail("FIELD_LIMIT","invalid_payload",()->confirm(repo,account,generation,character,AdvancementStage.BRANCH_30,branch,before.revision(),position,bad));
                 check(value("SELECT COUNT(*) FROM dalmaru.operation_requests WHERE account_id=? AND operation='confirm_advancement'",account)==0,"Rejected request committed journal");
                 migrationConstraints(character);
+                runGate(repo,account,generation,character,branch,before.revision(),position);
             }
             interact(story,account,generation,character,AdvancementStage.BRANCH_30,npc,position);
             if(detailed) {
@@ -173,13 +174,17 @@ public final class P5GrowthAdvancementCheck {
             q.setObject(1,character);try{q.executeUpdate();throw new AssertionError("V043 permitted stage skipping");}catch(SQLException error){check("23514".equals(error.getSQLState()),"Unexpected constraint failure");}
         }
     }
-    private static void apply43()throws Exception {
-        try(var c=connection();var q=c.prepareStatement("SELECT 1 FROM dalmaru.schema_migrations WHERE version=43")) {
-            if(q.executeQuery().next())return;
-            c.setAutoCommit(false);
-            try(var command=c.createStatement()) {command.execute(Files.readString(Path.of("database/migrations/V043__character_advancements.sql")));c.commit();}
-            catch(SQLException error){c.rollback();throw error;}
-        }
+    private static void runGate(CharacterRepository repo,UUID account,long generation,UUID character,String branch,long revision,StoryQuestRepository.Position position)throws Exception {
+        UUID run=UUID.randomUUID();
+        try {
+            try(var c=connection()) {
+                try(var q=c.prepareStatement("INSERT INTO dalmaru.run_instances(run_id,content_id,difficulty,week_id,party_size,scaling_tier,state) VALUES(?,'run.bongsudae','FIRST_STEP',CURRENT_DATE,1,1,'ACTIVE')")){q.setObject(1,run);q.executeUpdate();}
+                try(var q=c.prepareStatement("INSERT INTO dalmaru.run_participants(run_id,character_id) VALUES(?,?)")){q.setObject(1,run);q.setObject(2,character);q.executeUpdate();}
+            }
+            fail("FORBIDDEN","in_run",()->confirm(repo,account,generation,character,AdvancementStage.BRANCH_30,branch,revision,position,null));
+            sql("UPDATE dalmaru.run_instances SET state='PAUSED' WHERE run_id=?",run);
+            fail("FORBIDDEN","in_run",()->confirm(repo,account,generation,character,AdvancementStage.BRANCH_30,branch,revision,position,null));
+        } finally {sql("DELETE FROM dalmaru.run_instances WHERE run_id=?",run);}
     }
     private static void drop(String trap)throws SQLException {try(var c=connection();var q=c.createStatement()){q.execute("DROP TRIGGER IF EXISTS "+trap+" ON dalmaru.character_profiles");q.execute("DROP FUNCTION IF EXISTS dalmaru."+trap+"()");}}
     private static void fail(String status,String reason,Action action)throws Exception {try{action.run();throw new AssertionError("Expected "+status+"/"+reason);}catch(CharacterRepository.GrowthException error){check(error.status().equals(status)&&error.reason().equals(reason),"Unexpected growth rejection: "+error.status()+"/"+error.reason());}}

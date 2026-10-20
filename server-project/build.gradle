@@ -437,3 +437,8 @@ tasks.register('verifyP4RunProgression', JavaExec) { group = 'verification'; cla
 tasks.register('verifyDungeonRewardIsolation', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.DungeonRewardIsolationCheck' }
 tasks.register('verifyDungeonNaturalSpawn', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.DungeonNaturalSpawnCheck' }
 tasks.register('verifyP4LifecycleRecovery', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P4LifecycleRecoveryCheck' }
+
+// P5 Oscar
+tasks.register('verifyP5GrowthAdvancement', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5GrowthAdvancementCheck'
+}

@@ -112,7 +112,7 @@ public final class CharacterRepository {
 				var stored=RequestJournal.begin(c,account,correlation,envelope);
 				if(stored.result()!=null){c.commit();return new GrowthResult(stored.receipt(),stored.result(),true);}
 				own(c,account,character);var before=profileForUpdate(c,character);
-				try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r USING(run_id) LEFT JOIN dalmaru.run_member_lifecycle m ON m.run_id=p.run_id AND m.character_id=p.character_id WHERE p.character_id=? AND r.state='ACTIVE' AND m.left_at IS NULL")) {
+				try(var q=c.prepareStatement("SELECT 1 FROM dalmaru.run_participants p JOIN dalmaru.run_instances r USING(run_id) LEFT JOIN dalmaru.run_member_lifecycle m ON m.run_id=p.run_id AND m.character_id=p.character_id WHERE p.character_id=? AND r.state IN ('ACTIVE','PAUSED') AND m.left_at IS NULL")) {
 					q.setObject(1,character);try(var row=q.executeQuery()){if(row.next())throw new GrowthException("FORBIDDEN","in_run");}
 				}
 				try(var q=c.prepareStatement("INSERT INTO dalmaru.character_advancements(character_id) VALUES(?) ON CONFLICT DO NOTHING")){q.setObject(1,character);q.executeUpdate();}

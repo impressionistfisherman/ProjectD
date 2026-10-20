@@ -16,7 +16,14 @@ public final class FixtureMigrations {
 		apply(40, "V040__run_member_lifecycle.sql");
 		apply(41, "V041__run_kick_votes.sql");
 		apply(42, "V042__kick_vote_removed_outcome.sql");
+        // P5 Oscar
+        applyP5();
 	}
+
+    // P5 Oscar: shared by both fixture migration entry points.
+    public static void applyP5() throws Exception {
+        apply(43, "V043__character_advancements.sql");
+    }
 
 	private static void apply(int version, String name) throws Exception {
 		try (var connection = EnhancementReplayCheck.connection(); var check = connection.prepareStatement("SELECT 1 FROM dalmaru.schema_migrations WHERE version=?")) {

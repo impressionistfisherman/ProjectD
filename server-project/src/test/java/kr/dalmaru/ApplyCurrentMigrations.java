@@ -20,6 +20,8 @@ public final class ApplyCurrentMigrations {
 				try (var statement = connection.createStatement()) { statement.execute(Files.readString(Path.of("database", "migrations", file))); }
 			}
 		}
+		// P5 Oscar
+		FixtureMigrations.applyP5();
 		System.out.println("Current Dalmaru migrations applied.");
 	}
 }
