@@ -1743,7 +1743,7 @@ public final class DalmaruNetworking {
                         var participants=java.util.Set.copyOf(RUN_RUNTIME.participantIds(run.runId()));
                         if(!RUN_RUNTIME.ownsEntry(run.runId(),started.owner())||!participants.equals(java.util.Set.copyOf(players))){sendRunFailure(context,payload.requestId(),new IllegalStateException("Active run replay owner or party changed."));return;}
                         for(UUID id:players){var member=CONNECTIONS.get(id);if(member==null||member.accountSession!=prep.sessions.get(players.indexOf(id))||!characters.get(players.indexOf(id)).equals(member.accountSession.activeCharacterId())||context.server().getPlayerList().getPlayer(id)==null){sendRunFailure(context,payload.requestId(),new IllegalStateException("Active run replay roster changed."));return;}}
-                        for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"?? ??? ?? ???????."));
+                        for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"기존 공략 예약입니다."));
                         return;
                     }
                     validatePreparedRun(prep);
@@ -1753,7 +1753,7 @@ public final class DalmaruNetworking {
                     for(UUID id:players){var member=CONNECTIONS.get(id);var frozen=started.loadouts().get(member.accountSession.activeCharacterId());if(frozen==null||!frozen.characterId().equals(member.accountSession.activeCharacterId()))throw new IllegalStateException("Entry snapshot owner changed.");}
                     for(UUID id:players){var member=CONNECTIONS.get(id);member.loadout=started.loadouts().get(member.accountSession.activeCharacterId());}
                     enterPartyRun(context.server(),players,run,started.owner(),started.content());clearStarting(prep);
-                    for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"???? ??? ??????."));
+                    for(UUID id:players)ServerPlayNetworking.send(context.server().getPlayerList().getPlayer(id),new DalmaruPayloads.RunResponse(payload.requestId(),true,run.runId(),run.partySize(),run.scalingTier(),run.state(),"폐봉수대 공략을 시작했습니다."));
                 }catch(Exception error){failPreparedRun(context.server(),prep,session,payload.requestId(),run.runId(),started.owner(),error);}
             })).exceptionally(error->{
                 Throwable cause=error;while(cause.getCause()!=null&&(cause instanceof java.util.concurrent.CompletionException||cause instanceof java.util.concurrent.ExecutionException))cause=cause.getCause();

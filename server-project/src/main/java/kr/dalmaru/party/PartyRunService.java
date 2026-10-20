@@ -45,6 +45,7 @@ public final class PartyRunService {
 	}
 
 	public static Outcome invite(Connection connection, UUID actorAccount, UUID actorCharacter, UUID runId, UUID targetCharacter, Instant invitedAt) throws SQLException {
+		if (runId == null) return reject("거절: 입장 후 초대할 수 있습니다.");
 		UUID targetAccount = accountOf(connection, targetCharacter);
 		lockAccounts(connection, actorAccount, targetAccount);
 		var row = lock(connection, runId);
@@ -65,6 +66,7 @@ public final class PartyRunService {
 	}
 
 	public static Outcome accept(Connection connection, UUID actorAccount, UUID actorCharacter, UUID runId) throws SQLException {
+		if (runId == null) return reject("거절: 입장 후 초대할 수 있습니다.");
 		lockAccounts(connection, actorAccount);
 		var row = lock(connection, runId);
 		if (row == null) return reject("거절: 파티 명단은 아직 열리지 않았습니다.");
@@ -135,7 +137,8 @@ public final class PartyRunService {
 	public static Outcome roster(Connection connection, UUID runId) throws SQLException { return rosterAt(connection, runId, Instant.now()); }
 
 	public static Outcome rosterAt(Connection connection, UUID runId, Instant now) throws SQLException {
-		if (runId == null || lock(connection, runId) == null) return reject("거절: 파티 명단은 아직 열리지 않았습니다.");
+		if (runId == null) return reject("거절: 입장 후 초대할 수 있습니다.");
+		if (lock(connection, runId) == null) return reject("거절: 파티 명단은 아직 열리지 않았습니다.");
 		closeExpired(connection, runId, now);
 		return new Outcome("ROSTER", rosterText(connection, runId));
 	}

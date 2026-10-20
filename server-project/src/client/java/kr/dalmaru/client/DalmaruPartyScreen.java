@@ -8,6 +8,8 @@ import net.minecraft.network.chat.Component;
 final class DalmaruPartyScreen extends Screen {
 	private final Screen parent;
 	private Button status;
+	private Button invite;
+	private Button accept;
 
 	DalmaruPartyScreen(Screen parent) {
 		super(Component.literal("파티"));
@@ -27,8 +29,10 @@ final class DalmaruPartyScreen extends Screen {
 		target.setMaxLength(36);
 		addRenderableWidget(target);
 		addRenderableWidget(Button.builder(Component.literal("명단"), ignored -> DalmaruClient.requestParty("party_menu")).bounds(left, top + 2 * step, contentWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("초대"), ignored -> DalmaruClient.requestParty("invite", "{\"characterId\":\"" + target.getValue().trim() + "\"}")).bounds(left, top + 3 * step, contentWidth, buttonHeight).build());
-		addRenderableWidget(Button.builder(Component.literal("수락"), ignored -> DalmaruClient.requestParty("accept")).bounds(left, top + 4 * step, contentWidth, buttonHeight).build());
+		invite = addRenderableWidget(Button.builder(Component.literal("초대"), ignored -> DalmaruClient.requestParty("invite", "{\"characterId\":\"" + target.getValue().trim() + "\"}")).bounds(left, top + 3 * step, contentWidth, buttonHeight).build());
+		accept = addRenderableWidget(Button.builder(Component.literal("수락"), ignored -> DalmaruClient.requestParty("accept")).bounds(left, top + 4 * step, contentWidth, buttonHeight).build());
+		invite.visible = false;
+		accept.visible = false;
 		addRenderableWidget(Button.builder(Component.literal("추방 투표"), ignored -> DalmaruClient.requestParty("kick_vote", "{\"characterId\":\"" + target.getValue().trim() + "\"}")).bounds(left, top + 5 * step, contentWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("찬성"), ignored -> DalmaruClient.requestParty("kick_yes")).bounds(left, top + 6 * step, contentWidth, buttonHeight).build());
 		addRenderableWidget(Button.builder(Component.literal("반대"), ignored -> DalmaruClient.requestParty("kick_no")).bounds(left, top + 7 * step, contentWidth, buttonHeight).build());
@@ -38,7 +42,12 @@ final class DalmaruPartyScreen extends Screen {
 	}
 
 	@Override
-	public void tick() { if (status != null) status.setMessage(Component.literal(ClientPartyState.status())); }
+	public void tick() {
+		if (status != null) status.setMessage(Component.literal(ClientPartyState.status()));
+		boolean ready = ClientPartyState.status().startsWith("임시 명단") && ClientPartyState.status().contains("준비");
+		if (invite != null) invite.visible = ready;
+		if (accept != null) accept.visible = ready;
+	}
 
 	@Override
 	public void onClose() { minecraft.setScreen(parent); }

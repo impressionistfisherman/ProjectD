@@ -1200,3 +1200,8 @@
 ## P4 최종 통합 (2026-10-18, Toby)
 - 커밋 911554a(작업트리 깨끗), oscar_p3_fixture, 잠금 단일 전체 회귀 exit 0, 약 221초. FAIL 0, RunRespawnMixin PASS, p1_integration_smoke.ps1 PASS, verifyP4PlayAccess 포함 전부 PASS. 로그 hive/research/MDF_P4_INTEGRATION_TOBY_regression.log.
 - 미실행: 실제 서버/클라이언트 화면, 던전 입장, 사람 7항목.
+
+## P4 봇 결함 2건 (2026-10-20, MDF-23)
+- verifyProtocolVersion, verifyP4PlayAccess, verifyClientScreenBounds PASS. DB 없음.
+- grok_p3_fixture. 잠금 `verifyRunEntryPartyOpen` PASS. 입장 전 초대·수락·명단은 `거절: 입장 후 초대할 수 있습니다.` 입장 후 초대와 철문수장 시작 후 거절은 그대로다.
+- 잠금 단일 전체 회귀 exit 0, 약 209초. FAIL 0. 검사 72개와 p1_integration_smoke.ps1 PASS. RunRespawnMixin PASS. 잠금은 끝나고 삭제. 인게임 미실행. push 없음.

@@ -35,6 +35,7 @@ public final class P4PlayAccessCheck {
 		String party = Files.readString(Path.of(root, "src/client/java/kr/dalmaru/client/DalmaruPartyScreen.java"));
 		String server = Files.readString(Path.of(root, "src/main/java/kr/dalmaru/network/DalmaruNetworking.java"));
 		require(party.contains("requestParty(\"party_menu\")") && party.contains("requestParty(\"invite\"") && party.contains("requestParty(\"accept\")") && party.contains("requestParty(\"kick_vote\"") && party.contains("requestParty(\"kick_yes\")") && party.contains("requestParty(\"kick_no\")") && party.contains("requestParty(\"leave\")"), "Party buttons do not call their requests");
+		require(party.contains("invite.visible = false") && party.contains("accept.visible = false") && party.contains("임시 명단") && party.contains("준비"), "Invite stays visible before the roster is ready");
 		require(party.contains("자진 이탈") && !party.contains("추방 확정"), "Kick confirmation is hardcoded on the screen");
 		require(server.contains("requestVoluntaryExit(player, -1)") && server.contains("publishMemberExit") && server.contains("bindCharacter") && server.contains("memberExited"), "Exit hooks are not connected");
 		int hello = server.indexOf("DalmaruPayloads.Hello.TYPE");

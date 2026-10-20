@@ -23,6 +23,12 @@ public final class RunEntryPartyOpenCheck {
     private RunEntryPartyOpenCheck() { }
 
     public static void main(String[] args) throws Exception {
+        var beforeEntry = PartyRunService.invite(null, UUID.randomUUID(), UUID.randomUUID(), null, UUID.randomUUID(), Instant.EPOCH);
+        check("REJECT".equals(beforeEntry.status()) && "거절: 입장 후 초대할 수 있습니다.".equals(beforeEntry.reason()), beforeEntry.reason());
+        var beforeAccept = PartyRunService.accept(null, UUID.randomUUID(), UUID.randomUUID(), null);
+        check("REJECT".equals(beforeAccept.status()) && "거절: 입장 후 초대할 수 있습니다.".equals(beforeAccept.reason()), beforeAccept.reason());
+        var beforeRoster = PartyRunService.roster(null, null);
+        check("REJECT".equals(beforeRoster.status()) && "거절: 입장 후 초대할 수 있습니다.".equals(beforeRoster.reason()), beforeRoster.reason());
         FixtureDatabase.databaseName();
         FixtureMigrations.apply();
         var repo = new RunRepository();
@@ -117,7 +123,7 @@ public final class RunEntryPartyOpenCheck {
             for (UUID run : runs) sql("DELETE FROM dalmaru.run_instances WHERE run_id=?", run);
             for (UUID account : accounts) { sql("DELETE FROM dalmaru.operation_requests WHERE account_id=?", account); EnhancementReplayCheck.cleanup(account); }
         }
-        System.out.println("Roster opens at run entry, invites work until GATEKEEPER start then refuse, activation idempotent/rollback/retry, entry roster failure rolls back PASS");
+        System.out.println("Roster opens at run entry, invites work until GATEKEEPER start then refuse, pre-entry invite explains to enter first, activation idempotent/rollback/retry, entry roster failure rolls back PASS");
     }
 
     private static long generation(UUID account) throws Exception { return new AccountRepository().openSession(account).connectionGeneration(); }
