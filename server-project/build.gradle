@@ -492,3 +492,8 @@ tasks.register('verifyP5BranchSkillCatalog', JavaExec) {
 tasks.register('verifyP5BranchSkillExecution', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5BranchSkillExecutionCheck'
 }
+
+// P5 Oscar
+tasks.register('verifyP5HousingLifecycle', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5HousingLifecycleCheck'
+}

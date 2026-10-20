@@ -72,6 +72,7 @@ public final class DalmaruNetworking {
 	private static final kr.dalmaru.craft.CraftResearchRepository RESEARCH = new kr.dalmaru.craft.CraftResearchRepository();
 	private static final kr.dalmaru.craft.PrecisionOrderRepository PRECISION = new kr.dalmaru.craft.PrecisionOrderRepository();
 	private static final kr.dalmaru.craft.CraftOrderRepository CRAFT_ORDERS = new kr.dalmaru.craft.CraftOrderRepository();
+	private static final kr.dalmaru.housing.HousingRepository HOMES = new kr.dalmaru.housing.HousingRepository();
 	private static final kr.dalmaru.quest.QuestStageRepository QUEST_STAGES = new kr.dalmaru.quest.QuestStageRepository();
 	private static final CombatRuntime COMBAT = new CombatRuntime();
 	private static net.minecraft.server.MinecraftServer ONLINE;
@@ -595,6 +596,18 @@ public final class DalmaruNetworking {
                         if(body.size()!=1||!body.has("orderId")||!body.get("orderId").isJsonPrimitive()||!body.getAsJsonPrimitive("orderId").isString())throw new IllegalArgumentException("Invalid craft order body");
                         cancelCraftOrder(context,payload.correlationId(),UUID.fromString(body.get("orderId").getAsString()),envelope);
                     }
+                case "create_home"->{
+                    if(body.size()!=0)throw new IllegalArgumentException("Invalid home body");
+                    homeCreate(context,payload.correlationId(),envelope);
+                }
+                case "enter_home"->{
+                    if(body.size()!=1||!body.has("housingId")||!body.get("housingId").isJsonPrimitive()||!body.getAsJsonPrimitive("housingId").isString())throw new IllegalArgumentException("Invalid home body");
+                    homeMove(context,payload.correlationId(),UUID.fromString(body.get("housingId").getAsString()),envelope);
+                }
+                case "leave_home"->{
+                    if(body.size()!=0)throw new IllegalArgumentException("Invalid home body");
+                    homeMove(context,payload.correlationId(),null,envelope);
+                }
                 case "learn_skill"->{
                         if(body.size()!=1||!body.has("skillId")||!body.get("skillId").isJsonPrimitive()||!body.getAsJsonPrimitive("skillId").isString())throw new IllegalArgumentException("Invalid skill body");
                         learnSkillRequest(context,payload.correlationId(),body.get("skillId").getAsString(),envelope);
@@ -903,6 +916,27 @@ public final class DalmaruNetworking {
         CompletableFuture.supplyAsync(()->{try{return restore?CHARACTERS.restoreJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope):CHARACTERS.deleteJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
             .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Character life request failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void homeCreate(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        CompletableFuture.supplyAsync(()->{try{return HOMES.createJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Home create failed for {}",session.accountId(),error);});return null;});
+    }
+
+    private static void homeMove(ServerPlayNetworking.Context context,long correlation,UUID housingId,kr.dalmaru.request.RequestEnvelope envelope){
+        var player=context.player();var state=stateFor(player.getUUID());
+        if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){rejectOperation(player,correlation,envelope.requestId());return;}
+        var session=state.accountSession;
+        boolean enter="enter_home".equals(envelope.operation());
+        String dimension=player.level().dimension().identifier().toString();
+        int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
+        CompletableFuture.supplyAsync(()->{try{return enter?HOMES.enter(session.accountId(),session.activeCharacterId(),housingId,dimension,x,y,z):HOMES.leave(session.accountId(),session.activeCharacterId());}catch(Exception error){throw new IllegalStateException(error);}})
+            .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var body=new com.google.gson.JsonObject();body.addProperty("status",result.status());if(result.housingId()!=null)body.addProperty("housingId",result.housingId().toString());body.addProperty("dimension",result.dimension());body.addProperty("x",result.x());body.addProperty("y",result.y());body.addProperty("z",result.z());body.addProperty("inside",result.inside());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),UUID.randomUUID(),result.status().equals("OK")?"completed":"rejected",body.toString(),false));}))
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Home move failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void villageRequest(ServerPlayNetworking.Context context,long correlation,String villageId,kr.dalmaru.request.RequestEnvelope envelope){
