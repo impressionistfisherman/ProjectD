@@ -625,7 +625,7 @@ public final class DalmaruNetworking {
                 case "vault_move","shop_trade","gather_node","craft_recipe","direct_trade","claim_mail","view_auction","bid_auction","leave_auction"->playAccess(context,payload.correlationId(),envelope);
                     default->throw new IllegalArgumentException("Unsupported operation");
                 }
-            }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){rejectOperation(context.player(),payload.correlationId(),payload.requestId());}
+            }catch(IllegalArgumentException|IllegalStateException|com.google.gson.JsonParseException error){rejectOperation(context.player(),payload.correlationId(),payload.requestId(),error);}
         });
 		ServerPlayNetworking.registerGlobalReceiver(DalmaruPayloads.EquipmentListRequest.TYPE, (payload, context) -> {
 			ConnectionState state = stateFor(context.player().getUUID());
@@ -653,8 +653,9 @@ public final class DalmaruNetworking {
 		});
 	}
 
-    private static void sendRunFailure(ServerPlayNetworking.Context context,long requestId,Throwable error){
-        ServerPlayNetworking.send(context.player(),new DalmaruPayloads.RunResponse(requestId,false,new UUID(0,0),0,0,"",runEntryStatus(error)));
+    private static void sendRunFailure(ServerPlayNetworking.Context context,long requestId,Throwable error){sendRunFailure(context,requestId,error,"");}
+    private static void sendRunFailure(ServerPlayNetworking.Context context,long requestId,Throwable error,String difficulty){
+        ServerPlayNetworking.send(context.player(),new DalmaruPayloads.RunResponse(requestId,false,new UUID(0,0),0,0,"",runEntryStatus(error,difficulty)));
     }
     private static void moveEquipment(ServerPlayer player,String id,long requestId,boolean equip){moveEquipment(player,id,requestId,equip,null);}
     private static void moveEquipment(ServerPlayer player,String id,long requestId,boolean equip,kr.dalmaru.request.RequestEnvelope envelope){
@@ -732,7 +733,7 @@ public final class DalmaruNetworking {
             var receipt=learned.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -745,7 +746,7 @@ public final class DalmaruNetworking {
             var receipt=learned.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -760,7 +761,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -775,7 +776,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -790,7 +791,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -803,7 +804,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -818,7 +819,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -833,7 +834,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -846,7 +847,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -861,7 +862,7 @@ public final class DalmaruNetworking {
             var receipt=made.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),made.result().toString(),made.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
@@ -874,12 +875,25 @@ public final class DalmaruNetworking {
             var receipt=learned.receipt();
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),learned.result().toString(),learned.replayed()));
         }catch(Exception error){
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         }
     }
-    private static void rejectOperation(ServerPlayer player,long correlation,UUID request){
-        ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected","{}",false));
+    private static void rejectOperation(ServerPlayer player,long correlation,UUID request){rejectOperation(player,correlation,request,null);}
+    private static void rejectOperation(ServerPlayer player,long correlation,UUID request,Throwable error){
+        ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,request,new UUID(0,0),"rejected",rejectionBody(error),false));
+    }
+    private static String rejectionBody(Throwable error){
+        kr.dalmaru.account.CharacterRepository.GrowthException growth=null;IllegalArgumentException argument=null;
+        for(Throwable cursor=error;cursor!=null;cursor=cursor.getCause()){
+            if(cursor instanceof kr.dalmaru.account.CharacterRepository.GrowthException found)growth=found;
+            else if(argument==null&&cursor instanceof IllegalArgumentException found)argument=found;
+        }
+        if(growth==null&&argument==null)return "{}";
+        var body=new com.google.gson.JsonObject();
+        if(growth!=null){body.addProperty("status",growth.status());body.addProperty("reason",growth.reason());}
+        else{body.addProperty("status","REJECTED");body.addProperty("reason",argument.getMessage()==null?"":argument.getMessage());}
+        return body.toString();
     }
     private static void confirmAdvancement(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());var body=envelope.payload();
@@ -897,7 +911,7 @@ public final class DalmaruNetworking {
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),sent.result().originalResult().toString(),sent.result().replayed()));
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         });return null;});
     }
@@ -917,7 +931,7 @@ public final class DalmaruNetworking {
             ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),sent.result().originalResult().toString(),sent.result().replayed()));
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
-            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
         });return null;});
     }
@@ -929,7 +943,7 @@ public final class DalmaruNetworking {
         }
         CharacterProfession profession;
         try{profession=CharacterProfession.valueOf(name.toUpperCase(java.util.Locale.ROOT));}
-        catch(IllegalArgumentException error){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendCharacterProfession(context,correlation,false,"선택할 수 없는 직업입니다.",null);return;}
+        catch(IllegalArgumentException error){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId(),error);else sendCharacterProfession(context,correlation,false,"선택할 수 없는 직업입니다.",null);return;}
         var session=state.accountSession;
         CompletableFuture.supplyAsync(()->{
             try{return CHARACTERS.selectProfessionJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),profession,envelope);}
@@ -944,7 +958,7 @@ public final class DalmaruNetworking {
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
             if(envelope==null)sendCharacterProfession(context,correlation,false,"10레벨·직업 마을 방문·전직 시험·이야기 완료를 확인하세요.",null);
-            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Profession request failed for {}",session.accountId(),error);
         });return null;});
@@ -957,7 +971,7 @@ public final class DalmaruNetworking {
         var place=new kr.dalmaru.quest.QuestStageRepository.Place(player.level().dimension().identifier().toString(), player.getBlockX(), player.getBlockY(), player.getBlockZ(), COMBAT.remainingCombatTicks(player.getUUID(), currentTick) > 0);
         CompletableFuture.supplyAsync(()->{try{return QUEST_STAGES.actJournaled(session.accountId(),session.connectionGeneration(),correlation,envelope.activeCharacterId(),stage,action,envelope,place);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Quest stage request failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Quest stage request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void characterLifeRequest(ServerPlayNetworking.Context context,long correlation,UUID characterId,boolean restore,kr.dalmaru.request.RequestEnvelope envelope){
@@ -966,7 +980,7 @@ public final class DalmaruNetworking {
         var session=state.accountSession;
         CompletableFuture.supplyAsync(()->{try{return restore?CHARACTERS.restoreJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope):CHARACTERS.deleteJournaled(session.accountId(),session.connectionGeneration(),correlation,characterId,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Character life request failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Character life request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void productionJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
@@ -980,7 +994,7 @@ public final class DalmaruNetworking {
             default->throw new IllegalArgumentException("Invalid production request.");
         };}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Production request failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Production request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void marketSearch(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
@@ -1007,7 +1021,7 @@ public final class DalmaruNetworking {
             default->throw new IllegalArgumentException("Invalid market request.");
         };}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Market request failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Market request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void cropJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
@@ -1021,7 +1035,7 @@ public final class DalmaruNetworking {
             default->throw new IllegalArgumentException("Invalid crop request.");
         };}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Crop request failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Crop request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void homeJournal(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
@@ -1036,7 +1050,7 @@ public final class DalmaruNetworking {
             default->throw new IllegalArgumentException("Invalid home request.");
         };}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Home permission failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Home permission failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void homeCreate(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
@@ -1045,7 +1059,7 @@ public final class DalmaruNetworking {
         var session=state.accountSession;
         CompletableFuture.supplyAsync(()->{try{return HOMES.createJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),envelope);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Home create failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Home create failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void homeMove(ServerPlayNetworking.Context context,long correlation,UUID housingId,kr.dalmaru.request.RequestEnvelope envelope){
@@ -1058,7 +1072,7 @@ public final class DalmaruNetworking {
         int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
         CompletableFuture.supplyAsync(()->{try{return enter?HOMES.enter(session.accountId(),session.activeCharacterId(),housingId,dimension,x,y,z,blocked):HOMES.leave(session.accountId(),session.activeCharacterId());}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;if("OK".equals(result.status()))moveHome(player,enter,result);var body=new com.google.gson.JsonObject();body.addProperty("status",result.status());if(result.housingId()!=null)body.addProperty("housingId",result.housingId().toString());body.addProperty("dimension",result.dimension());body.addProperty("x",result.x());body.addProperty("y",result.y());body.addProperty("z",result.z());body.addProperty("inside",result.inside());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),UUID.randomUUID(),result.status().equals("OK")?"completed":"rejected",body.toString(),false));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Home move failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Home move failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void moveHome(ServerPlayer player, boolean enter, kr.dalmaru.housing.HousingRepository.Snapshot result) {
@@ -1079,7 +1093,7 @@ public final class DalmaruNetworking {
         try{fresh=villageId==null?villageList():villageOpen(villageId);}catch(IllegalArgumentException error){rejectOperation(player,correlation,envelope.requestId());return;}
         CompletableFuture.supplyAsync(()->{try{return CHARACTERS.note(session.accountId(),session.connectionGeneration(),correlation,envelope,fresh);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());LOGGER.warn("Village request failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);LOGGER.warn("Village request failed for {}",session.accountId(),error);});return null;});
     }
 
     private static void playAccess(ServerPlayNetworking.Context context,long correlation,kr.dalmaru.request.RequestEnvelope envelope){
@@ -1123,7 +1137,7 @@ public final class DalmaruNetworking {
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
             if(envelope==null)sendCharacterStatReset(context,correlation,character,false,false,"능력치를 초기화할 수 없습니다.",null);
-            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Stat reset request failed for {}",session.accountId(),error);
         });return null;});
@@ -1148,7 +1162,7 @@ public final class DalmaruNetworking {
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
             if(envelope==null)sendCharacterStatInvestment(context,correlation,character,false,false,"능력치를 투자할 수 없습니다.",null);
-            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Stat investment request failed for {}",session.accountId(),error);
         });return null;});
@@ -1177,7 +1191,7 @@ public final class DalmaruNetworking {
         })).exceptionally(error->{context.server().execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
             if(envelope==null)sendSkillLearn(context,correlation,false,"\uae30\uc220\uc744 \uc2b5\ub4dd\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.",null);
-            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+            else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
             else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             LOGGER.warn("Skill learning outcome for {}",session.accountId(),error);
         });return null;});
@@ -1196,7 +1210,7 @@ public final class DalmaruNetworking {
             .exceptionally(error->{server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
                 LOGGER.warn("Quest acceptance outcome for {}",session.accountId(),error);
                 if(envelope==null)ServerPlayNetworking.send(player,new DalmaruPayloads.QuestResponse(correlation,"의뢰 수락 조건을 확인하세요."));
-                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
                 else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             });return null;});
     }
@@ -1214,7 +1228,7 @@ public final class DalmaruNetworking {
                 LOGGER.warn("Inheritance request outcome for {}",session.accountId(),error);
                 Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();
                 if(EquipmentRepository.UNEQUIP_BEFORE_INHERIT.equals(cause.getMessage())){var body=new com.google.gson.JsonObject();body.addProperty("message",cause.getMessage());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"rejected",body.toString(),false));}
-                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                else if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
                 else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             });return null;});
     }
@@ -1230,7 +1244,7 @@ public final class DalmaruNetworking {
             }))
             .exceptionally(error->{server.execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
                 LOGGER.warn("Refinement request outcome for {}",session.accountId(),error);
-                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
                 else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             });return null;});
     }
@@ -1252,7 +1266,7 @@ public final class DalmaruNetworking {
         })).exceptionally(error->{server.execute(()->{
             if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
             if(envelope!=null){
-                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId());
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error))rejectOperation(player,correlation,envelope.requestId(),error);
                 else{
                     LOGGER.warn("Operation result requires recovery: {}",envelope.requestId(),error);
                     ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
@@ -1301,14 +1315,21 @@ public final class DalmaruNetworking {
 
 	private static void partyAccept(ServerPlayer player) { try { PARTIES.accept(player.getUUID()); player.sendSystemMessage(Component.literal("파티에 참가했습니다.")); } catch (IllegalArgumentException exception) { player.sendSystemMessage(Component.literal("수락할 파티 초대가 없습니다.")); } }
 
-	private static String runEntryStatus(Throwable error) {
+	private static String runEntryStatus(Throwable error) { return runEntryStatus(error, ""); }
+	private static String runEntryStatus(Throwable error, String difficulty) {
 		Throwable cause = error;
 		while (cause.getCause() != null) cause = cause.getCause();
 		if (!(cause instanceof IllegalArgumentException)) { LOGGER.warn("Failed to enter run.", cause); return "공략 입장 처리에 실패했습니다. 잠시 후 다시 시도하세요."; }
 		return switch (cause.getMessage() == null ? "" : cause.getMessage()) {
 			case "Character already has an active run." -> "이미 진행 중인 공략이 있습니다. 입장창을 닫고 공략을 계속하세요.";
 			case "Pending run return requires recovery." -> "파티원의 이전 공략 복귀를 확인해야 합니다. 재접속으로 복귀를 완료한 뒤 다시 입장하세요.";
-			case "Level requirement not met." -> "초행은 15레벨, 수련은 20레벨부터 입장할 수 있습니다.";
+			case "Level requirement not met." -> switch (difficulty == null ? "" : difficulty) {
+				case "FIRST_STEP" -> "초행은 15레벨부터 입장할 수 있습니다.";
+				case "TRAINING" -> "수련은 20레벨부터 입장할 수 있습니다.";
+				case "TRIAL" -> "시련은 30레벨부터 입장할 수 있습니다.";
+				case "EXTREME" -> "극한은 60레벨부터 입장할 수 있습니다.";
+				default -> "초행은 15레벨, 수련은 20레벨, 시련은 30레벨, 극한은 60레벨부터 입장할 수 있습니다.";
+			};
 			case "Training is locked." -> "초행을 완료한 뒤 수련에 입장할 수 있습니다.";
 			case "Weekly clear limit reached." -> "이번 주 완료 횟수 3회를 모두 사용했습니다.";
 			default -> "공략 입장 조건을 충족하지 못했습니다.";
@@ -2152,7 +2173,7 @@ public final class DalmaruNetworking {
                 Throwable cause=error;while(cause.getCause()!=null&&(cause instanceof java.util.concurrent.CompletionException||cause instanceof java.util.concurrent.ExecutionException))cause=cause.getCause();
                 Throwable failure=cause;
                 if(failure instanceof EntryFailure failed)context.server().execute(()->failPreparedRun(context.server(),prep,session,payload.requestId(),failed.runId,failed.owner,failed));
-                else context.server().execute(()->{clearStarting(prep);sendRunFailure(context,payload.requestId(),failure);});
+                else context.server().execute(()->{clearStarting(prep);sendRunFailure(context,payload.requestId(),failure,payload.difficulty());});
                 return null;
             });
 
@@ -2161,7 +2182,7 @@ public final class DalmaruNetworking {
     private static void failPreparedRun(MinecraftServer server,PreparedRun prep,AccountSession session,long requestId,UUID runId,kr.dalmaru.run.RunLifecycle.Owner owner,Throwable error){
         clearStarting(prep);
         CompletableFuture.runAsync(()->{try{RUNS.cancelNewEntry(runId,session.accountId(),session.connectionGeneration(),requestId);}catch(Exception failure){LOGGER.error("Failed to cancel run entry.",failure);}},LIFECYCLE_DB)
-            .whenComplete((ignored,failure)->server.execute(()->{try{RUN_RUNTIME.close(server,runId,owner);}catch(Exception cleanup){error.addSuppressed(cleanup);}sendRunFailure(prep.context,requestId,error);}));
+            .whenComplete((ignored,failure)->server.execute(()->{try{RUN_RUNTIME.close(server,runId,owner);}catch(Exception cleanup){error.addSuppressed(cleanup);}sendRunFailure(prep.context,requestId,error,prep.payload.difficulty());}));
     }
 
     private static void clearStarting(PreparedRun prep){for(int i=0;i<prep.players.size();i++){var member=CONNECTIONS.get(prep.players.get(i));if(member!=null&&member.accountSession==prep.sessions.get(i)){member.startPending=false;member.startInvalidated=false;}}}

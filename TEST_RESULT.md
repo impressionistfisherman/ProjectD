@@ -1,5 +1,9 @@
 # 검증 결과
 
+- 2026-10-21 생활 숙련·거절 문구: `verifyP5LifeActionProficiency` PASS. 철광 채집 1회에 대장장이 숙련 +1, 같은 요청 재전송은 2에 머문다. 숙련 100과 미학습은 채집을 막지 않는다. `oscar_p3_fixture` 전체 회귀 검증 96개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.
+
+- 2026-10-21 통신 35 재회귀: 커밋 `5d8e64c`, `oscar_p3_fixture` 전체 회귀 검증 95개와 스모크 PASS, FAIL 0. 락 반환. `verifyProtocolVersion` PASS.
+
 - 2026-10-21 통신 35: `verifyProtocolVersion` PASS. 34 Hello는 거절, 35는 허용. 파티 `party.json` protocol 34는 유지.
 
 - 2026-10-21 화면 연결: `verifyClientScreenBounds`, `verifyProtocolVersion` PASS. `oscar_p3_fixture` 전체 회귀 검증 95개와 스모크 PASS, FAIL 0. 락 반환. 이 회귀는 통신 버전 34에서 돌렸다. 그 JAR 해시는 미커밋 트리라 폐기한다. 플레이테스트 배포는 하지 않았다.

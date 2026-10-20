@@ -41,6 +41,7 @@ public final class Gathering {
 		int owned = (row == null ? 0 : row.quantity()) + node.quantity();
 		setMaterial(connection, characterId, node.itemId(), owned, node.binding());
 		int xp = addLifeXp(connection, characterId, node.lifeXp());
+		kr.dalmaru.life.LifeProfessionRepository.grantAction(connection, characterId, kr.dalmaru.life.LifeProfessionRepository.jobForMaterial(node.itemId()));
 		startCooldown(connection, accountId, nodeId, node.cooldownSeconds());
 		var outcome = new JsonObject();
 		outcome.addProperty("nodeId", nodeId);

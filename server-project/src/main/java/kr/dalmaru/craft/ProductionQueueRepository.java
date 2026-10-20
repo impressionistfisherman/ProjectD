@@ -152,6 +152,7 @@ public final class ProductionQueueRepository {
 		outcome.addProperty("status", "OK");
 		outcome.addProperty("jobId", jobId.toString());
 		outcome.addProperty("itemId", recipe.output().itemId());
+		kr.dalmaru.life.LifeProfessionRepository.grantAction(connection, character, kr.dalmaru.life.LifeProfessionRepository.jobForBasicRecipe(recipe.id()));
 		return outcome;
 	}
 

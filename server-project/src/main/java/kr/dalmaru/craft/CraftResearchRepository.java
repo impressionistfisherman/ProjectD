@@ -128,6 +128,7 @@ public final class CraftResearchRepository {
 			outcome.addProperty("itemId", recipe.output().itemId());
 			outcome.addProperty("owned", owned);
 		}
+		kr.dalmaru.life.LifeProfessionRepository.grantAction(connection, characterId, recipe.job());
 		return outcome;
 	}
 

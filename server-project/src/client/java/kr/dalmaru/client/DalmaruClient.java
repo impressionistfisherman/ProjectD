@@ -563,7 +563,12 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         ClientLoadoutState.completeOperation(receipt.correlationId());requestLoadout();
     }
 
+    static String rejectionText(String result,String fallback){
+        try{var json=com.google.gson.JsonParser.parseString(result).getAsJsonObject();String status=json.has("status")&&json.get("status").isJsonPrimitive()?json.get("status").getAsString():"";String reason=json.has("reason")&&json.get("reason").isJsonPrimitive()?json.get("reason").getAsString():"";if(status.isEmpty()&&reason.isEmpty())return fallback;return reason.isEmpty()?status:status+" "+reason;}
+        catch(RuntimeException exception){return fallback;}
+    }
     private static void acceptProfessionOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        if("rejected".equals(receipt.state())){ClientProfileState.completeProfession(receipt.correlationId(),rejectionText(receipt.result(),"전직 조건을 확인하세요."));return;}
         String status="전직 조건을 확인하세요.";
         if(!"rejected".equals(receipt.state()))try{
             var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
@@ -635,7 +640,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
         if("move_equipment".equals(request.operation())){acceptEquipmentMoveOperation(receipt);return;}
         if("update_loadout".equals(request.operation())){acceptLoadoutOperation(receipt);return;}
         if("select_profession".equals(request.operation())){acceptProfessionOperation(request,receipt);return;}
-        if("confirm_advancement".equals(request.operation())||"reallocate_rogue".equals(request.operation())){ClientProfileState.note("rejected".equals(receipt.state())?"승급 또는 재배분 조건을 확인하세요.":receipt.replayed()?"이미 처리된 요청입니다.":"처리했습니다.");return;}
+        if("confirm_advancement".equals(request.operation())||"reallocate_rogue".equals(request.operation())){ClientProfileState.note("rejected".equals(receipt.state())?rejectionText(receipt.result(),"승급 또는 재배분 조건을 확인하세요."):receipt.replayed()?"이미 처리된 요청입니다.":"처리했습니다.");return;}
         if("reset_stats".equals(request.operation())){acceptResetOperation(request,receipt);return;}
         if("delete_character".equals(request.operation())||"restore_character".equals(request.operation())){acceptLifeOperation(request,receipt);return;}
         if("list_villages".equals(request.operation())||"open_village".equals(request.operation())){ClientVillageState.accept(request.operation(),receipt.result(),"rejected".equals(receipt.state()));return;}

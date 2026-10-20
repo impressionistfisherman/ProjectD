@@ -27,6 +27,33 @@ public final class LifeProfessionRepository {
 		return mutate(accountId, correlationId, characterId, envelope, connection -> insertJob(connection, characterId, job));
 	}
 
+	public static void grantAction(java.sql.Connection connection, UUID characterId, String job) throws SQLException {
+		if (job == null || !JOB_SET.contains(job)) return;
+		try { new LifeProfessionRepository().addProficiency(connection, characterId, job, 1); }
+		catch (IllegalArgumentException ignored) { }
+	}
+
+	public static String jobForMaterial(String itemId) {
+		return switch (itemId == null ? "" : itemId) {
+			case "material.ironstone", "material.iron_ingot", "material.basic_fitting", "material.iron_guard", "gear.iron_blade" -> "blacksmith";
+			default -> null;
+		};
+	}
+
+	public static String jobForCrop(String crop) {
+		return switch (crop == null ? "" : crop) {
+			case "grain", "vegetable", "herb", "fiber", "flower" -> "cook";
+			default -> null;
+		};
+	}
+
+	public static String jobForBasicRecipe(String recipeId) {
+		return switch (recipeId == null ? "" : recipeId) {
+			case "craft.iron_ingot", "craft.basic_fitting" -> "blacksmith";
+			default -> null;
+		};
+	}
+
 	public Learned gainJournaled(UUID accountId, long generation, long correlationId, UUID characterId, String job, int amount, RequestEnvelope envelope) throws SQLException {
 		if (correlationId < 1 || envelope == null || !characterId.equals(envelope.activeCharacterId()) || !"gain_life".equals(envelope.operation())) throw new IllegalArgumentException("Invalid life request.");
 		var body = envelope.payload();

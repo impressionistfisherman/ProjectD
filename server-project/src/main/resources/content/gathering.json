@@ -11,7 +11,7 @@
       "itemId": "material.ironstone",
       "quantity": 1,
       "binding": "FREE",
-      "cooldownSeconds": 60,
+      "cooldownSeconds": 180,
       "lifeXp": 5
     }
   ]

@@ -11,6 +11,6 @@ final class ClientPrecisionState {
 	static String text() { return text; }
 
 	static void accept(String result, boolean rejected) {
-		text = rejected ? "정밀 주문을 진행할 수 없습니다." : "장비는 그대로 두고 공정 결과를 받았습니다.";
+		text = rejected ? DalmaruClient.rejectionText(result, "정밀 주문을 진행할 수 없습니다.") : "장비는 그대로 두고 공정 결과를 받았습니다.";
 	}
 }

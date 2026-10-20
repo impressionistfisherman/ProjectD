@@ -532,3 +532,8 @@ tasks.register('verifyP5RunDifficulties', JavaExec) {
 tasks.register('verifyP5GrowthReleaseCap', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5GrowthReleaseCapCheck'
 }
+
+// P5 Grok
+tasks.register('verifyP5LifeActionProficiency', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5LifeActionProficiencyCheck'
+}

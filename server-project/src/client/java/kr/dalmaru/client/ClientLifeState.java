@@ -18,7 +18,7 @@ final class ClientLifeState {
 	}
 
 	static void acceptLearn(String result, boolean rejected) {
-		if (rejected) { text = "생활 직업을 배울 수 없습니다."; return; }
+		if (rejected) { text = DalmaruClient.rejectionText(result, "생활 직업을 배울 수 없습니다."); return; }
 		text = labels(result);
 	}
 

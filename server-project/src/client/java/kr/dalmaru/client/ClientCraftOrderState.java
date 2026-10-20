@@ -11,6 +11,6 @@ final class ClientCraftOrderState {
 	static String text() { return text; }
 
 	static void accept(String result, boolean rejected) {
-		text = rejected ? "의뢰를 진행할 수 없습니다." : "의뢰 결과를 받았습니다.";
+		text = rejected ? DalmaruClient.rejectionText(result, "의뢰를 진행할 수 없습니다.") : "의뢰 결과를 받았습니다.";
 	}
 }

@@ -125,6 +125,7 @@ public final class CropRepository {
 		String material = "material." + crop.crop();
 		int quantity = addMaterial(connection, character, material);
 		int xp = addLifeXp(connection, character, 1);
+		kr.dalmaru.life.LifeProfessionRepository.grantAction(connection, character, kr.dalmaru.life.LifeProfessionRepository.jobForCrop(crop.crop()));
 		try (var remove = connection.prepareStatement("DELETE FROM dalmaru.home_crops WHERE housing_id=? AND plot=? AND generation=?")) {
 			remove.setObject(1, housingId);
 			remove.setInt(2, plot);
