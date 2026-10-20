@@ -12,13 +12,15 @@ public final class BossPartyScalingCheck {
         double[] health = {1, 1.8, 3.25, 3.25}, damage = {1, 1.12, 1.25, 1.25}, posture = {1, 1.7, 2.8, 2.8};
         for (int size = 1; size <= 4; size++) {
             for (var difficulty : RunDifficulty.values()) {
-                boolean training = difficulty == RunDifficulty.TRAINING;
+                double healthFactor = RunEncounterRules.healthFactor(difficulty, rules);
+                double damageFactor = RunEncounterRules.damageFactor(difficulty, rules);
+                double postureFactor = RunEncounterRules.postureFactor(difficulty, rules);
                 for (int base : new int[]{content.encounter().gatekeeperHealth(), content.encounter().finalBossHealth()})
-                    same(BossScaling.health(content, difficulty, base, size), base * health[size - 1] * (training ? 1.38 : 1), "Boss health " + size + difficulty);
+                    same(BossScaling.health(content, difficulty, base, size), base * health[size - 1] * healthFactor, "Boss health " + size + difficulty);
                 for (int base : new int[]{110, 120, 130, 150, 180})
-                    same(BossScaling.damage(content, difficulty, base, size), base * damage[size - 1] * (training ? 1.15 : 1), "Boss damage " + size + difficulty);
-                same(BossScaling.maximumPosture(rules, false, difficulty, size), 650 * posture[size - 1] * (training ? 1.2 : 1), "Gatekeeper posture " + size + difficulty);
-                same(BossScaling.maximumPosture(rules, true, difficulty, size), 900 * posture[size - 1] * (training ? 1.2 : 1), "Beacon posture " + size + difficulty);
+                    same(BossScaling.damage(content, difficulty, base, size), base * damage[size - 1] * damageFactor, "Boss damage " + size + difficulty);
+                same(BossScaling.maximumPosture(rules, false, difficulty, size), 650 * posture[size - 1] * postureFactor, "Gatekeeper posture " + size + difficulty);
+                same(BossScaling.maximumPosture(rules, true, difficulty, size), 900 * posture[size - 1] * postureFactor, "Beacon posture " + size + difficulty);
             }
         }
         for (int size : new int[]{0, 5, -1}) {

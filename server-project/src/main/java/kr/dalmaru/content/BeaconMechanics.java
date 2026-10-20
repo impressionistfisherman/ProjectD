@@ -25,7 +25,9 @@ public record BeaconMechanics(Brazier brazier, Boss boss, int minimumTelegraphTi
     }
     public record Boss(int gatekeeperPosture, int beaconPosture, int wallPostureDamage,
                        List<Double> postureScales, double trainingPostureScale,
-                       int collapseTicks, double collapsedDamageScale, int immunityTicks, List<Double> risingStrikePosture) {
+                       int collapseTicks, double collapsedDamageScale, int immunityTicks, List<Double> risingStrikePosture,
+                       double trialHealthScale, double extremeHealthScale, double trialDamageScale, double extremeDamageScale,
+                       double trialPostureScale, double extremePostureScale) {
         public Boss {
             postureScales = List.copyOf(postureScales);
             risingStrikePosture = List.copyOf(risingStrikePosture);
@@ -33,11 +35,14 @@ public record BeaconMechanics(Brazier brazier, Boss boss, int minimumTelegraphTi
                     || postureScales.stream().anyMatch(value -> !positive(value) || value > 100)
                     || !positive(trainingPostureScale) || collapseTicks < 1
                     || !positive(collapsedDamageScale) || collapsedDamageScale < 1 || immunityTicks < 1
-                    || risingStrikePosture.size() != 2 || risingStrikePosture.get(0) < 1 || risingStrikePosture.get(1) < risingStrikePosture.get(0))
+                    || risingStrikePosture.size() != 2 || risingStrikePosture.get(0) < 1 || risingStrikePosture.get(1) < risingStrikePosture.get(0)
+                    || !scale(trialHealthScale) || !scale(extremeHealthScale) || !scale(trialDamageScale) || !scale(extremeDamageScale)
+                    || !scale(trialPostureScale) || !scale(extremePostureScale))
                 throw new IllegalArgumentException("Invalid boss values");
         }
         /** Posture damage of one actual rising strike hit; rank 1..5 interpolates the two endpoints (existing skill text: 18 to 30). */
         public double risingStrikePosture(int rank) { return kr.dalmaru.combat.CombatRules.rank(risingStrikePosture.get(0), risingStrikePosture.get(1), rank); }
     }
     private static boolean positive(double value) { return Double.isFinite(value) && value > 0; }
+    private static boolean scale(double value) { return positive(value) && value <= 100; }
 }

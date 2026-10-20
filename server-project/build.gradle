@@ -522,3 +522,13 @@ tasks.register('verifyP5MarketStall', JavaExec) {
 tasks.register('verifyP5MarketExchange', JavaExec) {
     group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5MarketExchangeCheck'
 }
+
+// P5 Oscar
+tasks.register('verifyP5RunDifficulties', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5RunDifficultiesCheck'
+}
+
+// P5 Oscar
+tasks.register('verifyP5GrowthReleaseCap', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.P5GrowthReleaseCapCheck'
+}

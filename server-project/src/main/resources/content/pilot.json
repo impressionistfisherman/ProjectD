@@ -1571,6 +1571,12 @@
         2.8
       ],
       "trainingPostureScale": 1.2,
+      "trialHealthScale": 1.1,
+      "extremeHealthScale": 1.2,
+      "trialDamageScale": 1.05,
+      "extremeDamageScale": 1.1,
+      "trialPostureScale": 1.05,
+      "extremePostureScale": 1.1,
       "collapseTicks": 80,
       "collapsedDamageScale": 1.3,
       "immunityTicks": 300,

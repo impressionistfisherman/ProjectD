@@ -40,7 +40,7 @@ public final class PremergeRuntimeCheck {
         class RunEncounterRules{static boolean autoRevive(long elapsedTicks){return elapsedTicks>=300;}}
         class Connection{void handleClientCommand(Packet packet){}boolean disconnected;void disconnect(String value){disconnected=true;}}
         class BlockState{}
-        enum RunDifficulty{FIRST_STEP,TRAINING}
+        enum RunDifficulty{FIRST_STEP,TRAINING; int revives(){return this==FIRST_STEP?5:3;}}
         enum GameType{SURVIVAL,SPECTATOR}
         enum Stage{GATEKEEPER,BRAZIER,APPROACH,BEACON,COMPLETED}
         enum CancelReason{REQUEST,MOVED,HIT,SKILL,DEATH,DISCONNECT,DIMENSION,PHASE}

@@ -18,7 +18,7 @@ public final class FixtureMigrations {
 		apply(42, "V042__kick_vote_removed_outcome.sql");
         // P5 Oscar
         applyP5();
-        // V044 is not on either parent. Next files are V045 through V048.
+		apply(44, "V044__trial_extreme_raid_reservation.sql");
 		apply(45, "V045__life_professions.sql");
 		apply(46, "V046__craft_research.sql");
 		apply(47, "V047__craft_orders.sql");

@@ -206,7 +206,7 @@ public final class RunRuntime implements RunMechanicAccess {
             throw new IllegalStateException("Run lifecycle does not allow another entrant.");
         }
         if(removedMember(encounter,player.getUUID()))throw new IllegalStateException("Member was removed from this run.");
-        State state=new State(runId,difficulty==RunDifficulty.FIRST_STEP?5:3);
+        State state=new State(runId,difficulty.revives());
         state.returnLevel=(ServerLevel)player.level();state.returnPosition=player.position();state.returnMode=player.gameMode.getGameModeForPlayer();
         state.lastSafe=encounter.floor.getCenter().add(0,1,0);
         playerRuns.put(player.getUUID(),state);
@@ -222,7 +222,7 @@ public final class RunRuntime implements RunMechanicAccess {
         if(previous!=null){if(!previous.runId.equals(runId))throw new IllegalArgumentException("Already in another run.");if(existing.failed||now>=existing.deadline||(kr.dalmaru.run.RunEncounterRules.pauseExpired(existing.pausedAt,now)))throw new IllegalStateException("Run is no longer available.");if(!kr.dalmaru.run.RunEncounterRules.reconnectAllowed(previous.disconnectedAt,now))throw new IllegalStateException("Reconnect window has expired.");previous.connected=true;previous.disconnectedAt=0;dropLinger(player.getUUID());if(existing.pausedAt!=0)existing.pausedAt=0;if(!inside(player,existing))teleport(player,existing);return;}
         if(existing.failed||now>=existing.deadline||(kr.dalmaru.run.RunEncounterRules.pauseExpired(existing.pausedAt,now)))throw new IllegalStateException("Run is no longer available.");
         if(removedMember(existing,player.getUUID()))throw new IllegalStateException("Member was removed from this run.");
-        State state=new State(runId,existing.difficulty==RunDifficulty.FIRST_STEP?5:3);state.returnLevel=(ServerLevel)player.level();state.returnPosition=player.position();state.returnMode=player.gameMode.getGameModeForPlayer();state.lastSafe=existing.floor.getCenter().add(0,1,0);playerRuns.put(player.getUUID(),state);teleport(player,existing);
+        State state=new State(runId,existing.difficulty.revives());state.returnLevel=(ServerLevel)player.level();state.returnPosition=player.position();state.returnMode=player.gameMode.getGameModeForPlayer();state.lastSafe=existing.floor.getCenter().add(0,1,0);playerRuns.put(player.getUUID(),state);teleport(player,existing);
     }
     public DeathResult recordDeath(ServerPlayer player) {
         State state=playerRuns.get(player.getUUID());
@@ -914,7 +914,7 @@ public final class RunRuntime implements RunMechanicAccess {
     /** Gatekeeper slam/melee have no telegraph, so they carry the content gatekeeper scale; telegraphed patterns do not. */
     private static float gatekeeperAttack(Encounter encounter, int base) { return (float) (bossAttack(encounter, base) * encounter.content.encounter().gatekeeperDamageScale()); }
     private static float bossAttack(Encounter encounter, int base) { return (float) BossScaling.damage(encounter.content, encounter.difficulty, base, encounter.partySize); }
-    private static float attack(Encounter encounter, int base) { return (float) (base * (encounter.difficulty == RunDifficulty.TRAINING ? 1.15 : 1.0)); }
+    private static float attack(Encounter encounter, int base) { var rules=encounter.content.mechanics()==null?null:encounter.content.mechanics().boss(); return (float) (base * RunEncounterRules.damageFactor(encounter.difficulty, rules)); }
 
     public record DeathResult(UUID runId, boolean canRespawn, boolean partyDefeated) { }
     public record ReviveStatus(int remainingRevives,int clickTicks,int autoTicks,boolean failed) { }
@@ -922,7 +922,7 @@ public final class RunRuntime implements RunMechanicAccess {
     private static final class State { private final UUID runId; private UUID characterId; private final RunContribution contribution=new RunContribution(); private int revivesRemaining; private boolean dead; private boolean connected=true; private long disconnectedAt,deathTick; private net.minecraft.world.level.GameType returnMode; private ServerLevel returnLevel; private net.minecraft.world.phys.Vec3 returnPosition,lastSafe,deathPosition;private int deathZone; private State(UUID runId, int revivesRemaining) { this.runId = runId; this.revivesRemaining = revivesRemaining; } }
     private static final class Encounter {
         private final kr.dalmaru.content.ContentCatalog content; private final UUID runId; private final RunDifficulty difficulty; private final BlockPos floor; private final ServerLevel level; private final int requiredInteractions;
-        private final long deadline=System.currentTimeMillis()+2700000; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
+        private final long deadline=System.currentTimeMillis()+RunDifficulty.DUNGEON_DURATION_MILLIS; private long pausedAt,pausedTick; private boolean failed; private int partySize; private Map<BlockPos,net.minecraft.world.level.block.state.BlockState> terrain;
         private final Map<UUID,BeaconTowerMobs.Kind> mobs=new HashMap<>(); private int group,mobTicks; private boolean summoned;
         private final java.util.Set<UUID> removed=new java.util.HashSet<>(); private long revision=1; private BossPosture posture; private final List<BossTelegraph.Active> telegraphs=new ArrayList<>(); private int bossCycles; private final BossCharge charge=new BossCharge(); private double chargeX,chargeZ; private final Map<UUID,Long> postureHits=new HashMap<>(); private final BrazierMechanic brazier; private final BrazierNeglect neglect; private Stage stage = Stage.GATEKEEPER; private UUID bossId; private double bossRpgMaximum; private int bossTicks; private final Map<UUID, Integer> brazierTicks = new HashMap<>();
         private Encounter(UUID runId, RunDifficulty difficulty, BlockPos floor, ServerLevel level, int partySize,kr.dalmaru.content.ContentCatalog content) { this.content=content;this.partySize=partySize; this.runId = runId; this.difficulty = difficulty; this.floor = floor; this.level = level; this.requiredInteractions = RunEncounterRules.requiredBrazierInteractions(partySize);this.brazier=content.mechanics()==null?null:new BrazierMechanic(content.mechanics().brazier(),partySize);this.neglect=content.mechanics()==null?null:new BrazierNeglect(content.mechanics().brazier()); }

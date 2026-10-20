@@ -27,5 +27,32 @@ public final class RunEncounterRules {
         return instant.atZone(ZoneId.of("Asia/Seoul")).minusHours(6).toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
     }
     public static int requiredBrazierInteractions(int partySize) { if (partySize < 1 || partySize > 4) throw new IllegalArgumentException("Invalid party size."); return partySize >= 3 ? 2 : 1; }
-    public static double bossHealth(RunDifficulty difficulty, double firstStepHealth) { return difficulty == RunDifficulty.TRAINING ? firstStepHealth * 1.38 : firstStepHealth; }
+    public static double healthFactor(RunDifficulty difficulty, kr.dalmaru.content.BeaconMechanics.Boss rules) {
+        return switch (difficulty) {
+            case TRAINING -> 1.38;
+            case TRIAL -> rules == null ? 1 : rules.trialHealthScale();
+            case EXTREME -> rules == null ? 1 : rules.extremeHealthScale();
+            case FIRST_STEP -> 1;
+        };
+    }
+    public static double damageFactor(RunDifficulty difficulty, kr.dalmaru.content.BeaconMechanics.Boss rules) {
+        return switch (difficulty) {
+            case TRAINING -> 1.15;
+            case TRIAL -> rules == null ? 1 : rules.trialDamageScale();
+            case EXTREME -> rules == null ? 1 : rules.extremeDamageScale();
+            case FIRST_STEP -> 1;
+        };
+    }
+    public static double postureFactor(RunDifficulty difficulty, kr.dalmaru.content.BeaconMechanics.Boss rules) {
+        return switch (difficulty) {
+            case TRAINING -> rules.trainingPostureScale();
+            case TRIAL -> rules.trialPostureScale();
+            case EXTREME -> rules.extremePostureScale();
+            case FIRST_STEP -> 1;
+        };
+    }
+    public static double bossHealth(RunDifficulty difficulty, double firstStepHealth) {
+        var mechanics = kr.dalmaru.content.ContentCatalog.current().mechanics();
+        return firstStepHealth * healthFactor(difficulty, mechanics == null ? null : mechanics.boss());
+    }
 }

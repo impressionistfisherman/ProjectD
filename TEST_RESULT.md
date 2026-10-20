@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 시련/극한: `verifyP5RunDifficulties`, `verifyP5GrowthReleaseCap`, `verifyPremergeRuntime` PASS. `oscar_p3_fixture` 전체 회귀 검증 95개와 스모크 PASS, FAIL 0. 락 반환. 첫 실행은 premerge 하네스에 `revives()`가 없어 실패했고, 메서드를 넣은 뒤 다시 통과했다.
+
 - 2026-10-21 거래소: `verifyP5MarketExchange`, `verifyP5MarketStall`, `verifyClientScreenBounds` PASS. `oscar_p3_fixture` 전체 회귀 검증 93개와 스모크 PASS, FAIL 0. 락 반환.
 
 - 2026-10-21 판매대: `verifyP5MarketStall`, `verifyClientScreenBounds`, `verifyP5CraftProductionQueue` PASS. `oscar_p3_fixture` 전체 회귀 검증 92개와 스모크 PASS, FAIL 0. 락 반환.

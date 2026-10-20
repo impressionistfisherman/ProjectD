@@ -64,13 +64,16 @@ public final class CharacterRepository {
 			case BRANCH_30 -> advance30; case ADVANCE_50 -> advance50; case MASTER_60 -> advance60;
 		}; }
 	}
+	private static volatile int releasedCap = TRIAL_LEVEL_CAP;
+	public static void releaseLevelCap() { releasedCap = 60; }
+	public static int activeLevelCap() { return releasedCap; }
 	private static boolean developmentAdvancementEnabled() {
-		// Only fixture JVMs may exercise later milestones before S07 opens the product cap.
+		// Fixture JVMs may exercise later milestones before the server calls releaseLevelCap().
 		return Boolean.getBoolean("dalmaru.p5.development")
 			&& List.of("oscar_p3_fixture", "grok_p3_fixture").contains(System.getenv("DALMARU_DB_NAME"));
 	}
 	public static boolean advancementEnabled() {
-		return TRIAL_LEVEL_CAP>=60 || developmentAdvancementEnabled();
+		return releasedCap>=60 || developmentAdvancementEnabled();
 	}
 	private static void activeGrowthCharacter(java.sql.Connection c, UUID account, long generation, UUID character) throws SQLException {
 		try(var q=c.prepareStatement("SELECT connection_generation,active_character_id FROM dalmaru.accounts WHERE account_id=? FOR UPDATE")) {
@@ -138,7 +141,7 @@ public final class CharacterRepository {
 				own(c,account,character);var profile=profileForUpdate(c,character);var state=advancement(c,character,false);
 				var result=new GrowthSnapshot(profile,state.branch,state.advance30,state.advance50,state.advance60,
 					"ROGUE".equals(profile.profession())&&state.advance30&&!state.rogueUsed,
-					TRIAL_LEVEL_CAP,kr.dalmaru.content.ContentCatalog.current().version());
+					activeLevelCap(),kr.dalmaru.content.ContentCatalog.current().version());
 				c.commit();return result;
 			}catch(SQLException|RuntimeException error){c.rollback();throw error;}
 		}
@@ -371,7 +374,7 @@ public final class CharacterRepository {
     }
     public static CharacterProfile grantExperience(java.sql.Connection connection, UUID characterId, long amount) throws SQLException {
         if (amount < 1) throw new IllegalArgumentException("Experience amount must be positive.");
-        return applyExperience(connection,characterId,amount,TRIAL_LEVEL_CAP);
+        return applyExperience(connection,characterId,amount,activeLevelCap());
     }
 
     /** Explicit release transition; trial gameplay never calls this method. */
