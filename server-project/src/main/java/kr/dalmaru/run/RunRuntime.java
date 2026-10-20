@@ -29,6 +29,7 @@ public final class RunRuntime implements RunMechanicAccess {
         this.bossDamage=java.util.Objects.requireNonNull(bossDamage);
         this.releaseDisconnected=java.util.Objects.requireNonNull(releaseDisconnected);
         this.lingerDamage=java.util.Objects.requireNonNull(lingerDamage);
+        current=this;
     }
     /** Null source denotes a run hazard; damage still uses the normal combat pipeline. */
     @FunctionalInterface public interface BossDamage { void hit(ServerPlayer player, net.minecraft.world.entity.LivingEntity boss, float amount, boolean magic); }
@@ -36,6 +37,7 @@ public final class RunRuntime implements RunMechanicAccess {
     /** The roster closes to invites and accepts when the first combat stage (GATEKEEPER) starts. */
     private final PartyActivator partyActivator = new PartyActivator();
     private final Map<UUID, State> playerRuns = new HashMap<>();
+    private static RunRuntime current;
     private final Map<UUID, Encounter> encounters = new HashMap<>();
     private final java.util.concurrent.ConcurrentMap<UUID,RunLifecycle> lifecycles=new java.util.concurrent.ConcurrentHashMap<>();
     private long tickCount;
@@ -629,6 +631,12 @@ public final class RunRuntime implements RunMechanicAccess {
         player.teleportTo(safe.x,safe.y,safe.z);player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);player.hurtMarked=true;
     }
     private static net.minecraft.world.phys.AABB bounds(Encounter e){return new net.minecraft.world.phys.AABB(e.floor.getX()-9,e.floor.getY(),e.floor.getZ()-6,e.floor.getX()+10,e.floor.getY()+6,e.floor.getZ()+75);}
+    public static boolean deniesNaturalSpawn(net.minecraft.server.level.ServerLevel level, net.minecraft.core.BlockPos pos) {
+        RunRuntime runtime = current;
+        if (runtime == null || level == null || pos == null) return false;
+        for (Encounter encounter : runtime.encounters.values()) if (encounter.level == level && bounds(encounter).contains(pos.getX() + .5, pos.getY() + .5, pos.getZ() + .5)) return true;
+        return false;
+    }
     private static boolean inside(ServerPlayer player,Encounter encounter){return player.level()==encounter.level&&bounds(encounter).deflate(.6).contains(player.position());}
     public kr.dalmaru.content.ContentCatalog content(UUID player){
         State state=playerRuns.get(player);if(state==null)return kr.dalmaru.content.ContentCatalog.current();

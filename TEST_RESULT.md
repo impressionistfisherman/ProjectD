@@ -2,6 +2,8 @@
 
 - 2026-10-20 계승 커밋 `01caa29` 전체 회귀: `grok_p3_fixture`, 75 PASS, FAIL 0. 로그 `hive/research/MDF_P3_01caa29_regression.log`. 락은 획득 후 반환했다.
 
+- 2026-10-20 던전 자연 스폰: `verifyDungeonNaturalSpawn` PASS. `grok_p3_fixture` 전체 회귀 검증 75개와 스모크 PASS, FAIL 0. 브랜치 `grok/mdf-dungeon-nospawn`.
+
 - 2026-10-20 계승 화면: `verifyInheritanceJournal` 통과(`grok_p3_fixture`). 장착 원본은 `장착 해제 후 계승할 수 있습니다.` 전체 회귀는 `p3_full_regression.lock`이 40분을 넘어 시작하지 못했다. 25572에서 장착 원본 거절 PASS, 가방 검 계승 PASS(credit 0, 원본 삭제). JAR SHA256 `737F066D10006AD7C537CAFD187D4E2DCAD2151CE07EE838E528FB2A45862B9E`.
 
 - 2026-10-20 보스 체력 한도: `verifyBossEngineHealth`, `verifyBossPartyScaling`, `verifySoloCombatDefinitions` 통과. `grok_p3_fixture` 전체 회귀 75 PASS, FAIL 0 (`hive/research/MDF_P4_BOSSHP_GROK_regression.log`). `gradlew build -x test` 통과. JAR SHA256 `BE790E5175CC2FE6FA7C7AB7920C03848C8E87CD220750595CEE053D41B78B5A`. 3인 봇은 철문수장 30225/30225 생성·피해·자세를 봤고 서버는 죽지 않았다. 처치와 추방 OPEN/REMOVED는 미확인.
