@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 깊은 호수 출구: `verifyP5VillagePlaza verifyFieldReviveBoundary` PASS. 실제 생성 메서드를 가짜 블록 월드에서 실행해 가장 가까운 육지·64칸 원 경계·폭 3 바닥·입구 외 벽 보존·반칸 계단을 통한 높이 차 보행·낮은 둑 하강과 마른 출구·이전 완료 광장 출구 추가·재시작 중복 방지를 검사했다. 64칸 안에 육지가 없는 가짜 호수는 밀폐 유지·경고 1회이며 다음 시작 때 다시 탐색하지 않는다. `oscar_p3_fixture` 전체 회귀 97개·배포 JAR 격리 부팅·믹스인 스모크 PASS, FAIL 0, exit 0. 자체 잠금 반환과 포트 35565 종료 확인. 증적은 hive/research/MDF_P5_VILLAGE_EXIT_FULL.log. 실제 물 흐름·플레이어·월드 저장 재시작은 미검증이다.
+
 - 2026-10-21 P5 마을 안전 스폰: `compileJava compileTestJava`, `verifyP5VillagePlaza verifyFieldReviveBoundary` PASS. 광장 검사는 실제 생성 메서드를 가짜 블록 월드에서 실행해 바다·깊은 호수 물 차단·육지 보존·반경 제한·완료 표시를 복원한 재시작 후 수정 보존·없는 차원 거절을 확인했다. 선택 검사에는 첫 이동·중복 요청·도착 실패 롤백·기존 캐릭터 보존을 추가했다. `oscar_p3_fixture` 전체 회귀 97개와 배포 JAR 격리 부팅·믹스인 스모크 PASS, FAIL 0. 자체 잠금 반환, 스모크 포트 35565 종료 확인. 증적은 hive/research/MDF_P5_VILLAGE_FULL.log. 실제 플레이어 이동·실제 월드 재시작은 미확인이다.
 
 - 2026-10-21 생활 숙련·거절 문구: `verifyP5LifeActionProficiency` PASS. 철광 채집 1회에 대장장이 숙련 +1, 같은 요청 재전송은 2에 머문다. 숙련 100과 미학습은 채집을 막지 않는다. `oscar_p3_fixture` 전체 회귀 검증 96개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.
