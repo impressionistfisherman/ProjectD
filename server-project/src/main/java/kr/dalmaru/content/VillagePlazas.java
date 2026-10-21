@@ -33,7 +33,7 @@ public final class VillagePlazas {
             if (level == null) throw new IllegalStateException("Missing village dimension: " + town.dimension());
             String key = village.id() + ":" + town.x() + ":" + town.y() + ":" + town.z();
             List<String> prepared = level.getAttached(PREPARED);
-            String exitKey = key + ":exit-v2";
+            String exitKey = key + ":exit-v3";
             if (prepared != null && prepared.contains(exitKey)) continue;
             boolean changed = (prepared == null || !prepared.contains(key)) && buildIfUnsafe(level, town);
             boolean isolated = false;
@@ -46,6 +46,8 @@ public final class VillagePlazas {
             var next = prepared == null ? new ArrayList<String>() : new ArrayList<>(prepared);
             if (!next.contains(key)) next.add(key);
             if (!next.contains(key + ":exit-v1")) next.add(key + ":exit-v1");
+            if (!next.contains(key + ":exit-v2")) next.add(key + ":exit-v2");
+            if (!isolated) next.remove(key + ":waypoint-exit-v1");
             if (isolated && !next.contains(key + ":waypoint-exit-v1")) next.add(key + ":waypoint-exit-v1");
             next.add(exitKey);
             level.setAttached(PREPARED, List.copyOf(next));
@@ -80,15 +82,19 @@ public final class VillagePlazas {
 
     private static BlockPos nearestLand(ServerLevel level, TownZone town) {
         BlockPos best = null;
-        int distance = 64 * 64 + 1, plaza = Math.min(4, town.radius());
-        for (int ring = 1; ring <= 64 && ring * ring < distance; ring++)
-        for (int x = -ring; x <= ring; x++) for (int z = -ring; z <= ring; z++) {
-            if (Math.abs(x) != ring && Math.abs(z) != ring) continue;
-            int squared = x * x + z * z;
-            if (squared >= distance || squared > 64 * 64 || (Math.abs(x) <= plaza && Math.abs(z) <= plaza)) continue;
-            int wx = town.x() + x, wz = town.z() + z;
-            var feet = new BlockPos(wx, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, wx, wz), wz);
-            if (dry(level, feet)) { best = feet; distance = squared; }
+        int distance = 256 * 256 + 1, plaza = Math.min(4, town.radius());
+        for (int limit = 64; limit <= 256; limit *= 2) {
+            for (int ring = 1; ring <= limit && ring * ring < distance; ring++)
+            for (int x = -ring; x <= ring; x++) for (int z = -ring; z <= ring; z++) {
+                if (Math.abs(x) != ring && Math.abs(z) != ring) continue;
+                int squared = x * x + z * z;
+                if (squared >= distance || squared > limit * limit || (limit > 64 && squared <= limit * limit / 4)
+                        || (Math.abs(x) <= plaza && Math.abs(z) <= plaza)) continue;
+                int wx = town.x() + x, wz = town.z() + z;
+                var feet = new BlockPos(wx, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, wx, wz), wz);
+                if (dry(level, feet)) { best = feet; distance = squared; }
+            }
+            if (best != null) return best;
         }
         return best;
     }
@@ -96,7 +102,7 @@ public final class VillagePlazas {
     private static boolean buildExit(ServerLevel level, TownZone town) {
         var land = nearestLand(level, town);
         if (land == null) {
-            LOGGER.warn("Village {} has no dry land within 64 blocks; retaining sealed plaza with outbound waypoint exit", town.waypointId());
+            LOGGER.warn("Village {} has no dry land within 256 blocks; retaining sealed plaza with outbound waypoint exit", town.waypointId());
             return false;
         }
         int dx = land.getX() - town.x(), dz = land.getZ() - town.z();

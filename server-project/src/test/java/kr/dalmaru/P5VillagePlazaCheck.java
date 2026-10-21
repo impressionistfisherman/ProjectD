@@ -69,18 +69,18 @@ public final class P5VillagePlazaCheck {
                     SOUL_CAMPFIRE=new State("soul_campfire",true,false),FIRE=new State("fire",false,false),SOUL_FIRE=new State("soul_fire",false,false);
             }
             static class ServerLevel {
-                final Map<BlockPos,State> blocks=new HashMap<>();final int water;final boolean land;
+                final Map<BlockPos,State> blocks=new HashMap<>();final Set<String> editedColumns=new HashSet<>();final int water;final boolean land;
                 List<String> attached;int writes,saves;
                 ServerLevel(int water,boolean land){this.water=water;this.land=land;}
                 State getBlockState(BlockPos p){return blocks.getOrDefault(p,p.y()<=60||(land&&p.y()<=63)?Blocks.STONE:p.y()<=water?Blocks.WATER:Blocks.AIR);}
                 Fluid getFluidState(BlockPos p){return new Fluid(!getBlockState(p).fluid());}
-                void setBlock(BlockPos p,State state,int flags){blocks.put(p,state);writes++;}
+                void setBlock(BlockPos p,State state,int flags){blocks.put(p,state);editedColumns.add(p.x()+":"+p.z());writes++;}
                 List<String> getAttached(Object key){return attached;}
                 void setAttached(Object key,List<String> value){attached=value;}
                 ServerLevel getChunkSource(){return this;}
                 void save(boolean flush){saves++;}
-                int getHeight(Heightmap.Types type,int x,int z){for(int y=160;y>=0;y--)if(getBlockState(new BlockPos(x,y,z))!=Blocks.AIR)return y+1;return 0;}
-                void land(int x,int z,int floor){for(int y=61;y<=Math.max(water,floor);y++)blocks.put(new BlockPos(x,y,z),y<=floor?Blocks.STONE:Blocks.AIR);}
+                int getHeight(Heightmap.Types type,int x,int z){if(!editedColumns.contains(x+":"+z))return Math.max(water,land?63:60)+1;for(int y=160;y>=0;y--)if(getBlockState(new BlockPos(x,y,z))!=Blocks.AIR)return y+1;return 0;}
+                void land(int x,int z,int floor){editedColumns.add(x+":"+z);for(int y=61;y<=Math.max(water,floor);y++)blocks.put(new BlockPos(x,y,z),y<=floor?Blocks.STONE:Blocks.AIR);}
             }
             static class Identifier {static String parse(String value){return value;}}
             static class ResourceKey {static String create(Object registry,String value){return value;}}
@@ -151,7 +151,7 @@ public final class P5VillagePlazaCheck {
                 require(connected.writes==connectedWrites,"Bridge must share once-only completion state");
                 require(waypointExit(connected,.5,64,.5)==null,"Walking exit must not grant the isolated-plaza exception");
                 var oldLowBridge=new ServerLevel(64,false);oldLowBridge.land(12,0,64);prepare(new MinecraftServer(oldLowBridge));
-                oldLowBridge.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v1");
+                oldLowBridge.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v1","taepyeong:0:64:0:exit-v2");
                 int oldBridgeWrites=oldLowBridge.writes;prepare(new MinecraftServer(oldLowBridge));
                 require(oldLowBridge.writes==oldBridgeWrites&&waypointExit(oldLowBridge,.5,64,.5)==null,"Upgrading an existing low bridge must preserve its terrain and ordinary waypoint rules");
                 var cliff=new ServerLevel(70,false);cliff.land(-8,-7,90);prepare(new MinecraftServer(cliff));
@@ -167,9 +167,26 @@ public final class P5VillagePlazaCheck {
                 var oldIsolated=new ServerLevel(70,false);buildIfUnsafe(oldIsolated,town);
                 oldIsolated.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v1");prepare(new MinecraftServer(oldIsolated));
                 require("taepyeong".equals(waypointExit(oldIsolated,.5,64,.5))&&oldIsolated.attached.contains("taepyeong:0:64:0:exit-v2"),"Already-completed no-land plaza must gain its waypoint fallback");
-                var boundary=new ServerLevel(70,false);boundary.land(65,0,71);boundary.land(64,64,71);
-                require(nearestLand(boundary,town)==null,"Land search must use a 64-block circle");
-                boundary.land(64,0,71);require(nearestLand(boundary,town).equals(new BlockPos(64,72,0)),"Exact 64-block boundary must be included");
+                var upgraded=new ServerLevel(70,false);buildIfUnsafe(upgraded,town);
+                upgraded.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v2","taepyeong:0:64:0:waypoint-exit-v1");
+                upgraded.land(100,0,71);prepare(new MinecraftServer(upgraded));
+                require(upgraded.attached.contains("taepyeong:0:64:0:exit-v3")&&waypointExit(upgraded,.5,64,.5)==null,"Expanded search must upgrade old isolated plazas and remove only their isolation marker");
+                require(upgraded.getBlockState(new BlockPos(99,71,0))==Blocks.STONE,"Expanded search upgrade must actually build its bridge");
+                int upgradedWrites=upgraded.writes;prepare(new MinecraftServer(upgraded));
+                require(upgraded.writes==upgradedWrites,"Expanded exit upgrade must be once-only");
+                for(int range:new int[]{64,65,90,128,129,180,256}) {
+                    var stage=new ServerLevel(70,false);stage.land(range,0,71);stage.land(range+1,0,71);
+                    require(nearestLand(stage,town).equals(new BlockPos(range,72,0)),"Each search stage must include its boundary and select nearest land: "+range);
+                }
+                var diagonal=new ServerLevel(70,false);diagonal.land(60,30,71);diagonal.land(65,30,71);diagonal.land(129,0,71);
+                require(nearestLand(diagonal,town).equals(new BlockPos(60,72,30)),"Expanded circle must revisit diagonal columns skipped by the prior circle");
+                var boundary=new ServerLevel(70,false);boundary.land(257,0,71);boundary.land(256,256,71);
+                require(nearestLand(boundary,town)==null,"Land search must stop at the 256-block circle");
+                boundary.land(256,0,71);require(nearestLand(boundary,town).equals(new BlockPos(256,72,0)),"Exact 256-block boundary must be included");
+                var stillIsolated=new ServerLevel(70,false);buildIfUnsafe(stillIsolated,town);
+                stillIsolated.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v2","taepyeong:0:64:0:waypoint-exit-v1");
+                prepare(new MinecraftServer(stillIsolated));
+                require("taepyeong".equals(waypointExit(stillIsolated,.5,64,.5)),"No land within 256 must preserve the server-proven waypoint exit");
                 var dryLand=new ServerLevel(-100,true);
                 prepare(new MinecraftServer(dryLand));
                 require(dryLand.writes==0&&dryLand.saves==0,"Existing dry land must remain unchanged");
