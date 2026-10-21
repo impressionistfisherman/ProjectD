@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 영어 거절 차단: `verifyP5RejectionReason` PASS. 매핑 없는 원문은 `요청을 처리할 수 없습니다.` 채집 대기는 `채집 지점이 아직 준비되지 않았습니다. N초 남았습니다.` 대표 거절 화면 문자열에 영문 단어 없음. `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `verifyAuctionSettlement` PASS.
+
 - 2026-10-21 거절 한국어: `verifyP5RejectionReason` PASS. 철광 재채집 예외 문장은 영어이고, 화면 문구는 `채집 지점이 아직 준비되지 않았습니다. N초 남았습니다.` `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `verifyAuctionSettlement` PASS.
 
 - 2026-10-21 거절 사유 3곳: `verifyP5RejectionReason` PASS. 철광 재채집 거절에 남은 초가 있다. 첫 전체 회귀는 이야기 화면 검사의 가짜 클라이언트가 `rejectionText`를 몰라 실패했고, 경매 정산은 같이 돌릴 때 한 번 실패했다. 이야기 검사를 고친 뒤 둘을 다시 돌려 통과했다. 이어서 `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.

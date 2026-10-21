@@ -9,11 +9,13 @@ import java.util.regex.Pattern;
 import kr.dalmaru.account.AccountRepository;
 import kr.dalmaru.account.CharacterRepository;
 import kr.dalmaru.gather.Gathering;
+import kr.dalmaru.network.RejectionText;
 import kr.dalmaru.request.RequestEnvelope;
 
 public final class P5RejectionReasonCheck {
 	private static final UUID ACCOUNT = UUID.fromString("00000000-0000-4000-8000-00000000a5c2");
-	private static final Pattern REMAINING = Pattern.compile("Gather node is not ready\\. (\\d+) seconds remain\\.");
+	private static final Pattern REMAINING = Pattern.compile("채집 지점이 아직 준비되지 않았습니다\\. (\\d+)초 남았습니다\\.");
+	private static final Pattern LATIN = Pattern.compile("[A-Za-z]{3,}");
 	private P5RejectionReasonCheck() { }
 
 	public static void main(String[] args) throws Exception {
@@ -23,13 +25,14 @@ public final class P5RejectionReasonCheck {
 		String play = between(networking, "private static void playAccess", "private static com.google.gson.JsonObject villageList");
 		String story = between(networking, "private static void storyOperation", "private static void grantCombatExperience");
 		require(skill.contains("Unknown skill.") && skill.contains("rejectOperation(player,correlation,envelope.requestId(),error)"), "Skill rejection has no reason.");
-		require(play.contains("rejectOperation(player,correlation,envelope.requestId(),error)"), "Gather rejection has no reason.");
+		require(play.contains("rejectOperation(player,correlation,envelope.requestId(),error)") && !play.contains("rejectOperation(player,correlation,envelope.requestId());"), "Gather rejection has no reason.");
 		require(story.contains("rejectOperation(player,correlation,envelope.requestId(),error)"), "Story rejection has no reason.");
 		String client = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruClient.java"));
 		String access = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientPlayAccessState.java"));
 		String storyClient = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientStoryState.java"));
 		require(client.contains("기술을 습득할 수 없습니다.") && access.contains("\"reason\"") && storyClient.contains("rejectionText"), "Rejection text is not shown.");
-		require(networking.contains("채집 지점이 아직 준비되지 않았습니다.") && networking.contains("알 수 없는 기술입니다.") && networking.contains("필요한 이야기를 마치지 않았습니다.") && networking.contains("이미 배운 생활 직업입니다.") && networking.contains("10레벨부터 직업을 고를 수 있습니다.") && networking.contains("제작 조건이 아직 맞지 않습니다."), "Player rejection text is still English.");
+		String mapped = Files.readString(Path.of("src/main/java/kr/dalmaru/network/RejectionText.java"));
+		require(mapped.contains("채집 지점이 아직 준비되지 않았습니다.") && mapped.contains("알 수 없는 기술입니다.") && mapped.contains("필요한 이야기를 마치지 않았습니다.") && mapped.contains("이미 배운 생활 직업입니다.") && mapped.contains("10레벨부터 직업을 고를 수 있습니다.") && mapped.contains("제작 조건이 아직 맞지 않습니다.") && mapped.contains("요청을 처리할 수 없습니다."), "Player rejection text is still English.");
 		FixtureMigrations.apply();
 		cleanup();
 		var accounts = new AccountRepository();
@@ -40,13 +43,32 @@ public final class P5RejectionReasonCheck {
 			UUID lead = characters.create(ACCOUNT, 1, "달마루_거절갑").characterId();
 			characters.selectActive(ACCOUNT, lead);
 			take(gathering, generation, 1, lead);
-			String message = "";
+			String stored = "";
 			try { take(gathering, generation, 2, lead); }
-			catch (IllegalArgumentException expected) { message = expected.getMessage() == null ? "" : expected.getMessage(); }
-			var match = REMAINING.matcher(message);
+			catch (IllegalArgumentException expected) { stored = expected.getMessage() == null ? "" : expected.getMessage(); }
+			String cooldown = RejectionText.player(stored);
+			var match = REMAINING.matcher(cooldown);
 			require(match.matches(), "Cooldown rejection does not name the remaining seconds.");
 			int seconds = Integer.parseInt(match.group(1));
 			require(seconds >= 1 && seconds <= 180, "Cooldown remaining seconds are outside the iron wait.");
+			screen(cooldown);
+			screen(RejectionText.player("Not at a gather node."));
+			screen(RejectionText.player("Not at the craft station."));
+			screen(RejectionText.player("Material binding does not match the node."));
+			screen(RejectionText.player("Invalid production request."));
+			screen(RejectionText.player("Invalid crop request."));
+			screen(RejectionText.player("Invalid home request."));
+			screen(RejectionText.player("Invalid market request."));
+			screen(RejectionText.player("Unknown skill."));
+			screen(RejectionText.player("Life job is already learned."));
+			screen(RejectionText.player("Level 10 is required for a profession."));
+			screen(RejectionText.player("Craft is not ready."));
+			screen(RejectionText.player("해당 이야기 NPC가 있는 마을에서 상호작용하세요."));
+			screen(RejectionText.growth("NOT_READY", "advancement_confirmation_required"));
+			screen(RejectionText.growth("NOT_READY", "quest_required"));
+			screen(RejectionText.growth("DUPLICATE", "rogue_reset_used"));
+			require("승급 확인이 필요합니다.".equals(RejectionText.growth("NOT_READY", "advancement_confirmation_required")), "Advancement confirmation text is missing.");
+			require("요청을 처리할 수 없습니다.".equals(RejectionText.player("Brand new failure reason")) && "요청을 처리할 수 없습니다.".equals(RejectionText.growth("NOPE", "still_english_code")), "An unmapped rejection reached the screen.");
 			System.out.println("Skill, gather cooldown, and story rejections carry a reason PASS");
 		} finally {
 			cleanup();
@@ -87,6 +109,8 @@ public final class P5RejectionReasonCheck {
 			}) try (var statement = connection.prepareStatement(query)) { statement.setObject(1, ACCOUNT); statement.executeUpdate(); }
 		}
 	}
+
+	private static void screen(String text) { require(text != null && !text.isBlank() && !LATIN.matcher(text).find(), "Screen text has an English word: " + text); }
 
 	private static void require(boolean ok, String message) { if (!ok) throw new IllegalStateException(message); }
 }
