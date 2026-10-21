@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 마을 병합: `verifyP5VillagePlaza`, `verifyP5RejectionReason` PASS. `oscar_p3_fixture` 전체 회귀 검증 98개와 스모크 PASS, FAIL 0. 락 반환.
+
 - 2026-10-21 약어 허용: `verifyP5RejectionReason` PASS. `해당 마을 NPC 상호작용`과 이야기 NPC 문장, HP, XP는 원문 그대로다. 영문 문장은 `요청을 처리할 수 없습니다.` `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. Oscar 잠금이 풀린 뒤에 돌렸다.
 
 - 2026-10-21 영어 거절 차단: `verifyP5RejectionReason` PASS. 매핑 없는 원문은 `요청을 처리할 수 없습니다.` 채집 대기는 `채집 지점이 아직 준비되지 않았습니다. N초 남았습니다.` 대표 거절 화면 문자열에 영문 단어 없음. `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `verifyAuctionSettlement` PASS.
@@ -7,6 +9,14 @@
 - 2026-10-21 거절 한국어: `verifyP5RejectionReason` PASS. 철광 재채집 예외 문장은 영어이고, 화면 문구는 `채집 지점이 아직 준비되지 않았습니다. N초 남았습니다.` `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `verifyAuctionSettlement` PASS.
 
 - 2026-10-21 거절 사유 3곳: `verifyP5RejectionReason` PASS. 철광 재채집 거절에 남은 초가 있다. 첫 전체 회귀는 이야기 화면 검사의 가짜 클라이언트가 `rejectionText`를 몰라 실패했고, 경매 정산은 같이 돌릴 때 한 번 실패했다. 이야기 검사를 고친 뒤 둘을 다시 돌려 통과했다. 이어서 `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.
+
+- 2026-10-21 육지 탐색 256칸: `verifyP5VillagePlaza` PASS. 64/65/90/128/129/180/256 경계·최근접·단계 사이 대각선·256 원 밖 제외, 기존 고립 광장의 다리 업그레이드와 무육지 예외 보존을 검사했다. `oscar_p3_fixture` 잠금 전체 회귀 97개·격리 JAR 부팅/믹스인 스모크 PASS, FAIL 0, exit 0. 자체 잠금 반환, 35565 종료 확인. 증적: hive/research/MDF_P5_VILLAGE_256_FULL.log. 실제 MC 이동·유체·저장 재시작은 미검증이다.
+
+- 2026-10-21 무육지 역참 탈출: 컴파일·`verifyP5VillagePlaza`·`WaypointApplicationCheck` 집중 실행 PASS. 영속 무육지 표시/광장 내부 좌표/구버전 완료 업그레이드를 검사했다. 실제 `isolatedWaypointExit`·`beginWaypoint`·`tickWaypoints`의 채널 부분·`applyWaypoint`를 가짜 서버에서 실행해 159틱까지 대기, 160틱에 다른 마을 이동/ACK, 일반 지역·다른 목적지·전투·던전 거절, 준비 중 이동/표시 소실/세션 변경 취소를 검사했다. 방문 자동 갱신 부분은 이 채널 검사에서 제외했다. 실제 DB의 1곳 해금/기존 대기 유지/고립 출구 예외/ACTIVE·PAUSED 거절/UUID 재전송·ACK도 PASS. 낮은 기존 다리 재생성 문제를 새 검사로 재현(`village-escape-upgrade-red.log`)하고 수정한 뒤 광장·필드 부활·채널 집중 검사 PASS(`village-escape-focused.log`). 최종 `oscar_p3_fixture` 전체 회귀 97개·배포 JAR 격리 부팅·믹스인 스모크 PASS, FAIL 0, exit 0. 자체 잠금 반환과 포트 35565 종료 확인. 최종 증적은 hive/research/MDF_P5_VILLAGE_ESCAPE_R2_FULL.log. 실제 MC 플레이어 이동·물 흐름·월드 저장 재시작은 미검증이다.
+
+- 2026-10-21 깊은 호수 출구: `verifyP5VillagePlaza verifyFieldReviveBoundary` PASS. 실제 생성 메서드를 가짜 블록 월드에서 실행해 가장 가까운 육지·64칸 원 경계·폭 3 바닥·입구 외 벽 보존·반칸 계단을 통한 높이 차 보행·낮은 둑 하강과 마른 출구·이전 완료 광장 출구 추가·재시작 중복 방지를 검사했다. 64칸 안에 육지가 없는 가짜 호수는 밀폐 유지·경고 1회이며 다음 시작 때 다시 탐색하지 않는다. `oscar_p3_fixture` 전체 회귀 97개·배포 JAR 격리 부팅·믹스인 스모크 PASS, FAIL 0, exit 0. 자체 잠금 반환과 포트 35565 종료 확인. 증적은 hive/research/MDF_P5_VILLAGE_EXIT_FULL.log. 실제 물 흐름·플레이어·월드 저장 재시작은 미검증이다.
+
+- 2026-10-21 P5 마을 안전 스폰: `compileJava compileTestJava`, `verifyP5VillagePlaza verifyFieldReviveBoundary` PASS. 광장 검사는 실제 생성 메서드를 가짜 블록 월드에서 실행해 바다·깊은 호수 물 차단·육지 보존·반경 제한·완료 표시를 복원한 재시작 후 수정 보존·없는 차원 거절을 확인했다. 선택 검사에는 첫 이동·중복 요청·도착 실패 롤백·기존 캐릭터 보존을 추가했다. `oscar_p3_fixture` 전체 회귀 97개와 배포 JAR 격리 부팅·믹스인 스모크 PASS, FAIL 0. 자체 잠금 반환, 스모크 포트 35565 종료 확인. 증적은 hive/research/MDF_P5_VILLAGE_FULL.log. 실제 플레이어 이동·실제 월드 재시작은 미확인이다.
 
 - 2026-10-21 생활 숙련·거절 문구: `verifyP5LifeActionProficiency` PASS. 철광 채집 1회에 대장장이 숙련 +1, 같은 요청 재전송은 2에 머문다. 숙련 100과 미학습은 채집을 막지 않는다. `oscar_p3_fixture` 전체 회귀 검증 96개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.
 

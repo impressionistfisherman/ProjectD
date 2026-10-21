@@ -179,6 +179,7 @@ public final class DalmaruNetworking {
 
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity,world)->RUN_RUNTIME.loadedEntity(entity));
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{
+            kr.dalmaru.content.VillagePlazas.prepare(server);
             ONLINE = server;
             try{kr.dalmaru.run.RunTerrainRecovery.recover(server);RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot recover unfinished runs safely.",error);throw new IllegalStateException("Run recovery failed.",error);}
         });
@@ -221,7 +222,7 @@ public final class DalmaruNetworking {
                 ServerPlayer current=server.getPlayerList().getPlayer(playerId);
                 try {
                     joinedState.accountSession=result.session();
-                    if(result.vanillaState()!=null)kr.dalmaru.account.VanillaCharacterState.restore(current,result.vanillaState());
+                    if(result.vanillaState()!=null)restoreCharacterState(current,result.vanillaState());
                     restorePendingReturn(current,result.session(),result.position());sendCharacterSelectionReady(current,joinedState);
                     if(result.run()!=null)resumeRuntime(current,result.run());
                 }catch(Exception error){joinedState.accountFailure="캐릭터 복구 실패";LOGGER.error("Cannot install recovered session safely.",error);joinedState.connection.disconnect(Component.literal("캐릭터 상태를 복구하지 못했습니다. 운영자에게 문의하세요."));}
@@ -409,6 +410,7 @@ public final class DalmaruNetworking {
             var player=context.player();
             boolean changing=!payload.characterId().equals(session.activeCharacterId());
             String original=kr.dalmaru.account.VanillaCharacterState.capture(player);
+            var originalLevel=(ServerLevel)player.level();var originalPosition=player.position();float originalYaw=player.getYRot(),originalPitch=player.getXRot();
             boolean[] installed={false};boolean committed=false;
             try {
                 var stamina=COMBAT.stamina(player.getUUID(),currentTick);
@@ -418,14 +420,17 @@ public final class DalmaruNetworking {
                 CharacterProfile profile=CHARACTERS.profile(payload.characterId());
                 var ranks=SKILLS.ranks(payload.characterId());
                 CharacterSelectionResult selection=CHARACTERS.selectActive(session.accountId(),session.connectionGeneration(),payload.requestId(),payload.characterId(),original,
-                    inventory->{installed[0]=true;kr.dalmaru.account.VanillaCharacterState.restore(player,inventory);});
+                        inventory->{installed[0]=true;restoreCharacterState(player,inventory);});
                 committed=true;
                 if(changing){resetCharacterCaches(player,state);COMBAT.remove(player.getUUID());}
                 state.accountSession=new AccountSession(session.accountId(),selection.characterId(),session.connectionGeneration());state.skillRanks=ranks;
                 sendCharacterSelect(context,payload.requestId(),selection.characterId(),true,selection.replayed(),"캐릭터를 선택했습니다.");sendCharacterProfile(player,profile);loadout(player,0);
             } catch(Exception error) {
                 if(closeUncertainSelection(player,state,installed[0],committed,error))return;
-                if(!committed&&installed[0])kr.dalmaru.account.VanillaCharacterState.restore(player,original);
+                if(!committed&&installed[0]){
+                    kr.dalmaru.account.VanillaCharacterState.restore(player,original);
+                    player.teleportTo(originalLevel,originalPosition.x,originalPosition.y,originalPosition.z,java.util.Set.of(),originalYaw,originalPitch,false);
+                }
                 LOGGER.warn("Rejected character selection for {}.",session.accountId(),error);
                 sendCharacterSelect(context,payload.requestId(),payload.characterId(),false,false,"등록된 마을에서 전투·보관함을 종료한 뒤 선택하세요.");
             }
@@ -2195,7 +2200,7 @@ public final class DalmaruNetworking {
         var session=state.accountSession;String status;java.util.List<String> ids=java.util.List.of();
         try {
             switch(request.action()) {
-                case "list" -> {ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());status="해금 역참 목록";}
+                case "list" -> {var exit=isolatedWaypointExit(player,state);ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());status=exit==null?"해금 역참 목록":"고립 광장 출구: "+exit+" · 8초 준비 · 재사용 대기 없음";}
                 case "return" -> {beginWaypoint(player,request.waypointId());status=WAYPOINT_CASTS.containsKey(player.getUUID())?"귀환 준비 중: 8초 동안 이동하지 마세요.":"귀환을 시작하지 못했습니다. 채팅 안내를 확인하세요.";}
                 case "cancel" -> {interruptWaypoint(player,"귀환을 취소했습니다.");status="귀환 준비 취소";}
                 default -> {return;}
@@ -2210,8 +2215,15 @@ public final class DalmaruNetworking {
     private static void interruptWaypoint(ServerPlayer player,String message){if(WAYPOINT_CASTS.remove(player.getUUID())!=null)player.sendSystemMessage(Component.literal(message));}
     private static void showWaypoints(ServerPlayer player) {
         var state=CONNECTIONS.get(player.getUUID());if(!waypointEligible(player,state))return;var session=state.accountSession;
-        try{var ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());player.sendSystemMessage(Component.literal(ids.isEmpty()?"직접 방문한 마을의 역참이 해금됩니다.":"해금 역참: "+String.join(", ",ids)));player.sendSystemMessage(Component.literal("/dalmaru-waypoint return <역참 이름> · 8초 준비 · 15분 재사용 / cancel로 취소"));}
+        try{var exit=isolatedWaypointExit(player,state);var ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());player.sendSystemMessage(Component.literal(ids.isEmpty()?"직접 방문한 마을의 역참이 해금됩니다.":"해금 역참: "+String.join(", ",ids)));player.sendSystemMessage(Component.literal("/dalmaru-waypoint return <역참 이름> · 8초 준비 · 15분 재사용 / cancel로 취소"));if(exit!=null)player.sendSystemMessage(Component.literal("고립 광장의 연결 역참은 재사용 대기 없이 이동할 수 있습니다."));}
         catch(Exception error){LOGGER.warn("Cannot list waypoints for {}",session.accountId(),error);player.sendSystemMessage(Component.literal("역참 목록을 읽지 못했습니다."));}
+    }
+    private static String isolatedWaypointExit(ServerPlayer player,ConnectionState state)throws java.sql.SQLException {
+        String origin=kr.dalmaru.content.VillagePlazas.waypointExit((ServerLevel)player.level(),player.getX(),player.getY(),player.getZ());
+        if(origin==null)return null;
+        var session=state.accountSession;
+        return WAYPOINTS.unlockIsolatedExit(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),origin,
+                player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ());
     }
     private static void beginWaypoint(ServerPlayer player,String id) {
         var state=CONNECTIONS.get(player.getUUID());if(!waypointEligible(player,state)||RUN_RUNTIME.runId(player)!=null||COMBAT.remainingCombatTicks(player.getUUID(),currentTick)>0){player.sendSystemMessage(Component.literal("던전 밖 비전투 상태에서 보관함을 닫고 귀환하세요."));return;}
@@ -2220,7 +2232,7 @@ public final class DalmaruNetworking {
         var session=state.accountSession;
         try {
             var pending=WAYPOINTS.pending(session.accountId(),session.connectionGeneration(),session.activeCharacterId());if(pending!=null){applyWaypoint(player,state,pending);return;}
-            WAYPOINTS.check(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),id);
+            WAYPOINTS.check(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),id,id.equals(isolatedWaypointExit(player,state)));
             var channel=new kr.dalmaru.account.WaypointChannel(session.activeCharacterId(),session.connectionGeneration(),id,player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ(),currentTick);
             WAYPOINT_CASTS.put(player.getUUID(),new WaypointCast(session,channel,UUID.randomUUID()));player.sendSystemMessage(Component.literal("귀환 준비 8초: 이동·공격·피격 시 취소됩니다."));
         }catch(IllegalArgumentException error){player.sendSystemMessage(Component.literal(error.getMessage()));}
@@ -2255,7 +2267,7 @@ public final class DalmaruNetworking {
             if(status==kr.dalmaru.account.WaypointChannel.Status.CANCEL){interruptWaypoint(player,"이동·전투 또는 캐릭터 상태 변경으로 귀환이 취소되었습니다.");continue;}
             if(status!=kr.dalmaru.account.WaypointChannel.Status.READY)continue;
             WAYPOINT_CASTS.remove(entry.getKey());var session=cast.session();
-            try{applyWaypoint(player,state,WAYPOINTS.prepare(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),cast.request(),cast.channel().waypoint()));}
+            try{applyWaypoint(player,state,WAYPOINTS.prepare(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),cast.request(),cast.channel().waypoint(),cast.channel().waypoint().equals(isolatedWaypointExit(player,state))));}
             catch(IllegalArgumentException error){player.sendSystemMessage(Component.literal(error.getMessage()));}
             catch(Exception error){waypointFailure(player,state,error);}
         }
@@ -2300,6 +2312,22 @@ public final class DalmaruNetworking {
     private static kr.dalmaru.account.SafeCheckpoint fallback(MinecraftServer server){
         if(!TOWNS.isEmpty()){var town=TOWNS.getFirst();return new kr.dalmaru.account.SafeCheckpoint("town:"+town.x()+":"+town.z(),town.dimension(),town.x()+.5,town.y(),town.z()+.5);}
         var spawn=server.overworld().getRespawnData();var pos=spawn.pos();return new kr.dalmaru.account.SafeCheckpoint("world_entry",spawn.dimension().identifier().toString(),pos.getX()+.5,pos.getY(),pos.getZ()+.5);
+    }
+    private static void restoreCharacterState(ServerPlayer player,String snapshot){
+        var json=com.google.gson.JsonParser.parseString(snapshot).getAsJsonObject();
+        boolean initial=json.has("initial_spawn")&&json.get("initial_spawn").getAsBoolean();
+        if(initial){
+            var town=kr.dalmaru.content.VillageCatalog.current().getFirst().zone();
+            var server=player.level().getServer();
+            var id=net.minecraft.resources.Identifier.parse(town.dimension());
+            var level=server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,id));
+            var point=new kr.dalmaru.account.SafeCheckpoint("initial_spawn",town.dimension(),town.x()+.5,town.y(),town.z()+.5);
+            var safe=level==null?null:safeFieldPosition(player,level,point);
+            if(safe==null)throw new IllegalStateException("No safe initial village arrival");
+            player.teleportTo(level,safe.x,safe.y,safe.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
+            if(player.level()!=level||player.position().distanceToSqr(safe)>.01)throw new IllegalStateException("Initial village arrival failed");
+        }
+        kr.dalmaru.account.VanillaCharacterState.restore(player,snapshot);
     }
     private static net.minecraft.world.phys.Vec3 safeFieldPosition(ServerPlayer player,ServerLevel level,kr.dalmaru.account.SafeCheckpoint point){
         var origin=new net.minecraft.world.phys.Vec3(point.x(),point.y(),point.z());
