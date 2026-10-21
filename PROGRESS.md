@@ -1,5 +1,7 @@
 # 현재 상태
 
+2026-10-21: 필드 사망 3초 뒤 서버가 직접 부활시킬 때 연결의 플레이어를 새 몸체로 다시 가리키게 했다. 바닐라 `PlayerList.respawn`은 연결을 복사만 하고 `connection.player`는 죽은 몸에 둔다. 로그아웃은 그 죽은 몸만 지워서 `playersByUUID`에 부활한 몸이 남고, 다음 접속은 compress 뒤 `WAITING_FOR_DUPE_DISCONNECT`에서 로그인 완료가 안 된다. 캐릭터 선택 잠금과 런 종료 회복은 이 경로가 아니다. `oscar_p3_fixture` 전체 회귀 검증 99개와 스모크 PASS, FAIL 0. 멈춘 자기 잠금(02:39Z, 113분)은 재개 지시에 따라 지우고 새 잠금을 잡은 뒤 반환했다. `p5-playtest`는 건드리지 않았다. push 없음.
+
 2026-10-21: `oscar/mdf-p5-village` `10bd77c`를 `p5/integration`에 병합했다. 마을 광장 준비, 첫 선택 안전 도착, 고립 광장 출구, 육지 탐색 256칸이 들어간다. 거절 문구와 검사 등록은 양쪽을 유지했다. `oscar_p3_fixture` 전체 회귀 검증 98개와 스모크 PASS, FAIL 0. 락 반환. push 없음.
 
 2026-10-21: 거절 화면의 영어 단어 판정에서 NPC, HP, XP는 약어로 둔다. `해당 마을 NPC 상호작용` 같은 한국어 원문은 일반 문구로 덮이지 않는다. 그 밖의 영문 단어는 그대로 `요청을 처리할 수 없습니다.`다. `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. Oscar 마을 병합은 하지 않았다. push 없음.

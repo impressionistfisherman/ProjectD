@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 필드 부활 재접속: `verifyP5FieldReviveReconnect` PASS. 가짜 플레이어 목록에서 연결을 죽은 몸에 두면 UUID 맵이 남고, 새 몸으로 옮기면 로그아웃이 맵을 비운다. `oscar_p3_fixture` 전체 회귀 검증 99개와 스모크 PASS, FAIL 0. RunRespawnMixin PASS. 벽시계 약 328초. 락 반환. 인게임 재접속은 미실행. `p5-playtest`는 로그 읽기만 했다.
+
 - 2026-10-21 마을 병합: `verifyP5VillagePlaza`, `verifyP5RejectionReason` PASS. `oscar_p3_fixture` 전체 회귀 검증 98개와 스모크 PASS, FAIL 0. 락 반환.
 
 - 2026-10-21 약어 허용: `verifyP5RejectionReason` PASS. `해당 마을 NPC 상호작용`과 이야기 NPC 문장, HP, XP는 원문 그대로다. 영문 문장은 `요청을 처리할 수 없습니다.` `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. Oscar 잠금이 풀린 뒤에 돌렸다.

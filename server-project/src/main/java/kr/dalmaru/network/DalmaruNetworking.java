@@ -2369,7 +2369,8 @@ public final class DalmaruNetworking {
             var state=CONNECTIONS.get(entry.getKey());var player=server.getPlayerList().getPlayer(entry.getKey());
             if(state==null||player==null||state.accountSession!=entry.getValue().session()){FIELD_REVIVES.remove(entry.getKey());continue;}
             if(currentTick<entry.getValue().due())continue;
-            if(!player.isAlive())player=server.getPlayerList().respawn(player,false,net.minecraft.world.entity.Entity.RemovalReason.KILLED);
+            // PlayerList.respawn keeps connection.player on the removed body. Logout then leaves playersByUUID, and the next login waits in WAITING_FOR_DUPE_DISCONNECT.
+            if(!player.isAlive()){player=server.getPlayerList().respawn(player,false,net.minecraft.world.entity.Entity.RemovalReason.KILLED);player.connection.player=player;}
             var destination=fieldDestination(player,server,entry.getValue().checkpoint());
             if(destination==null){player.setGameMode(entry.getValue().mode());LOGGER.error("No safe field revive floor or fallback for {}",player.getUUID());FIELD_REVIVES.remove(entry.getKey());player.sendSystemMessage(Component.literal("안전한 부활 위치를 찾지 못했습니다. 운영자에게 문의하세요."));continue;}
             var level=destination.level();var safe=destination.position();
