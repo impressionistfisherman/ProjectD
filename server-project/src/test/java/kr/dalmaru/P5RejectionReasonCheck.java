@@ -29,6 +29,7 @@ public final class P5RejectionReasonCheck {
 		String access = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientPlayAccessState.java"));
 		String storyClient = Files.readString(Path.of("src/client/java/kr/dalmaru/client/ClientStoryState.java"));
 		require(client.contains("기술을 습득할 수 없습니다.") && access.contains("\"reason\"") && storyClient.contains("rejectionText"), "Rejection text is not shown.");
+		require(networking.contains("채집 지점이 아직 준비되지 않았습니다.") && networking.contains("알 수 없는 기술입니다.") && networking.contains("필요한 이야기를 마치지 않았습니다.") && networking.contains("이미 배운 생활 직업입니다.") && networking.contains("10레벨부터 직업을 고를 수 있습니다.") && networking.contains("제작 조건이 아직 맞지 않습니다."), "Player rejection text is still English.");
 		FixtureMigrations.apply();
 		cleanup();
 		var accounts = new AccountRepository();

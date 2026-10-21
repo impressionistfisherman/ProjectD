@@ -564,7 +564,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
 
     static String rejectionText(String result,String fallback){
-        try{var json=com.google.gson.JsonParser.parseString(result).getAsJsonObject();String status=json.has("status")&&json.get("status").isJsonPrimitive()?json.get("status").getAsString():"";String reason=json.has("reason")&&json.get("reason").isJsonPrimitive()?json.get("reason").getAsString():"";if(status.isEmpty()&&reason.isEmpty())return fallback;return reason.isEmpty()?status:status+" "+reason;}
+        try{var json=com.google.gson.JsonParser.parseString(result).getAsJsonObject();String status=json.has("status")&&json.get("status").isJsonPrimitive()?json.get("status").getAsString():"";String reason=json.has("reason")&&json.get("reason").isJsonPrimitive()?json.get("reason").getAsString():"";if(!reason.isEmpty())return reason;if(!status.isEmpty())return status;return fallback;}
         catch(RuntimeException exception){return fallback;}
     }
     private static void acceptProfessionOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
