@@ -105,7 +105,7 @@ public final class PrecisionOrderRepository {
 			query.setString(2, recipe.job());
 			try (var row = query.executeQuery()) { if (!row.next() || row.getInt(1) < recipe.proficiency()) throw new IllegalArgumentException("Precision order is not ready."); }
 		}
-		if (!learned(connection, characterId, recipe.id())) throw new IllegalArgumentException("Precision order is not ready.");
+		if (!learned(connection, characterId, recipe.id()) && !learned(connection, characterId, recipe.prerequisiteRecipe())) throw new IllegalArgumentException("Precision prerequisite is not learned.");
 		if (!recipe.stationId().isEmpty() && !CraftCatalog.station(recipe.stationId()).zone().contains(dimension, x, y, z)) throw new IllegalArgumentException("Precision order is not ready.");
 	}
 

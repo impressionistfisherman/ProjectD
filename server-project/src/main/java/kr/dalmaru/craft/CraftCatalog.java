@@ -19,7 +19,7 @@ public final class CraftCatalog {
 	public record Clue(String id, String job, int proficiency, String stationId, List<String> candidates, List<Trial> trials) { }
 	public record Learned(String id, String job, int proficiency, String stationId, String attribute, List<Input> inputs, Output output, boolean equipment) { }
 	public record PrecisionStep(String choice, String materialId, String binding, int quantity) { }
-	public record Precision(String id, String job, int proficiency, String stationId, String equipmentItem, List<PrecisionStep> steps) { }
+	public record Precision(String id, String job, int proficiency, String stationId, String equipmentItem, String prerequisiteRecipe, List<PrecisionStep> steps) { }
 
 	private static final Map<String, Station> STATIONS = new HashMap<>();
 	private static final Map<String, Recipe> RECIPES = new HashMap<>();
@@ -157,7 +157,10 @@ public final class CraftCatalog {
 				}
 				int proficiency = recipe.get("proficiency").getAsInt();
 				if (id.isBlank() || PRECISION.containsKey(id) || RECIPES.containsKey(id) || steps.isEmpty() || proficiency < 1 || recipe.get("equipmentItem").getAsString().isBlank() || (!stationId.isEmpty() && !STATIONS.containsKey(stationId))) throw new IllegalStateException("Invalid precision recipe: " + id);
-				PRECISION.put(id, new Precision(id, recipe.get("job").getAsString(), proficiency, stationId, recipe.get("equipmentItem").getAsString(), List.copyOf(steps)));
+				String prerequisiteRecipe = recipe.has("prerequisiteRecipe") ? recipe.get("prerequisiteRecipe").getAsString() : "";
+				var prerequisite = LEARNED.get(prerequisiteRecipe);
+				if (prerequisite == null || !prerequisite.equipment() || !prerequisite.job().equals(recipe.get("job").getAsString()) || !prerequisite.output().itemId().equals(recipe.get("equipmentItem").getAsString())) throw new IllegalStateException("Invalid precision prerequisite: " + id);
+				PRECISION.put(id, new Precision(id, recipe.get("job").getAsString(), proficiency, stationId, recipe.get("equipmentItem").getAsString(), prerequisiteRecipe, List.copyOf(steps)));
 			}
 		} catch (IOException exception) {
 			throw new IllegalStateException("Cannot load craft recipes", exception);

@@ -66,6 +66,7 @@ public final class RejectionText {
 			case "Profession was already selected." -> "직업을 이미 골랐습니다.";
 			case "Invalid profession request.", "Invalid profession body", "Profession envelope does not match session/body" -> "직업 요청이 올바르지 않습니다.";
 			case "Craft is not ready.", "Precision order is not ready.", "Craft order is not ready." -> "제작 조건이 아직 맞지 않습니다.";
+			case "Precision prerequisite is not learned." -> "정밀 제작법 또는 선행 제작법을 먼저 배워야 합니다.";
 			case "Insufficient material." -> "재료가 부족합니다.";
 			case "Craft binding was rejected.", "Material binding does not match the recipe." -> "재료 귀속이 제작과 맞지 않습니다.";
 			case "Unknown craft attribute." -> "알 수 없는 제작 속성입니다.";

@@ -1,5 +1,6 @@
 package kr.dalmaru;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,6 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import kr.dalmaru.account.AccountRepository;
 import kr.dalmaru.account.CharacterRepository;
 import kr.dalmaru.craft.CraftCatalog;
+import kr.dalmaru.craft.CraftResearchRepository;
+import kr.dalmaru.network.RejectionText;
 import kr.dalmaru.craft.PrecisionOrderRepository;
 import kr.dalmaru.request.RequestEnvelope;
 
@@ -19,7 +22,7 @@ public final class P5CraftPrecisionCheck {
 
 	public static void main(String[] args) throws Exception {
 		FixtureDatabase.databaseName();
-		require(CraftCatalog.recipe("craft.iron_ingot").output().itemId().equals("material.iron_ingot") && CraftCatalog.precision("craft.precision_blade").steps().size() == 2, "Precision content changed a basic recipe.");
+		require(CraftCatalog.recipe("craft.iron_ingot").output().itemId().equals("material.iron_ingot") && CraftCatalog.precision("craft.precision_blade").steps().size() == 2 && CraftCatalog.precision("craft.precision_blade").prerequisiteRecipe().equals("craft.iron_blade"), "Precision content changed a basic recipe or prerequisite.");
 		String repo = Files.readString(Path.of("src/main/java/kr/dalmaru/craft/PrecisionOrderRepository.java"));
 		String craft = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruCraftScreen.java"));
 		String screen = Files.readString(Path.of("src/client/java/kr/dalmaru/client/DalmaruPrecisionScreen.java"));
@@ -29,21 +32,33 @@ public final class P5CraftPrecisionCheck {
 		var accounts = new AccountRepository();
 		var characters = new CharacterRepository();
 		var orders = new PrecisionOrderRepository();
+		var research = new CraftResearchRepository();
 		try {
 			long generation = accounts.openSession(ACCOUNT).connectionGeneration();
 			UUID character = characters.create(ACCOUNT, 1, "달마루_정밀").characterId();
 			characters.selectActive(ACCOUNT, character);
 			sql("INSERT INTO dalmaru.character_life_professions(character_id, job, proficiency) VALUES(?, 'blacksmith', 20)", character);
-			sql("INSERT INTO dalmaru.character_learned_recipes(character_id, recipe_id) VALUES(?, 'craft.precision_blade')", character);
-			UUID broken = gear(character);
-			sql("INSERT INTO dalmaru.character_materials(character_id, material_id, quantity, binding) VALUES(?, 'material.iron_ingot', 1, 'FREE')", character);
+			UUID unlearned = gear(character);
+			sql("INSERT INTO dalmaru.character_materials(character_id, material_id, quantity, binding) VALUES(?, 'material.iron_ingot', 3, 'FREE')", character);
 			sql("INSERT INTO dalmaru.character_materials(character_id, material_id, quantity, binding) VALUES(?, 'material.basic_fitting', 1, 'FREE')", character);
-			String before = gearText(broken);
-			reject(() -> begin(orders, generation, 1, character, broken, 16, 64, 16));
+			reject(() -> begin(orders, generation, 1, character, unlearned, 16, 64, 16));
 			sql("UPDATE dalmaru.character_life_professions SET proficiency=21 WHERE character_id=? AND job='blacksmith'", character);
+			String missingRecipe = reject(() -> begin(orders, generation, 98, character, unlearned, 16, 64, 16));
+			require(count(character) == 0 && material(character, "material.iron_ingot") == 3, "Missing prerequisite changed order or material.");
+			var line = new JsonObject(); line.addProperty("materialId", "material.iron_ingot"); line.addProperty("binding", "FREE"); line.addProperty("quantity", 1);
+			var lines = new JsonArray(); lines.add(line);
+			var body = new JsonObject(); body.addProperty("clueId", "clue.blade"); body.add("materials", lines);
+			var learned = research.researchJournaled(ACCOUNT, generation, 100, character, "clue.blade", "minecraft:overworld", 16, 64, 16, RequestEnvelope.legacy(ACCOUNT, generation, character, "research_craft", 100, body));
+			require(learned.result().get("learnedRecipeId").getAsString().equals("craft.iron_blade") && number("SELECT COUNT(*) FROM dalmaru.character_learned_recipes WHERE character_id=? AND recipe_id='craft.precision_blade'", character) == 0, "Normal research must learn only the prerequisite recipe.");
+			var craftBody = new JsonObject(); craftBody.addProperty("recipeId", "craft.iron_blade");
+			var made = research.craftJournaled(ACCOUNT, generation, 101, character, "craft.iron_blade", "minecraft:overworld", 16, 64, 16, RequestEnvelope.legacy(ACCOUNT, generation, character, "craft_learned", 101, craftBody));
+			UUID broken = UUID.fromString(made.result().get("equipmentId").getAsString());
+			String before = gearText(broken);
+			require(gearText(broken).equals("gear.iron_blade 0 FREE"), "Precision must use a normally crafted blade UUID.");
 			reject(() -> begin(orders, generation, 2, character, broken, 1000, 64, 0));
 			reject(() -> begin(orders, generation, 3, character, UUID.randomUUID(), 16, 64, 16));
 			var opened = begin(orders, generation, 4, character, broken, 16, 64, 16);
+			require(RejectionText.player(missingRecipe).equals("정밀 제작법 또는 선행 제작법을 먼저 배워야 합니다."), "Missing prerequisite must explain the rejection in Korean.");
 			var replay = begin(orders, generation, 4, character, broken, 16, 64, 16);
 			UUID orderId = UUID.fromString(opened.result().get("orderId").getAsString());
 			require(!opened.replayed() && replay.replayed() && opened.result().get("step").getAsInt() == 0 && orderId.equals(UUID.fromString(replay.result().get("orderId").getAsString())) && count(character) == 1, "Begin did not store one order.");
@@ -161,6 +176,7 @@ public final class P5CraftPrecisionCheck {
 				"DELETE FROM dalmaru.operation_requests WHERE account_id=?",
 				"DELETE FROM dalmaru.character_precision_orders WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
 				"DELETE FROM dalmaru.character_learned_recipes WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
+				"DELETE FROM dalmaru.character_craft_research WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
 				"DELETE FROM dalmaru.character_equipment WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
 				"DELETE FROM dalmaru.character_materials WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
 				"DELETE FROM dalmaru.character_life_professions WHERE character_id IN (SELECT character_id FROM dalmaru.characters WHERE account_id=?)",
@@ -171,9 +187,9 @@ public final class P5CraftPrecisionCheck {
 		}
 	}
 
-	private static void reject(Attempt attempt) {
+	private static String reject(Attempt attempt) {
 		try { attempt.run(); }
-		catch (IllegalArgumentException expected) { return; }
+		catch (IllegalArgumentException expected) { return expected.getMessage(); }
 		catch (Exception exception) { throw new IllegalStateException(exception); }
 		throw new IllegalStateException("Precision order was accepted.");
 	}
