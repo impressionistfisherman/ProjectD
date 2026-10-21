@@ -3,6 +3,12 @@ plugins {
 	id 'maven-publish'
 }
 
+tasks.register('verifyP5VillagePlaza', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.P5VillagePlazaCheck'
+}
+
 repositories {
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because

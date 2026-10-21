@@ -89,6 +89,8 @@ try {
     # P5 Grok
     $tasks += 'verifyP5LifeActionProficiency'
     $expected += 'verifyP5LifeActionProficiency'
+    $tasks += 'verifyP5VillagePlaza'
+    $expected += 'verifyP5VillagePlaza'
     if ($tasks.Count -eq 0 -or $tasks.Count -ne $expected.Count) { Say 'FAIL task list does not match build.gradle'; exit 1 }
     $log = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.log')
     $err = Join-Path $env:TEMP ("dalmaru-m14prep2-" + [guid]::NewGuid().ToString('N') + '.err')

@@ -11,6 +11,7 @@ public final class DalmaruMod implements ModInitializer {
         kr.dalmaru.account.CharacterRepository.releaseLevelCap();
         var content=kr.dalmaru.content.ContentCatalog.current();content.quest(kr.dalmaru.quest.QuestRepository.QUEST_ID);content.run("run.bongsudae");
 		kr.dalmaru.account.VanillaCharacterState.initialize();
+        kr.dalmaru.content.VillagePlazas.initialize();
 		DalmaruNetworking.initialize();
 	}
 }

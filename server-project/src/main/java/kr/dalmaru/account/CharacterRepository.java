@@ -519,10 +519,12 @@ public final class CharacterRepository {
                 try(var stored=connection.prepareStatement("SELECT state::text FROM dalmaru.character_vanilla_state WHERE character_id=?")) {
                     stored.setObject(1,characterId); try(var row=stored.executeQuery()) { if(row.next()) inventory=row.getString(1); }
                 }
+                boolean initialSpawn=inventory==null;
                 // The initial selection adopts existing vanilla possessions; subsequent new characters start empty.
                 if ((previous==null || characterId.equals(previous)) && inventory==null) inventory=vanillaSnapshot;
                 if(!characterId.equals(previous)) {
                     inventory=withOwner(inventory,characterId+":"+UUID.randomUUID());
+                    if(initialSpawn){var json=com.google.gson.JsonParser.parseString(inventory).getAsJsonObject();json.addProperty("initial_spawn",true);inventory=json.toString();}
                     saveVanilla(connection,characterId,inventory);
                     try(var checkpoint=connection.prepareStatement("UPDATE dalmaru.accounts SET vanilla_owner=?,vanilla_checkpoint=?::jsonb WHERE account_id=?")) {
                         checkpoint.setString(1,vanillaOwner(inventory));checkpoint.setString(2,inventory);checkpoint.setObject(3,accountId);checkpoint.executeUpdate();

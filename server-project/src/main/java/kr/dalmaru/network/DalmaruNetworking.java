@@ -179,6 +179,7 @@ public final class DalmaruNetworking {
 
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity,world)->RUN_RUNTIME.loadedEntity(entity));
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{
+            kr.dalmaru.content.VillagePlazas.prepare(server);
             ONLINE = server;
             try{kr.dalmaru.run.RunTerrainRecovery.recover(server);RUNS.cancelUnfinished();}catch(Exception error){LOGGER.error("Cannot recover unfinished runs safely.",error);throw new IllegalStateException("Run recovery failed.",error);}
         });
@@ -221,7 +222,7 @@ public final class DalmaruNetworking {
                 ServerPlayer current=server.getPlayerList().getPlayer(playerId);
                 try {
                     joinedState.accountSession=result.session();
-                    if(result.vanillaState()!=null)kr.dalmaru.account.VanillaCharacterState.restore(current,result.vanillaState());
+                    if(result.vanillaState()!=null)restoreCharacterState(current,result.vanillaState());
                     restorePendingReturn(current,result.session(),result.position());sendCharacterSelectionReady(current,joinedState);
                     if(result.run()!=null)resumeRuntime(current,result.run());
                 }catch(Exception error){joinedState.accountFailure="캐릭터 복구 실패";LOGGER.error("Cannot install recovered session safely.",error);joinedState.connection.disconnect(Component.literal("캐릭터 상태를 복구하지 못했습니다. 운영자에게 문의하세요."));}
@@ -409,6 +410,7 @@ public final class DalmaruNetworking {
             var player=context.player();
             boolean changing=!payload.characterId().equals(session.activeCharacterId());
             String original=kr.dalmaru.account.VanillaCharacterState.capture(player);
+            var originalLevel=(ServerLevel)player.level();var originalPosition=player.position();float originalYaw=player.getYRot(),originalPitch=player.getXRot();
             boolean[] installed={false};boolean committed=false;
             try {
                 var stamina=COMBAT.stamina(player.getUUID(),currentTick);
@@ -418,14 +420,17 @@ public final class DalmaruNetworking {
                 CharacterProfile profile=CHARACTERS.profile(payload.characterId());
                 var ranks=SKILLS.ranks(payload.characterId());
                 CharacterSelectionResult selection=CHARACTERS.selectActive(session.accountId(),session.connectionGeneration(),payload.requestId(),payload.characterId(),original,
-                    inventory->{installed[0]=true;kr.dalmaru.account.VanillaCharacterState.restore(player,inventory);});
+                        inventory->{installed[0]=true;restoreCharacterState(player,inventory);});
                 committed=true;
                 if(changing){resetCharacterCaches(player,state);COMBAT.remove(player.getUUID());}
                 state.accountSession=new AccountSession(session.accountId(),selection.characterId(),session.connectionGeneration());state.skillRanks=ranks;
                 sendCharacterSelect(context,payload.requestId(),selection.characterId(),true,selection.replayed(),"캐릭터를 선택했습니다.");sendCharacterProfile(player,profile);loadout(player,0);
             } catch(Exception error) {
                 if(closeUncertainSelection(player,state,installed[0],committed,error))return;
-                if(!committed&&installed[0])kr.dalmaru.account.VanillaCharacterState.restore(player,original);
+                if(!committed&&installed[0]){
+                    kr.dalmaru.account.VanillaCharacterState.restore(player,original);
+                    player.teleportTo(originalLevel,originalPosition.x,originalPosition.y,originalPosition.z,java.util.Set.of(),originalYaw,originalPitch,false);
+                }
                 LOGGER.warn("Rejected character selection for {}.",session.accountId(),error);
                 sendCharacterSelect(context,payload.requestId(),payload.characterId(),false,false,"등록된 마을에서 전투·보관함을 종료한 뒤 선택하세요.");
             }
@@ -2300,6 +2305,22 @@ public final class DalmaruNetworking {
     private static kr.dalmaru.account.SafeCheckpoint fallback(MinecraftServer server){
         if(!TOWNS.isEmpty()){var town=TOWNS.getFirst();return new kr.dalmaru.account.SafeCheckpoint("town:"+town.x()+":"+town.z(),town.dimension(),town.x()+.5,town.y(),town.z()+.5);}
         var spawn=server.overworld().getRespawnData();var pos=spawn.pos();return new kr.dalmaru.account.SafeCheckpoint("world_entry",spawn.dimension().identifier().toString(),pos.getX()+.5,pos.getY(),pos.getZ()+.5);
+    }
+    private static void restoreCharacterState(ServerPlayer player,String snapshot){
+        var json=com.google.gson.JsonParser.parseString(snapshot).getAsJsonObject();
+        boolean initial=json.has("initial_spawn")&&json.get("initial_spawn").getAsBoolean();
+        if(initial){
+            var town=kr.dalmaru.content.VillageCatalog.current().getFirst().zone();
+            var server=player.level().getServer();
+            var id=net.minecraft.resources.Identifier.parse(town.dimension());
+            var level=server.getLevel(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION,id));
+            var point=new kr.dalmaru.account.SafeCheckpoint("initial_spawn",town.dimension(),town.x()+.5,town.y(),town.z()+.5);
+            var safe=level==null?null:safeFieldPosition(player,level,point);
+            if(safe==null)throw new IllegalStateException("No safe initial village arrival");
+            player.teleportTo(level,safe.x,safe.y,safe.z,java.util.Set.of(),player.getYRot(),player.getXRot(),false);
+            if(player.level()!=level||player.position().distanceToSqr(safe)>.01)throw new IllegalStateException("Initial village arrival failed");
+        }
+        kr.dalmaru.account.VanillaCharacterState.restore(player,snapshot);
     }
     private static net.minecraft.world.phys.Vec3 safeFieldPosition(ServerPlayer player,ServerLevel level,kr.dalmaru.account.SafeCheckpoint point){
         var origin=new net.minecraft.world.phys.Vec3(point.x(),point.y(),point.z());
