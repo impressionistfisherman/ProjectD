@@ -616,6 +616,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
 
     private static void acceptSkillOperation(DalmaruPayloads.OperationRequest request,DalmaruPayloads.OperationReceipt receipt){
+        if("rejected".equals(receipt.state())){ClientProfileState.completeSkill(receipt.correlationId(),rejectionText(receipt.result(),"기술을 습득할 수 없습니다."));return;}
         String status="\uc694\uccad\uc744 \ucc98\ub9ac\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.";
         if(!"rejected".equals(receipt.state()))try{
             var original=com.google.gson.JsonParser.parseString(receipt.result()).getAsJsonObject();
@@ -633,7 +634,7 @@ ClientPlayNetworking.registerGlobalReceiver(DalmaruPayloads.LoadoutResponse.TYPE
     }
     private static void acceptOperation(DalmaruPayloads.OperationReceipt receipt){
         var request=ClientRequestState.accept(receipt);if(request==null)return;
-        if(java.util.Set.of("story_interact","story_report").contains(request.operation())){ClientStoryState.complete(receipt.correlationId(),"rejected".equals(receipt.state()));return;}
+        if(java.util.Set.of("story_interact","story_report").contains(request.operation())){ClientStoryState.complete(receipt.correlationId(),receipt.result(),"rejected".equals(receipt.state()));return;}
         if("accept_quest".equals(request.operation())){acceptQuestOperation(request,receipt);return;}
         if("inherit_equipment".equals(request.operation())){acceptInheritanceOperation(request,receipt);return;}
         if("refine_item".equals(request.operation())){acceptRefinementOperation(request,receipt);return;}

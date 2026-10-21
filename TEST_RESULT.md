@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 거절 사유 3곳: `verifyP5RejectionReason` PASS. 철광 재채집 거절에 남은 초가 있다. 첫 전체 회귀는 이야기 화면 검사의 가짜 클라이언트가 `rejectionText`를 몰라 실패했고, 경매 정산은 같이 돌릴 때 한 번 실패했다. 이야기 검사를 고친 뒤 둘을 다시 돌려 통과했다. 이어서 `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.
+
 - 2026-10-21 생활 숙련·거절 문구: `verifyP5LifeActionProficiency` PASS. 철광 채집 1회에 대장장이 숙련 +1, 같은 요청 재전송은 2에 머문다. 숙련 100과 미학습은 채집을 막지 않는다. `oscar_p3_fixture` 전체 회귀 검증 96개와 스모크 PASS, FAIL 0. 락 반환. `p5-playtest`는 건드리지 않았다.
 
 - 2026-10-21 통신 35 재회귀: 커밋 `5d8e64c`, `oscar_p3_fixture` 전체 회귀 검증 95개와 스모크 PASS, FAIL 0. 락 반환. `verifyProtocolVersion` PASS.

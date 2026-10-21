@@ -36,7 +36,7 @@ final class StoryClientCheck {
         class Minecraft{void setScreen(Screen s){}}
         class GuiGraphicsExtractor{int width,height,count;GuiGraphicsExtractor(int w,int h){width=w;height=h;}void text(Font font,String s,int x,int y,int color,boolean shadow){if(x<0||y<0||x+font.width(s)>width||y+9>height)throw new AssertionError("Story text clipped");count++;}}
         class Screen{int width=320,height=180;Font font=new Font();Minecraft minecraft=new Minecraft();List<Button>buttons=new ArrayList<>();Screen(String name){}protected void init(){}public void tick(){}public void extractRenderState(GuiGraphicsExtractor g,int x,int y,float d){}Button addRenderableWidget(Button b){if(b.x<0||b.y<0||b.x+b.width>width||b.y+b.height>height)throw new AssertionError("Story button clipped");for(var other:buttons)if(b.x<other.x+other.width&&b.x+b.width>other.x&&b.y<other.y+other.height&&b.y+b.height>other.y)throw new AssertionError("Story controls overlap");buttons.add(b);return b;}}
-        class DalmaruClient{static void requestStoryState(){}static void storyOperation(String operation,String npc){}}
+        class DalmaruClient{static void requestStoryState(){}static void storyOperation(String operation,String npc){}static String rejectionText(String result,String fallback){return fallback;}}
         public class StoryClientHarness{
             static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
             static String json(String title){return "{\\"finished\\":false,\\"chapterId\\":\\"story.dawn\\",\\"title\\":\\""+title+"\\",\\"combatXP\\":0,\\"combatGoal\\":0,\\"ready\\":false,\\"npcs\\":[\\"taepyeong.guide\\"],\\"missing\\":[\\"NPC 상호작용\\"]}";}

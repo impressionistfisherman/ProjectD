@@ -1104,7 +1104,7 @@ public final class DalmaruNetworking {
         int x=player.blockPosition().getX(),y=player.blockPosition().getY(),z=player.blockPosition().getZ();
         CompletableFuture.supplyAsync(()->{try{return kr.dalmaru.play.PlayAccess.act(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),dimension,x,y,z,envelope);}catch(Exception error){throw new IllegalStateException(error);}})
             .thenAccept(result->context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;var receipt=result.receipt();ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,receipt.requestId(),receipt.eventId(),receipt.state(),result.result().toString(),result.replayed()));}))
-            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error)){Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();if(kr.dalmaru.mail.MailboxClaim.WALLET_LIMIT.equals(cause.getMessage())){var body=new com.google.gson.JsonObject();body.addProperty("message",cause.getMessage());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"rejected",body.toString(),false));}else rejectOperation(player,correlation,envelope.requestId());}LOGGER.warn("Play access failed for {}",session.accountId(),error);});return null;});
+            .exceptionally(error->{context.server().execute(()->{if(CONNECTIONS.get(player.getUUID())==state&&state.accountSession==session&&kr.dalmaru.request.RequestJournal.definitelyRejected(error)){Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();if(kr.dalmaru.mail.MailboxClaim.WALLET_LIMIT.equals(cause.getMessage())){var body=new com.google.gson.JsonObject();body.addProperty("message",cause.getMessage());ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"rejected",body.toString(),false));}else rejectOperation(player,correlation,envelope.requestId(),error);}LOGGER.warn("Play access failed for {}",session.accountId(),error);});return null;});
     }
 
     private static com.google.gson.JsonObject villageList(){
@@ -1171,11 +1171,11 @@ public final class DalmaruNetworking {
     private static void learnSkillRequest(ServerPlayNetworking.Context context,long correlation,String skillId,kr.dalmaru.request.RequestEnvelope envelope){
         var player=context.player();var state=stateFor(player.getUUID());
         if(correlation<1||!state.compatible||state.accountFailure!=null||state.accountSession==null||state.accountSession.activeCharacterId()==null){
-            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendSkillLearn(context,correlation,false,"\uc804\uc9c1\ud55c \uce90\ub9ad\ud130\ub97c \uba3c\uc800 \uc120\ud0dd\ud558\uc138\uc694.",null);return;
+            if(envelope!=null)rejectOperation(player,correlation,envelope.requestId(),new IllegalArgumentException("Select a character before learning a skill."));else sendSkillLearn(context,correlation,false,"\uc804\uc9c1\ud55c \uce90\ub9ad\ud130\ub97c \uba3c\uc800 \uc120\ud0dd\ud558\uc138\uc694.",null);return;
         }
         var session=state.accountSession;
         var profession=kr.dalmaru.skill.SkillDefinition.capabilities().get(skillId);
-        if(profession==null){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId());else sendSkillLearn(context,correlation,false,"\uc54c \uc218 \uc5c6\ub294 \uae30\uc220\uc785\ub2c8\ub2e4.",null);return;}
+        if(profession==null){if(envelope!=null)rejectOperation(player,correlation,envelope.requestId(),new IllegalArgumentException("Unknown skill."));else sendSkillLearn(context,correlation,false,"\uc54c \uc218 \uc5c6\ub294 \uae30\uc220\uc785\ub2c8\ub2e4.",null);return;}
         CompletableFuture.supplyAsync(()->{
             try{return SKILLS.learnJournaled(session.accountId(),session.connectionGeneration(),correlation,session.activeCharacterId(),profession,skillId,envelope);}
             catch(Exception error){throw new IllegalStateException(error);}
@@ -1752,7 +1752,7 @@ public final class DalmaruNetworking {
             })).exceptionally(error->{serverFor(player).execute(()->{
                 state.storyWritePending=false;if(CONNECTIONS.get(player.getUUID())!=state||state.accountSession!=session)return;
                 LOGGER.warn("Story operation outcome for {}",session.accountId(),error);
-                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error)){rejectOperation(player,correlation,envelope.requestId());player.sendSystemMessage(Component.literal("이야기 NPC 위치와 완료 조건을 확인하세요."));}
+                if(kr.dalmaru.request.RequestJournal.definitelyRejected(error)){rejectOperation(player,correlation,envelope.requestId(),error);player.sendSystemMessage(Component.literal("이야기 NPC 위치와 완료 조건을 확인하세요."));}
                 else ServerPlayNetworking.send(player,new DalmaruPayloads.OperationReceipt(correlation,envelope.requestId(),new UUID(0,0),"accepted","{}",false));
             });return null;});
     }

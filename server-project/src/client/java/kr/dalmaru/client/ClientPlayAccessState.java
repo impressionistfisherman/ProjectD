@@ -29,6 +29,7 @@ final class ClientPlayAccessState {
 			try {
 				var json = JsonParser.parseString(result).getAsJsonObject();
 				if (json.has("message") && json.get("message").isJsonPrimitive()) { text = "임시 " + json.get("message").getAsString(); return; }
+				if (json.has("reason") || json.has("status")) { text = "임시 " + DalmaruClient.rejectionText(result, "임시 요청이 거절되었습니다."); return; }
 			} catch (RuntimeException ignored) { }
 			text = "임시 요청이 거절되었습니다.";
 			return;

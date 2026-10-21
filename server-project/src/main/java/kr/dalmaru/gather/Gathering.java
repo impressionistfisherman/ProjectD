@@ -35,7 +35,8 @@ public final class Gathering {
 	private JsonObject gather(java.sql.Connection connection, UUID accountId, UUID characterId, String nodeId, String dimension, int x, int y, int z) throws SQLException {
 		var node = GatherCatalog.node(nodeId);
 		if (!node.zone().contains(dimension, x, y, z)) throw new IllegalArgumentException("Not at a gather node.");
-		if (cooling(connection, accountId, nodeId)) throw new IllegalArgumentException("Gather node is not ready.");
+		int remaining = cooldownRemaining(connection, accountId, nodeId);
+		if (remaining > 0) throw new IllegalArgumentException("Gather node is not ready. " + remaining + " seconds remain.");
 		Held row = lockMaterial(connection, characterId, node.itemId());
 		if (row != null && !row.binding().equals(node.binding())) throw new IllegalArgumentException("Material binding does not match the node.");
 		int owned = (row == null ? 0 : row.quantity()) + node.quantity();
@@ -51,11 +52,11 @@ public final class Gathering {
 		return outcome;
 	}
 
-	private boolean cooling(java.sql.Connection connection, UUID accountId, String nodeId) throws SQLException {
-		try (var query = connection.prepareStatement("SELECT ready_at > clock_timestamp() FROM dalmaru.account_gather_cooldowns WHERE account_id=? AND node_id=? FOR UPDATE")) {
+	private int cooldownRemaining(java.sql.Connection connection, UUID accountId, String nodeId) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT GREATEST(0, CEIL(EXTRACT(EPOCH FROM (ready_at - clock_timestamp()))))::int FROM dalmaru.account_gather_cooldowns WHERE account_id=? AND node_id=? FOR UPDATE")) {
 			query.setObject(1, accountId);
 			query.setString(2, nodeId);
-			try (var row = query.executeQuery()) { return row.next() && row.getBoolean(1); }
+			try (var row = query.executeQuery()) { return row.next() ? row.getInt(1) : 0; }
 		}
 	}
 
