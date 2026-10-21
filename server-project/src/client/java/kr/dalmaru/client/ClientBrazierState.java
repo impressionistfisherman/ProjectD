@@ -89,6 +89,7 @@ final class ClientBrazierState {
 			case "STALE_REVISION" -> "거절: 단계가 바뀌었습니다";
 			case "NOT_PARTICIPANT" -> "거절: 참가자가 아닙니다";
 			case "WRONG_PHASE" -> "거절: 화로 단계가 아닙니다";
+			case "MOBS_REMAINING" -> "거절: 남은 적을 모두 처치해야 합니다.";
 			case "DEAD" -> "거절: 쓰러진 상태입니다";
 			case "OUT_OF_RANGE" -> "거절: 거리가 멉니다";
 			case "NO_LINE_OF_SIGHT" -> "거절: 시야가 없습니다";

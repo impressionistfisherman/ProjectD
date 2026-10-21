@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 화로 거절 분리: verifyP5BrazierRejection 수정 전 RED(몹 잔존 오분류), 수정 후 PASS. verifyBrazierChannel·verifyProtocolVersion·verifyP4PlayAccess PASS. 근거: hive/research/MDF_P5_MOBS_RED.log, MDF_P5_MOBS_FOCUSED.log. oscar_p3_fixture 잠금 전체100 PASS·FAIL0, JAR 빌드·35565 격리 서버 RunRespawnMixin/부팅 스모크 PASS(exit0), LOCK_RELEASED. 근거: hive/research/MDF_P5_MOBS_FULL.log. p5-playtest 배포/실기는 수행하지 않음.
+
 - 2026-10-21 정밀 해금: 수정 전 정상 연구·실제 철검 생성 후 `PrecisionOrderRepository.ready` 거절 재현(`MDF_P5_PRECISION_RED2.log`). 수정 후 `verifyP5CraftPrecision`·`verifyP5CraftResearch` PASS, exit0·자체 fixture 잠금 반환(`MDF_P5_PRECISION_FOCUSED.log`). 정밀법 SQL 선삽입 없이 선행법을 정상 연구하고 실제 생성된 철검 UUID로 진입·재시도·재접속·공정 완료를 검사했다. 미학습 한국어 거절·변경 없는 재료/주문도 검사했다. 최초 검사 초안 컴파일 오류는 수정했으며 로그는 별도로 보존했다. 자체 잠금 oscar_p3_fixture 전체 회귀 검증 99개와 JAR/서버 스모크 PASS, FAIL 0·exit0·LOCK_RELEASED·35565 리스너0(MDF_P5_PRECISION_FULL.log). 배포와 수정 후 봇 정밀 실기는 미실행이다.
 
 - 2026-10-21 필드 부활 재접속: `verifyP5FieldReviveReconnect` PASS. 가짜 플레이어 목록에서 연결을 죽은 몸에 두면 UUID 맵이 남고, 새 몸으로 옮기면 로그아웃이 맵을 비운다. `oscar_p3_fixture` 전체 회귀 검증 99개와 스모크 PASS, FAIL 0. RunRespawnMixin PASS. 벽시계 약 328초. 락 반환. 인게임 재접속은 미실행. `p5-playtest`는 로그 읽기만 했다.

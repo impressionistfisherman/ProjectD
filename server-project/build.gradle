@@ -3,6 +3,11 @@ plugins {
 	id 'maven-publish'
 }
 
+tasks.register('verifyP5BrazierRejection', JavaExec) {
+    group = 'verification'; classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.client.P5BrazierRejectionCheck'
+}
+
 tasks.register('verifyP5VillagePlaza', JavaExec) {
     group = 'verification'
     classpath = sourceSets.test.runtimeClasspath

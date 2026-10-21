@@ -69,7 +69,8 @@ public final class RunRuntime implements RunMechanicAccess {
         Encounter e=encounters.get(runId);
         if(e==null||e.brazier==null||e.failed||e.pausedAt!=0)return Result.UNAVAILABLE;
         if(e.revision!=revision)return Result.STALE_REVISION;
-        if(e.stage!=Stage.BRAZIER||!e.mobs.isEmpty())return Result.WRONG_PHASE;
+        if(e.stage!=Stage.BRAZIER)return Result.WRONG_PHASE;
+        if(!e.mobs.isEmpty())return Result.MOBS_REMAINING;
         if(state.dead||!player.isAlive()||player.isSpectator())return Result.DEAD;
         if(player.level()!=e.level)return Result.WRONG_PHASE;
         return null;
