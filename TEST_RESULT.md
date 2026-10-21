@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-22 실제 마을: `verifyP6VillageLayout` PASS. `verifyP5VillagePlaza` PASS(수몰 마을 네 건물·강단·길, 거처 문까지 보행, 바깥 밀폐, 육지 출구, 예전 9×9는 건물 없이 출구만). `oscar_p3_fixture` 잠금 전체 회귀 101개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 471초. 실제 플레이어 접속은 하지 않았다. `p5-playtest` 25576은 유지했다.
+
 - 2026-10-21 화로 거절 분리: verifyP5BrazierRejection 수정 전 RED(몹 잔존 오분류), 수정 후 PASS. verifyBrazierChannel·verifyProtocolVersion·verifyP4PlayAccess PASS. 근거: hive/research/MDF_P5_MOBS_RED.log, MDF_P5_MOBS_FOCUSED.log. oscar_p3_fixture 잠금 전체100 PASS·FAIL0, JAR 빌드·35565 격리 서버 RunRespawnMixin/부팅 스모크 PASS(exit0), LOCK_RELEASED. 근거: hive/research/MDF_P5_MOBS_FULL.log. p5-playtest 배포/실기는 수행하지 않음.
 
 - 2026-10-21 정밀 해금: 수정 전 정상 연구·실제 철검 생성 후 `PrecisionOrderRepository.ready` 거절 재현(`MDF_P5_PRECISION_RED2.log`). 수정 후 `verifyP5CraftPrecision`·`verifyP5CraftResearch` PASS, exit0·자체 fixture 잠금 반환(`MDF_P5_PRECISION_FOCUSED.log`). 정밀법 SQL 선삽입 없이 선행법을 정상 연구하고 실제 생성된 철검 UUID로 진입·재시도·재접속·공정 완료를 검사했다. 미학습 한국어 거절·변경 없는 재료/주문도 검사했다. 최초 검사 초안 컴파일 오류는 수정했으며 로그는 별도로 보존했다. 자체 잠금 oscar_p3_fixture 전체 회귀 검증 99개와 JAR/서버 스모크 PASS, FAIL 0·exit0·LOCK_RELEASED·35565 리스너0(MDF_P5_PRECISION_FULL.log). 배포와 수정 후 봇 정밀 실기는 미실행이다.

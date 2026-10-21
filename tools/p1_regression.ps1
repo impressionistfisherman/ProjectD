@@ -95,6 +95,8 @@ try {
     # P5 Oscar
     $tasks += 'verifyP5VillagePlaza'
     $expected += 'verifyP5VillagePlaza'
+    $tasks += 'verifyP6VillageLayout'
+    $expected += 'verifyP6VillageLayout'
     # P5 Grok
     $tasks += 'verifyP5FieldReviveReconnect'
     $expected += 'verifyP5FieldReviveReconnect'

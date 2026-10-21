@@ -16,7 +16,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.levelgen.Heightmap;
 
-/** Small temporary arrival floors until authored village terrain replaces the pilot map. */
+/** Fixed arrival village. Unsafe centers get one authored layout; dry centers stay natural. */
 public final class VillagePlazas {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(VillagePlazas.class);
     private static final AttachmentType<List<String>> PREPARED = AttachmentRegistry.<List<String>>create(
@@ -35,13 +35,17 @@ public final class VillagePlazas {
             List<String> prepared = level.getAttached(PREPARED);
             String exitKey = key + ":exit-v3";
             if (prepared != null && prepared.contains(exitKey)) continue;
-            boolean changed = (prepared == null || !prepared.contains(key)) && buildIfUnsafe(level, town);
+            boolean built = (prepared == null || !prepared.contains(key)) && buildIfUnsafe(level, town);
+            boolean changed = built;
             boolean isolated = false;
+            boolean shelled = pad(town) > 4 && glassBox(level, new BlockPos(town.x(), town.y(), town.z()), pad(town));
             if (enclosed(level, town)) {
                 boolean exitBuilt = buildExit(level, town);
                 changed |= exitBuilt;
                 isolated = !exitBuilt;
             }
+            if (built) furnish(level, town);
+            if (shelled) openRingDoors(level, town);
             if (changed) level.getChunkSource().save(true);
             var next = prepared == null ? new ArrayList<String>() : new ArrayList<>(prepared);
             if (!next.contains(key)) next.add(key);
@@ -67,9 +71,9 @@ public final class VillagePlazas {
         return null;
     }
 
-    private static boolean enclosed(ServerLevel level, TownZone town) {
-        var center = new BlockPos(town.x(), town.y(), town.z());
-        int radius = Math.min(4, town.radius());
+    private static int pad(TownZone town) { return Math.min(8, town.radius()); }
+
+    private static boolean glassBox(ServerLevel level, BlockPos center, int radius) {
         if (!level.getBlockState(center.offset(0, 3, 0)).is(Blocks.GLASS)) return false;
         for (int offset = -radius; offset <= radius; offset++) for (int y = 0; y < 3; y++) {
             if (!level.getBlockState(center.offset(radius, y, offset)).is(Blocks.GLASS)
@@ -78,6 +82,14 @@ public final class VillagePlazas {
                     || !level.getBlockState(center.offset(offset, y, -radius)).is(Blocks.GLASS)) return false;
         }
         return true;
+    }
+
+    private static boolean enclosed(ServerLevel level, TownZone town) {
+        var center = new BlockPos(town.x(), town.y(), town.z());
+        int legacy = Math.min(4, town.radius());
+        if (glassBox(level, center, legacy)) return true;
+        int radius = pad(town);
+        return radius != legacy && glassBox(level, center, radius);
     }
 
     private static BlockPos nearestLand(ServerLevel level, TownZone town) {
@@ -204,7 +216,7 @@ public final class VillagePlazas {
     static boolean buildIfUnsafe(ServerLevel level, TownZone town) {
         var center = new BlockPos(town.x(), town.y(), town.z());
         if (dry(level, center)) return false;
-        int radius = Math.min(4, town.radius());
+        int radius = pad(town);
         boolean submerged = false;
         for (int x = -radius; x <= radius; x++) for (int z = -radius; z <= radius; z++) {
             for (int y = 0; y <= 3; y++) {
@@ -222,6 +234,87 @@ public final class VillagePlazas {
         }
         if (!dry(level, center)) throw new IllegalStateException("Cannot prepare village arrival: " + town.waypointId());
         return true;
+    }
+
+    private static void openRingDoors(ServerLevel level, TownZone town) {
+        var center = new BlockPos(town.x(), town.y(), town.z());
+        int[][] doors = {{4, 0}, {-4, 0}, {0, 4}, {0, -4}};
+        for (int[] door : doors) for (int y = 0; y <= 1; y++) {
+            var pos = center.offset(door[0], y, door[1]);
+            if (level.getBlockState(pos).is(Blocks.GLASS)) level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+        }
+    }
+
+    private static void furnish(ServerLevel level, TownZone town) {
+        int pad = pad(town);
+        if (pad <= 4) return;
+        var center = new BlockPos(town.x(), town.y(), town.z());
+        for (int x = 1 - pad; x < pad; x++) for (int z = 1 - pad; z < pad; z++) {
+            if (Math.max(Math.abs(x), Math.abs(z)) <= 4) continue;
+            if (x == 0 || z == 0) put(level, center.offset(x, -1, z), "smooth_stone");
+        }
+        var root = readLayout();
+        for (var entry : root.getAsJsonArray("buildings")) {
+            var building = entry.getAsJsonObject();
+            placeBuilding(level, center, pad, building.get("x").getAsInt(), building.get("z").getAsInt(), building.get("w").getAsInt(), building.get("d").getAsInt(), building.get("wall").getAsString(), building.get("marker").getAsString());
+        }
+        var npc = root.getAsJsonObject("npc");
+        int nx = npc.get("x").getAsInt(), nz = npc.get("z").getAsInt();
+        if (Math.max(Math.abs(nx), Math.abs(nz)) > 4 && Math.max(Math.abs(nx), Math.abs(nz)) < pad) put(level, center.offset(nx, 0, nz), npc.get("marker").getAsString());
+    }
+
+    private static void placeBuilding(ServerLevel level, BlockPos center, int pad, int x0, int z0, int w, int d, String wall, String marker) {
+        int doorX = 0, doorZ = 0, best = Integer.MAX_VALUE;
+        boolean foundDoor = false;
+        int markerX = x0 + w / 2, markerZ = z0 + d / 2;
+        for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++) {
+            int ring = Math.max(Math.abs(x), Math.abs(z));
+            if (ring <= 4 || ring >= pad || x == 0 || z == 0) continue;
+            boolean edge = x == x0 || x == x0 + w - 1 || z == z0 || z == z0 + d - 1;
+            int dist = x * x + z * z;
+            if (edge && dist < best) { best = dist; doorX = x; doorZ = z; foundDoor = true; }
+        }
+        for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++) {
+            int ring = Math.max(Math.abs(x), Math.abs(z));
+            if (ring <= 4 || ring >= pad || x == 0 || z == 0) continue;
+            boolean edge = x == x0 || x == x0 + w - 1 || z == z0 || z == z0 + d - 1;
+            boolean door = foundDoor && x == doorX && z == doorZ;
+            if (!edge && x == markerX && z == markerZ) {
+                put(level, center.offset(x, 0, z), marker);
+                put(level, center.offset(x, 1, z), "air");
+            } else if (edge && !door) {
+                put(level, center.offset(x, 0, z), wall);
+                put(level, center.offset(x, 1, z), wall);
+            } else {
+                put(level, center.offset(x, 0, z), "air");
+                put(level, center.offset(x, 1, z), "air");
+            }
+        }
+    }
+
+    private static com.google.gson.JsonObject readLayout() {
+        try (var stream = kr.dalmaru.content.VillagePlazas.class.getResourceAsStream("/content/village-layout.json")) {
+            if (stream == null) throw new IllegalStateException("Missing village layout");
+            var root = com.google.gson.JsonParser.parseString(new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            if (root.get("radius").getAsInt() != 8) throw new IllegalStateException("Village layout radius drifted");
+            return root;
+        } catch (java.io.IOException exception) {
+            throw new IllegalStateException("Cannot load village layout", exception);
+        }
+    }
+
+    private static void put(ServerLevel level, BlockPos pos, String id) {
+        level.setBlock(pos, switch (id) {
+            case "smooth_stone" -> Blocks.SMOOTH_STONE.defaultBlockState();
+            case "bricks" -> Blocks.BRICKS.defaultBlockState();
+            case "lodestone" -> Blocks.LODESTONE.defaultBlockState();
+            case "blast_furnace" -> Blocks.BLAST_FURNACE.defaultBlockState();
+            case "barrel" -> Blocks.BARREL.defaultBlockState();
+            case "oak_planks" -> Blocks.OAK_PLANKS.defaultBlockState();
+            case "lectern" -> Blocks.LECTERN.defaultBlockState();
+            case "air" -> Blocks.AIR.defaultBlockState();
+            default -> throw new IllegalArgumentException("Unknown village block: " + id);
+        }, 3);
     }
 
     private static boolean dry(ServerLevel level, BlockPos feet) {

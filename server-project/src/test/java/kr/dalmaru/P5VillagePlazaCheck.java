@@ -11,8 +11,9 @@ public final class P5VillagePlazaCheck {
         String source=Files.readString(Path.of("src/main/java/kr/dalmaru/content/VillagePlazas.java"));
         String methods="";
         for(String signature:new String[]{"public static void prepare(","static boolean buildIfUnsafe(","private static boolean dry(",
-                "private static boolean enclosed(","private static BlockPos nearestLand(","private static boolean buildExit(",
+                "private static int pad(","private static boolean glassBox(","private static boolean enclosed(","private static BlockPos nearestLand(","private static boolean buildExit(",
                 "private static BlockPos stairTower(","private static void shoreDoor(","private static void landing(","private static void bridge(",
+                "private static void openRingDoors(","private static void furnish(","private static void placeBuilding(","private static com.google.gson.JsonObject readLayout(","private static void put(",
                 "public static String waypointExit("}) methods+=method(source,signature);
         var dir=Files.createTempDirectory("village-plaza-check-");
         try {
@@ -66,7 +67,10 @@ public final class P5VillagePlazaCheck {
             static class Blocks {
                 static State STONE=new State("stone",true,false),STONE_STAIRS=new State("stairs",true,false),GLASS=new State("glass",true,false),AIR=new State("air",false,false),
                     WATER=new State("water",false,true),MAGMA_BLOCK=new State("magma",true,false),CAMPFIRE=new State("campfire",true,false),
-                    SOUL_CAMPFIRE=new State("soul_campfire",true,false),FIRE=new State("fire",false,false),SOUL_FIRE=new State("soul_fire",false,false);
+                    SOUL_CAMPFIRE=new State("soul_campfire",true,false),FIRE=new State("fire",false,false),SOUL_FIRE=new State("soul_fire",false,false),
+                    SMOOTH_STONE=new State("smooth_stone",true,false),BRICKS=new State("bricks",true,false),LODESTONE=new State("lodestone",true,false),
+                    BLAST_FURNACE=new State("blast_furnace",true,false),BARREL=new State("barrel",true,false),OAK_PLANKS=new State("oak_planks",true,false),
+                    LECTERN=new State("lectern",true,false);
             }
             static class ServerLevel {
                 final Map<BlockPos,State> blocks=new HashMap<>();final Set<String> editedColumns=new HashSet<>();final int water;final boolean land;
@@ -116,8 +120,15 @@ public final class P5VillagePlazaCheck {
                 var ocean=new ServerLevel(62,false);
                 prepare(new MinecraftServer(ocean));
                 require(dry(ocean,center)&&ocean.getBlockState(center.below())==Blocks.STONE,"Ocean arrival needs a dry stone floor");
-                require(ocean.writes==9*9*4&&ocean.saves==1,"Ocean plaza must be 9 by 9 with three clear head blocks");
-                require(ocean.blocks.keySet().stream().allMatch(p->Math.abs(p.x())<=4&&Math.abs(p.z())<=4&&p.y()>=63&&p.y()<=66),"Plaza escaped its bounded footprint");
+                require(ocean.saves==1,"Ocean village must save once");
+                require(ocean.blocks.keySet().stream().allMatch(p->Math.abs(p.x())<=8&&Math.abs(p.z())<=8&&p.y()>=63&&p.y()<=66),"Village escaped its bounded footprint");
+                require(ocean.getBlockState(new BlockPos(-2,64,-6))==Blocks.LODESTONE,"Waypoint marker missing");
+                require(ocean.getBlockState(new BlockPos(6,64,-2))==Blocks.BLAST_FURNACE,"Blacksmith marker missing");
+                require(ocean.getBlockState(new BlockPos(-6,64,-2))==Blocks.BARREL,"Shop marker missing");
+                require(ocean.getBlockState(new BlockPos(-2,64,6))==Blocks.OAK_PLANKS,"Housing entrance marker missing");
+                require(ocean.getBlockState(new BlockPos(2,64,-6))==Blocks.LECTERN,"NPC stand missing");
+                require(ocean.getBlockState(new BlockPos(0,63,-5))==Blocks.SMOOTH_STONE,"North road missing");
+                require(walkable(ocean,center,new BlockPos(-1,64,5)),"Housing door must be reachable from spawn");
                 ocean.blocks.put(center.below(),Blocks.AIR);
                 var restarted=new ServerLevel(62,false);
                 restarted.blocks.putAll(ocean.blocks);restarted.attached=List.copyOf(ocean.attached);
@@ -125,11 +136,12 @@ public final class P5VillagePlazaCheck {
                 require(restarted.writes==0&&restarted.getBlockState(center.below())==Blocks.AIR,"Restart must preserve subsequent player edits");
                 var lake=new ServerLevel(70,false);
                 prepare(new MinecraftServer(lake));
-                require(dry(lake,center)&&lake.writes==9*9*5,"Deep lake needs a dry, sealed plaza");
-                for(int y=64;y<=66;y++)for(int n=-4;n<=4;n++) {
-                    require(lake.getBlockState(new BlockPos(4,y,n))==Blocks.GLASS&&lake.getBlockState(new BlockPos(-4,y,n))==Blocks.GLASS,"Lake side leak");
-                    require(lake.getBlockState(new BlockPos(n,y,4))==Blocks.GLASS&&lake.getBlockState(new BlockPos(n,y,-4))==Blocks.GLASS,"Lake end leak");
+                require(dry(lake,center),"Deep lake needs a dry village");
+                for(int y=64;y<=66;y++)for(int n=-8;n<=8;n++) {
+                    require(lake.getBlockState(new BlockPos(8,y,n))==Blocks.GLASS&&lake.getBlockState(new BlockPos(-8,y,n))==Blocks.GLASS,"Lake side leak");
+                    require(lake.getBlockState(new BlockPos(n,y,8))==Blocks.GLASS&&lake.getBlockState(new BlockPos(n,y,-8))==Blocks.GLASS,"Lake end leak");
                 }
+                require(lake.getBlockState(new BlockPos(-2,64,-6))==Blocks.LODESTONE,"Submerged village is missing its waypoint");
                 require(lake.getBlockState(center.offset(0,3,0))==Blocks.GLASS,"Lake roof leak");
                 require(LOGGER.warnings==1,"No-land fallback must log once");
                 require("taepyeong".equals(waypointExit(lake,.5,64,.5)),"Sealed no-land plaza needs a server-proven waypoint exit");
@@ -145,7 +157,8 @@ public final class P5VillagePlazaCheck {
                     int z=2+(int)Math.round(-2.0*(x-2)/10)+width;
                     require(connected.getBlockState(new BlockPos(x,71,z))==Blocks.STONE,"Bridge must have three stone floor columns");
                 }
-                require(connected.getBlockState(new BlockPos(-4,64,0))==Blocks.GLASS,"Non-entry wall must stay sealed");
+                require(connected.getBlockState(new BlockPos(-8,64,0))==Blocks.GLASS,"Outer wall must stay sealed");
+                require(connected.getBlockState(new BlockPos(-4,64,0))==Blocks.AIR,"Ring road door must open");
                 require(connected.getBlockState(new BlockPos(4,72,2))==Blocks.AIR,"Only the raised bridge entry must open");
                 int connectedWrites=connected.writes;prepare(new MinecraftServer(connected));
                 require(connected.writes==connectedWrites,"Bridge must share once-only completion state");
@@ -195,6 +208,16 @@ public final class P5VillagePlazaCheck {
                 var tiny=new ServerLevel(70,false);
                 require(buildIfUnsafe(tiny,new TownZone("minecraft:overworld",0,64,0,1,"tiny"))&&dry(tiny,center),"Small village still needs one safe cell");
                 require(tiny.blocks.keySet().stream().allMatch(p->Math.abs(p.x())<=1&&Math.abs(p.z())<=1),"Small village radius exceeded");
+                var oldBox=new ServerLevel(70,false);
+                for(int x=-4;x<=4;x++)for(int z=-4;z<=4;z++){
+                    oldBox.blocks.put(new BlockPos(x,63,z),Blocks.STONE);
+                    for(int y=64;y<=66;y++)oldBox.blocks.put(new BlockPos(x,y,z),Math.abs(x)==4||Math.abs(z)==4?Blocks.GLASS:Blocks.AIR);
+                    oldBox.blocks.put(new BlockPos(x,67,z),Blocks.GLASS);
+                }
+                oldBox.attached=List.of("taepyeong:0:64:0");oldBox.land(12,0,71);
+                prepare(new MinecraftServer(oldBox));
+                require(walkable(oldBox,center,new BlockPos(12,72,0)),"Legacy 9 by 9 plaza must still gain a walking exit");
+                require(oldBox.getBlockState(new BlockPos(-2,64,-6))!=Blocks.LODESTONE,"Legacy plaza must not gain the new village");
                 VillageCatalog.villages=List.of(new Village("missing",new TownZone("minecraft:missing",0,64,0,32,"missing")));
                 try{prepare(new MinecraftServer(ocean));throw new AssertionError("Missing dimension silently ignored");}catch(IllegalStateException expected){}
             }

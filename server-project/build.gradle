@@ -14,6 +14,12 @@ tasks.register('verifyP5VillagePlaza', JavaExec) {
     mainClass = 'kr.dalmaru.P5VillagePlazaCheck'
 }
 
+tasks.register('verifyP6VillageLayout', JavaExec) {
+    group = 'verification'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'kr.dalmaru.P6VillageLayoutCheck'
+}
+
 repositories {
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
