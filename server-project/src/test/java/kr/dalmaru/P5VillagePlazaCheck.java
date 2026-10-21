@@ -13,7 +13,7 @@ public final class P5VillagePlazaCheck {
         for(String signature:new String[]{"public static void prepare(","static boolean buildIfUnsafe(","private static boolean dry(",
                 "private static int pad(","private static boolean glassBox(","private static boolean enclosed(","private static BlockPos nearestLand(","private static boolean buildExit(",
                 "private static BlockPos stairTower(","private static void shoreDoor(","private static void landing(","private static void bridge(",
-                "private static void openRingDoors(","private static void furnish(","private static void placeBuilding(","private static com.google.gson.JsonObject readLayout(","private static void put(",
+                "private static void openRingDoors(","private static void furnish(","private static void roadRamps(","private static int ground(","private static void placeBuilding(","private static com.google.gson.JsonObject readLayout(","private static void put(",
                 "public static String waypointExit("}) methods+=method(source,signature);
         var dir=Files.createTempDirectory("village-plaza-check-");
         try {
@@ -94,7 +94,8 @@ public final class P5VillagePlazaCheck {
             static class VillageCatalog {static List<Village> villages;static List<Village> current(){return villages;}}
             /* METHODS */
             static void require(boolean ok,String message){if(!ok)throw new AssertionError(message);}
-            static boolean walkable(ServerLevel level,BlockPos start,BlockPos target){
+            static boolean walkable(ServerLevel level,BlockPos start,BlockPos target){return walkable(level,start,target,63);}
+            static boolean walkable(ServerLevel level,BlockPos start,BlockPos target,int minY){
                 Set<BlockPos> visited=new HashSet<>();ArrayDeque<BlockPos> queue=new ArrayDeque<>();queue.add(start);visited.add(start);
                 while(!queue.isEmpty()){
                     var feet=queue.remove();if(feet.equals(target))return true;
@@ -102,7 +103,7 @@ public final class P5VillagePlazaCheck {
                         int dx=direction==Direction.EAST?1:direction==Direction.WEST?-1:0;
                         int dz=direction==Direction.SOUTH?1:direction==Direction.NORTH?-1:0;
                         for(int dy=-1;dy<=1;dy++){
-                            var next=feet.offset(dx,dy,dz);if(Math.abs(next.x())>70||Math.abs(next.z())>70||next.y()<63||next.y()>155)continue;
+                            var next=feet.offset(dx,dy,dz);if(Math.abs(next.x())>70||Math.abs(next.z())>70||next.y()<minY||next.y()>155)continue;
                             var floor=level.getBlockState(next.below());
                             if(!floor.solid()||!level.getFluidState(next).isEmpty()||!level.getFluidState(next.above()).isEmpty()
                                 ||level.getBlockState(next).solid()||level.getBlockState(next.above()).solid())continue;
@@ -130,7 +131,12 @@ public final class P5VillagePlazaCheck {
                 require(ocean.getBlockState(new BlockPos(7,66,7))==Blocks.OAK_PLANKS,"Housing roof missing");
                 require(ocean.getBlockState(new BlockPos(2,64,-6))==Blocks.LECTERN,"NPC stand missing");
                 require(ocean.getBlockState(new BlockPos(0,63,-5))==Blocks.SMOOTH_STONE,"North road missing");
-                require(walkable(ocean,center,new BlockPos(5,64,5)),"Housing door must be reachable from spawn");
+                require(ocean.getBlockState(new BlockPos(-5,64,-7))==Blocks.AIR&&ocean.getBlockState(new BlockPos(-5,65,-7))==Blocks.AIR,"Waypoint door must be a two-high straight opening");
+                require(ocean.getBlockState(new BlockPos(5,64,-7))==Blocks.AIR&&ocean.getBlockState(new BlockPos(-5,64,7))==Blocks.AIR&&ocean.getBlockState(new BlockPos(5,64,7))==Blocks.AIR,"Every road-facing door must be open");
+                require(ocean.getBlockState(new BlockPos(-5,64,-5))==Blocks.BRICKS&&ocean.getBlockState(new BlockPos(5,64,5))==Blocks.OAK_PLANKS,"Corner cells must stay walls");
+                require(walkable(ocean,new BlockPos(0,64,-7),new BlockPos(-6,64,-7))&&walkable(ocean,new BlockPos(0,64,-7),new BlockPos(6,64,-7)),"North road must walk straight into both doors");
+                require(walkable(ocean,new BlockPos(0,64,7),new BlockPos(-6,64,7))&&walkable(ocean,new BlockPos(0,64,7),new BlockPos(6,64,7)),"South road must walk straight into both doors");
+                require(walkable(ocean,center,new BlockPos(6,64,7)),"Housing door must be reachable from spawn");
                 ocean.blocks.put(center.below(),Blocks.AIR);
                 var restarted=new ServerLevel(62,false);
                 restarted.blocks.putAll(ocean.blocks);restarted.attached=List.copyOf(ocean.attached);
@@ -211,7 +217,21 @@ public final class P5VillagePlazaCheck {
                 require(dryLand.getBlockState(new BlockPos(7,64,7))==Blocks.OAK_PLANKS,"Dry center needs the housing marker");
                 require(dryLand.getBlockState(new BlockPos(9,65,9))==Blocks.OAK_PLANKS&&dryLand.getBlockState(new BlockPos(7,66,7))==Blocks.OAK_PLANKS,"Dry center needs housing walls and a roof");
                 require(dryLand.getBlockState(new BlockPos(2,64,-6))==Blocks.LECTERN,"Dry center needs the NPC stand");
-                require(walkable(dryLand,center,new BlockPos(5,64,5)),"Dry center housing door must be reachable");
+                require(walkable(dryLand,center,new BlockPos(6,64,7)),"Dry center housing door must be reachable");
+                var banks=new ServerLevel(-100,true);
+                for(int step=1;step<=8;step++)for(int width=-1;width<=1;width++){
+                    int[][] spots={{10+step,width},{-(10+step),width},{width,10+step},{width,-(10+step)}};
+                    for(int i=0;i<4;i++){
+                        int x=spots[i][0],z=spots[i][1];
+                        boolean high=(Math.abs(x)>Math.abs(z)?x:z)<0;
+                        int groundY=high?68:58;
+                        banks.editedColumns.add(x+":"+z);
+                        for(int y=56;y<=80;y++)banks.blocks.put(new BlockPos(x,y,z),y==groundY?Blocks.STONE:Blocks.AIR);
+                    }
+                }
+                prepare(new MinecraftServer(banks));
+                BlockPos[] outs={new BlockPos(16,59,0),new BlockPos(-16,69,0),new BlockPos(0,59,16),new BlockPos(0,69,-16)};
+                for(var out:outs)require(walkable(banks,center,out,40)&&walkable(banks,out,center,40),"Road end must be a two-way ramp: "+out.x()+","+out.z());
                 require(dryLand.saves==1,"Dry center village must save once");
                 var danger=new ServerLevel(-100,true);danger.blocks.put(center.below(),Blocks.MAGMA_BLOCK);
                 require(buildIfUnsafe(danger,town)&&dry(danger,center),"Hazardous floor must be replaced");

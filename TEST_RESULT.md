@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-22 마을 문·가장자리: `verifyP5VillagePlaza` PASS(길에서 문 4곳 직선 진입, 모서리는 벽, 낮은 길 끝 2곳과 높은 길 끝 2곳 왕복). `verifyP6VillageLayout` PASS. `oscar_p3_fixture` 잠금 전체 회귀 101개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 551초. `p5-playtest` 25576은 유지했다.
+
 - 2026-10-22 마을 보정: `verifyP5VillagePlaza` PASS(마른 중심의 건물 4종, 벽, 지붕, 강단, 거처 문 보행). `verifyP6VillageLayout` PASS. `oscar_p3_fixture` 잠금 전체 회귀 101개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 535초. 실제 플레이어 접속은 하지 않았다. `p5-playtest` 25576은 유지했다.
 
 - 2026-10-22 실제 마을: `verifyP6VillageLayout` PASS. `verifyP5VillagePlaza` PASS(수몰 마을 네 건물·강단·길, 거처 문까지 보행, 바깥 밀폐, 육지 출구, 예전 9×9는 건물 없이 출구만). `oscar_p3_fixture` 잠금 전체 회귀 101개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 471초. 실제 플레이어 접속은 하지 않았다. `p5-playtest` 25576은 유지했다.

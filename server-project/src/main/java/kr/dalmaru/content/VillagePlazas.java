@@ -45,6 +45,7 @@ public final class VillagePlazas {
                 isolated = !exitBuilt;
             }
             if (built) furnish(level, town);
+            if (built && !shelled) roadRamps(level, town);
             if (shelled) openRingDoors(level, town);
             if (changed) level.getChunkSource().save(true);
             var next = prepared == null ? new ArrayList<String>() : new ArrayList<>(prepared);
@@ -262,17 +263,57 @@ public final class VillagePlazas {
         if (Math.max(Math.abs(nx), Math.abs(nz)) > 4 && Math.max(Math.abs(nx), Math.abs(nz)) < pad) put(level, center.offset(nx, 0, nz), npc.get("marker").getAsString());
     }
 
-    private static void placeBuilding(ServerLevel level, BlockPos center, int pad, int x0, int z0, int w, int d, String wall, String marker) {
-        int doorX = 0, doorZ = 0, best = Integer.MAX_VALUE;
-        boolean foundDoor = false;
-        int markerX = x0 + w / 2, markerZ = z0 + d / 2;
-        for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++) {
-            int ring = Math.max(Math.abs(x), Math.abs(z));
-            if (ring <= 4 || ring >= pad || x == 0 || z == 0) continue;
-            boolean edge = x == x0 || x == x0 + w - 1 || z == z0 || z == z0 + d - 1;
-            int dist = x * x + z * z;
-            if (edge && dist < best) { best = dist; doorX = x; doorZ = z; foundDoor = true; }
+    private static void roadRamps(ServerLevel level, TownZone town) {
+        int pad = pad(town);
+        if (pad <= 4) return;
+        int floor = town.y() - 1;
+        int[][] ends = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] end : ends) {
+            int sx = end[0], sz = end[1];
+            int outside = ground(level, town.x() + sx * (pad + 1), town.z() + sz * (pad + 1));
+            int diff = outside - floor;
+            if (Math.abs(diff) <= 1 || Math.abs(diff) > 24) continue;
+            Direction facing = sx > 0 ? (diff > 0 ? Direction.EAST : Direction.WEST)
+                    : sx < 0 ? (diff > 0 ? Direction.WEST : Direction.EAST)
+                    : sz > 0 ? (diff > 0 ? Direction.SOUTH : Direction.NORTH)
+                    : (diff > 0 ? Direction.NORTH : Direction.SOUTH);
+            if (diff < 0) for (int width = -1; width <= 1; width++) {
+                var lip = new BlockPos(town.x() + sx * pad + (sx == 0 ? width : 0), floor, town.z() + sz * pad + (sz == 0 ? width : 0));
+                level.setBlock(lip, Blocks.STONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, facing), 3);
+                level.setBlock(lip.above(), Blocks.AIR.defaultBlockState(), 3);
+                level.setBlock(lip.above().above(), Blocks.AIR.defaultBlockState(), 3);
+            }
+            for (int step = 1; step <= Math.abs(diff); step++) {
+                int y = floor + (diff > 0 ? step : -step);
+                int x = town.x() + sx * (pad + step);
+                int z = town.z() + sz * (pad + step);
+                for (int width = -1; width <= 1; width++) {
+                    var pos = new BlockPos(x + (sx == 0 ? width : 0), y, z + (sz == 0 ? width : 0));
+                    level.setBlock(pos, Blocks.STONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, facing), 3);
+                    level.setBlock(pos.above(), Blocks.AIR.defaultBlockState(), 3);
+                    level.setBlock(pos.above().above(), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
         }
+    }
+
+    private static int ground(ServerLevel level, int x, int z) {
+        int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        for (int y = top + 2; y >= Math.max(0, top - 24); y--) {
+            if (dry(level, new BlockPos(x, y, z))) return y - 1;
+        }
+        return top - 1;
+    }
+
+    private static void placeBuilding(ServerLevel level, BlockPos center, int pad, int x0, int z0, int w, int d, String wall, String marker) {
+        int faceX = Math.abs(x0) <= Math.abs(x0 + w - 1) ? x0 : x0 + w - 1;
+        int faceZ = Math.abs(z0) <= Math.abs(z0 + d - 1) ? z0 : z0 + d - 1;
+        int midX = x0 + (w - 1) / 2, midZ = z0 + (d - 1) / 2;
+        int doorX = faceX, doorZ = midZ;
+        if (Math.abs(faceZ) < Math.abs(faceX)) { doorX = midX; doorZ = faceZ; }
+        int doorRing = Math.max(Math.abs(doorX), Math.abs(doorZ));
+        boolean foundDoor = doorRing > 4 && doorRing < pad && doorX != 0 && doorZ != 0;
+        int markerX = x0 + w / 2, markerZ = z0 + d / 2;
         for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++) {
             int ring = Math.max(Math.abs(x), Math.abs(z));
             if (ring <= 4 || ring >= pad || x == 0 || z == 0) continue;
