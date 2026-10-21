@@ -1,10 +1,10 @@
 {
-  "radius": 8,
+  "radius": 10,
   "buildings": [
-    {"id": "waypoint", "name": "역참", "x": -3, "z": -7, "w": 3, "d": 3, "wall": "bricks", "marker": "lodestone"},
-    {"id": "blacksmith", "name": "대장간", "x": 5, "z": -3, "w": 3, "d": 3, "wall": "bricks", "marker": "blast_furnace"},
-    {"id": "shop", "name": "상점", "x": -7, "z": -3, "w": 3, "d": 3, "wall": "bricks", "marker": "barrel"},
-    {"id": "housing", "name": "거처 입구", "x": -3, "z": 5, "w": 3, "d": 3, "wall": "oak_planks", "marker": "oak_planks"}
+    {"id": "waypoint", "name": "역참", "x": -9, "z": -9, "w": 5, "d": 5, "wall": "bricks", "marker": "lodestone"},
+    {"id": "blacksmith", "name": "대장간", "x": 5, "z": -9, "w": 5, "d": 5, "wall": "bricks", "marker": "blast_furnace"},
+    {"id": "shop", "name": "상점", "x": -9, "z": 5, "w": 5, "d": 5, "wall": "bricks", "marker": "barrel"},
+    {"id": "housing", "name": "거처 입구", "x": 5, "z": 5, "w": 5, "d": 5, "wall": "oak_planks", "marker": "oak_planks"}
   ],
   "npc": {"x": 2, "z": -6, "marker": "lectern"}
 }

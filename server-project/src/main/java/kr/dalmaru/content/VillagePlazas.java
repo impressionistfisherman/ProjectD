@@ -16,7 +16,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.levelgen.Heightmap;
 
-/** Fixed arrival village. Unsafe centers get one authored layout; dry centers stay natural. */
+/** Fixed arrival village. Every new center is leveled once and given the same layout. */
 public final class VillagePlazas {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(VillagePlazas.class);
     private static final AttachmentType<List<String>> PREPARED = AttachmentRegistry.<List<String>>create(
@@ -71,7 +71,7 @@ public final class VillagePlazas {
         return null;
     }
 
-    private static int pad(TownZone town) { return Math.min(8, town.radius()); }
+    private static int pad(TownZone town) { return Math.min(10, town.radius()); }
 
     private static boolean glassBox(ServerLevel level, BlockPos center, int radius) {
         if (!level.getBlockState(center.offset(0, 3, 0)).is(Blocks.GLASS)) return false;
@@ -215,7 +215,6 @@ public final class VillagePlazas {
 
     static boolean buildIfUnsafe(ServerLevel level, TownZone town) {
         var center = new BlockPos(town.x(), town.y(), town.z());
-        if (dry(level, center)) return false;
         int radius = pad(town);
         boolean submerged = false;
         for (int x = -radius; x <= radius; x++) for (int z = -radius; z <= radius; z++) {
@@ -289,6 +288,7 @@ public final class VillagePlazas {
                 put(level, center.offset(x, 0, z), "air");
                 put(level, center.offset(x, 1, z), "air");
             }
+            put(level, center.offset(x, 2, z), wall);
         }
     }
 
@@ -296,7 +296,7 @@ public final class VillagePlazas {
         try (var stream = kr.dalmaru.content.VillagePlazas.class.getResourceAsStream("/content/village-layout.json")) {
             if (stream == null) throw new IllegalStateException("Missing village layout");
             var root = com.google.gson.JsonParser.parseString(new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
-            if (root.get("radius").getAsInt() != 8) throw new IllegalStateException("Village layout radius drifted");
+            if (root.get("radius").getAsInt() != 10) throw new IllegalStateException("Village layout radius drifted");
             return root;
         } catch (java.io.IOException exception) {
             throw new IllegalStateException("Cannot load village layout", exception);

@@ -11,7 +11,7 @@ public final class P6VillageLayoutCheck {
         var layout = JsonParser.parseString(Files.readString(Path.of("src/main/resources/content/village-layout.json"))).getAsJsonObject();
         var villages = JsonParser.parseString(Files.readString(Path.of("src/main/resources/content/villages.json"))).getAsJsonObject();
         if (layout.has("seed")) throw new AssertionError("Layout must not depend on a world seed");
-        if (layout.get("radius").getAsInt() != 8) throw new AssertionError("Layout radius drifted");
+        if (layout.get("radius").getAsInt() != 10) throw new AssertionError("Layout radius drifted");
         var expected = java.util.Map.of("waypoint", "\uC5ED\uCC38", "blacksmith", "\uB300\uC7A5\uAC04", "shop", "\uC0C1\uC810", "housing", "\uAC70\uCC98 \uC785\uAD6C");
         var seen = new HashSet<String>();
         var cells = new HashSet<String>();
@@ -21,9 +21,10 @@ public final class P6VillageLayoutCheck {
             if (!expected.getOrDefault(id, "").equals(building.get("name").getAsString())) throw new AssertionError("Unexpected building: " + id);
             if (!seen.add(id)) throw new AssertionError("Duplicate building: " + id);
             int x0 = building.get("x").getAsInt(), z0 = building.get("z").getAsInt(), w = building.get("w").getAsInt(), d = building.get("d").getAsInt();
+            if (w < 3 || d < 3 || w > 5 || d > 5) throw new AssertionError("Building must be a 3 to 5 block shell: " + id);
             for (int x = x0; x < x0 + w; x++) for (int z = z0; z < z0 + d; z++) {
                 int ring = Math.max(Math.abs(x), Math.abs(z));
-                if (ring <= 4 || ring >= 8 || x == 0 || z == 0) throw new AssertionError("Building overlaps the stair well, road, or shell: " + id);
+                if (ring <= 4 || ring >= 10 || x == 0 || z == 0) throw new AssertionError("Building overlaps the stair well, road, or shell: " + id);
                 if (!cells.add(x + ":" + z)) throw new AssertionError("Buildings overlap");
             }
         }
@@ -38,7 +39,7 @@ public final class P6VillageLayoutCheck {
             if (village.getAsJsonArray("npcs").isEmpty()) throw new AssertionError("Village has no existing NPC");
             String origin = village.get("x").getAsInt() + ":" + village.get("z").getAsInt();
             if (!origins.add(origin)) throw new AssertionError("Village centers are not unique");
-            if (village.get("radius").getAsInt() < 8) throw new AssertionError("Village radius cannot hold the layout");
+            if (village.get("radius").getAsInt() < 10) throw new AssertionError("Village radius cannot hold the layout");
         }
         if (origins.size() != 5) throw new AssertionError("Expected the five existing villages");
         System.out.println("P6 village layout/buildings/npc-stand/no-seed PASS");

@@ -121,14 +121,16 @@ public final class P5VillagePlazaCheck {
                 prepare(new MinecraftServer(ocean));
                 require(dry(ocean,center)&&ocean.getBlockState(center.below())==Blocks.STONE,"Ocean arrival needs a dry stone floor");
                 require(ocean.saves==1,"Ocean village must save once");
-                require(ocean.blocks.keySet().stream().allMatch(p->Math.abs(p.x())<=8&&Math.abs(p.z())<=8&&p.y()>=63&&p.y()<=66),"Village escaped its bounded footprint");
-                require(ocean.getBlockState(new BlockPos(-2,64,-6))==Blocks.LODESTONE,"Waypoint marker missing");
-                require(ocean.getBlockState(new BlockPos(6,64,-2))==Blocks.BLAST_FURNACE,"Blacksmith marker missing");
-                require(ocean.getBlockState(new BlockPos(-6,64,-2))==Blocks.BARREL,"Shop marker missing");
-                require(ocean.getBlockState(new BlockPos(-2,64,6))==Blocks.OAK_PLANKS,"Housing entrance marker missing");
+                require(ocean.blocks.keySet().stream().allMatch(p->Math.abs(p.x())<=10&&Math.abs(p.z())<=10&&p.y()>=63&&p.y()<=66),"Village escaped its bounded footprint");
+                require(ocean.getBlockState(new BlockPos(-7,64,-7))==Blocks.LODESTONE,"Waypoint marker missing");
+                require(ocean.getBlockState(new BlockPos(7,64,-7))==Blocks.BLAST_FURNACE,"Blacksmith marker missing");
+                require(ocean.getBlockState(new BlockPos(-7,64,7))==Blocks.BARREL,"Shop marker missing");
+                require(ocean.getBlockState(new BlockPos(7,64,7))==Blocks.OAK_PLANKS,"Housing entrance marker missing");
+                require(ocean.getBlockState(new BlockPos(9,64,9))==Blocks.OAK_PLANKS&&ocean.getBlockState(new BlockPos(9,65,9))==Blocks.OAK_PLANKS,"Housing wall missing");
+                require(ocean.getBlockState(new BlockPos(7,66,7))==Blocks.OAK_PLANKS,"Housing roof missing");
                 require(ocean.getBlockState(new BlockPos(2,64,-6))==Blocks.LECTERN,"NPC stand missing");
                 require(ocean.getBlockState(new BlockPos(0,63,-5))==Blocks.SMOOTH_STONE,"North road missing");
-                require(walkable(ocean,center,new BlockPos(-1,64,5)),"Housing door must be reachable from spawn");
+                require(walkable(ocean,center,new BlockPos(5,64,5)),"Housing door must be reachable from spawn");
                 ocean.blocks.put(center.below(),Blocks.AIR);
                 var restarted=new ServerLevel(62,false);
                 restarted.blocks.putAll(ocean.blocks);restarted.attached=List.copyOf(ocean.attached);
@@ -137,11 +139,11 @@ public final class P5VillagePlazaCheck {
                 var lake=new ServerLevel(70,false);
                 prepare(new MinecraftServer(lake));
                 require(dry(lake,center),"Deep lake needs a dry village");
-                for(int y=64;y<=66;y++)for(int n=-8;n<=8;n++) {
-                    require(lake.getBlockState(new BlockPos(8,y,n))==Blocks.GLASS&&lake.getBlockState(new BlockPos(-8,y,n))==Blocks.GLASS,"Lake side leak");
-                    require(lake.getBlockState(new BlockPos(n,y,8))==Blocks.GLASS&&lake.getBlockState(new BlockPos(n,y,-8))==Blocks.GLASS,"Lake end leak");
+                for(int y=64;y<=66;y++)for(int n=-10;n<=10;n++) {
+                    require(lake.getBlockState(new BlockPos(10,y,n))==Blocks.GLASS&&lake.getBlockState(new BlockPos(-10,y,n))==Blocks.GLASS,"Lake side leak");
+                    require(lake.getBlockState(new BlockPos(n,y,10))==Blocks.GLASS&&lake.getBlockState(new BlockPos(n,y,-10))==Blocks.GLASS,"Lake end leak");
                 }
-                require(lake.getBlockState(new BlockPos(-2,64,-6))==Blocks.LODESTONE,"Submerged village is missing its waypoint");
+                require(lake.getBlockState(new BlockPos(-7,64,-7))==Blocks.LODESTONE,"Submerged village is missing its waypoint");
                 require(lake.getBlockState(center.offset(0,3,0))==Blocks.GLASS,"Lake roof leak");
                 require(LOGGER.warnings==1,"No-land fallback must log once");
                 require("taepyeong".equals(waypointExit(lake,.5,64,.5)),"Sealed no-land plaza needs a server-proven waypoint exit");
@@ -157,7 +159,7 @@ public final class P5VillagePlazaCheck {
                     int z=2+(int)Math.round(-2.0*(x-2)/10)+width;
                     require(connected.getBlockState(new BlockPos(x,71,z))==Blocks.STONE,"Bridge must have three stone floor columns");
                 }
-                require(connected.getBlockState(new BlockPos(-8,64,0))==Blocks.GLASS,"Outer wall must stay sealed");
+                require(connected.getBlockState(new BlockPos(-10,64,0))==Blocks.GLASS,"Outer wall must stay sealed");
                 require(connected.getBlockState(new BlockPos(-4,64,0))==Blocks.AIR,"Ring road door must open");
                 require(connected.getBlockState(new BlockPos(4,72,2))==Blocks.AIR,"Only the raised bridge entry must open");
                 int connectedWrites=connected.writes;prepare(new MinecraftServer(connected));
@@ -202,7 +204,15 @@ public final class P5VillagePlazaCheck {
                 require("taepyeong".equals(waypointExit(stillIsolated,.5,64,.5)),"No land within 256 must preserve the server-proven waypoint exit");
                 var dryLand=new ServerLevel(-100,true);
                 prepare(new MinecraftServer(dryLand));
-                require(dryLand.writes==0&&dryLand.saves==0,"Existing dry land must remain unchanged");
+                require(dry(dryLand,center)&&dryLand.getBlockState(center.below())==Blocks.STONE,"Dry center must stay a walkable stone floor");
+                require(dryLand.getBlockState(new BlockPos(-7,64,-7))==Blocks.LODESTONE,"Dry center needs the waypoint building");
+                require(dryLand.getBlockState(new BlockPos(7,64,-7))==Blocks.BLAST_FURNACE,"Dry center needs the blacksmith");
+                require(dryLand.getBlockState(new BlockPos(-7,64,7))==Blocks.BARREL,"Dry center needs the shop");
+                require(dryLand.getBlockState(new BlockPos(7,64,7))==Blocks.OAK_PLANKS,"Dry center needs the housing marker");
+                require(dryLand.getBlockState(new BlockPos(9,65,9))==Blocks.OAK_PLANKS&&dryLand.getBlockState(new BlockPos(7,66,7))==Blocks.OAK_PLANKS,"Dry center needs housing walls and a roof");
+                require(dryLand.getBlockState(new BlockPos(2,64,-6))==Blocks.LECTERN,"Dry center needs the NPC stand");
+                require(walkable(dryLand,center,new BlockPos(5,64,5)),"Dry center housing door must be reachable");
+                require(dryLand.saves==1,"Dry center village must save once");
                 var danger=new ServerLevel(-100,true);danger.blocks.put(center.below(),Blocks.MAGMA_BLOCK);
                 require(buildIfUnsafe(danger,town)&&dry(danger,center),"Hazardous floor must be replaced");
                 var tiny=new ServerLevel(70,false);
