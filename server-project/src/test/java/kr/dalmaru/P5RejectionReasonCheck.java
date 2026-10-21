@@ -16,6 +16,7 @@ public final class P5RejectionReasonCheck {
 	private static final UUID ACCOUNT = UUID.fromString("00000000-0000-4000-8000-00000000a5c2");
 	private static final Pattern REMAINING = Pattern.compile("채집 지점이 아직 준비되지 않았습니다\\. (\\d+)초 남았습니다\\.");
 	private static final Pattern LATIN = Pattern.compile("[A-Za-z]{3,}");
+	private static final java.util.Set<String> GAME_TERMS = java.util.Set.of("NPC", "HP", "XP");
 	private P5RejectionReasonCheck() { }
 
 	public static void main(String[] args) throws Exception {
@@ -63,6 +64,11 @@ public final class P5RejectionReasonCheck {
 			screen(RejectionText.player("Life job is already learned."));
 			screen(RejectionText.player("Level 10 is required for a profession."));
 			screen(RejectionText.player("Craft is not ready."));
+			require("해당 마을 NPC 상호작용".equals(RejectionText.player("해당 마을 NPC 상호작용")), "Story NPC condition was replaced.");
+			require("필수 전투 경험치 0/100 · 해당 마을 NPC 상호작용".equals(RejectionText.player("필수 전투 경험치 0/100 · 해당 마을 NPC 상호작용")), "Story NPC condition was replaced.");
+			require("해당 이야기 NPC가 있는 마을에서 상호작용하세요.".equals(RejectionText.player("해당 이야기 NPC가 있는 마을에서 상호작용하세요.")), "Story NPC sentence was replaced.");
+			require("남은 HP가 없습니다.".equals(RejectionText.player("남은 HP가 없습니다.")) && "경험치 XP가 부족합니다.".equals(RejectionText.player("경험치 XP가 부족합니다.")), "Game abbreviation was replaced.");
+			screen(RejectionText.player("해당 마을 NPC 상호작용"));
 			screen(RejectionText.player("해당 이야기 NPC가 있는 마을에서 상호작용하세요."));
 			screen(RejectionText.growth("NOT_READY", "advancement_confirmation_required"));
 			screen(RejectionText.growth("NOT_READY", "quest_required"));
@@ -110,7 +116,11 @@ public final class P5RejectionReasonCheck {
 		}
 	}
 
-	private static void screen(String text) { require(text != null && !text.isBlank() && !LATIN.matcher(text).find(), "Screen text has an English word: " + text); }
+	private static void screen(String text) {
+		require(text != null && !text.isBlank(), "Screen text is empty.");
+		var matcher = LATIN.matcher(text);
+		while (matcher.find()) require(GAME_TERMS.contains(matcher.group()), "Screen text has an English word: " + text);
+	}
 
 	private static void require(boolean ok, String message) { if (!ok) throw new IllegalStateException(message); }
 }

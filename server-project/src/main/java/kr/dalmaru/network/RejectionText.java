@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 public final class RejectionText {
 	private static final Logger LOGGER = LoggerFactory.getLogger("dalmaru");
 	private static final Pattern LATIN_WORD = Pattern.compile("[A-Za-z]{3,}");
+	private static final java.util.Set<String> GAME_TERMS = java.util.Set.of("NPC", "HP", "XP");
 	private RejectionText() { }
 
 	public static String growth(String status, String reason) {
@@ -42,8 +43,6 @@ public final class RejectionText {
 			case "Skill is already at maximum rank." -> "이미 최고 단계입니다.";
 			case "Request ID was reused for another skill" -> "같은 요청이 다른 기술에 쓰였습니다.";
 			case "Unknown story NPC" -> "알 수 없는 이야기 인물입니다.";
-			case "해당 이야기 NPC가 있는 마을에서 상호작용하세요." -> "해당 이야기 인물이 있는 마을에서 상호작용하세요.";
-			case "선택 직업의 마을 NPC를 찾아가세요." -> "선택 직업의 마을 인물을 찾아가세요.";
 			case "Invalid story operation body", "Invalid story position" -> "이야기 요청이 올바르지 않습니다.";
 			case "Not at a gather node." -> "채집 지점에서 진행하세요.";
 			case "Material binding does not match the node." -> "재료 귀속이 채집 지점과 맞지 않습니다.";
@@ -76,8 +75,14 @@ public final class RejectionText {
 			case "Craft order is already accepted." -> "이미 받은 제작 의뢰입니다.";
 			case "Craft order conflicts.", "Precision order conflicts.", "Precision step conflicts." -> "제작 상태가 바뀌었습니다.";
 			case "Unknown craft order.", "Unknown precision order.", "Unknown equipment.", "Unknown craft order account." -> "없는 제작 대상을 요청했습니다.";
-			default -> LATIN_WORD.matcher(message).find() ? hiddenOriginal(message) : message;
+			default -> foreignWord(message) ? hiddenOriginal(message) : message;
 		};
+	}
+
+	private static boolean foreignWord(String message) {
+		var matcher = LATIN_WORD.matcher(message);
+		while (matcher.find()) if (!GAME_TERMS.contains(matcher.group())) return true;
+		return false;
 	}
 
 	private static String hiddenOriginal(String original) {

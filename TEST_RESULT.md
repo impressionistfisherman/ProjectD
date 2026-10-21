@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-21 약어 허용: `verifyP5RejectionReason` PASS. `해당 마을 NPC 상호작용`과 이야기 NPC 문장, HP, XP는 원문 그대로다. 영문 문장은 `요청을 처리할 수 없습니다.` `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. Oscar 잠금이 풀린 뒤에 돌렸다.
+
 - 2026-10-21 영어 거절 차단: `verifyP5RejectionReason` PASS. 매핑 없는 원문은 `요청을 처리할 수 없습니다.` 채집 대기는 `채집 지점이 아직 준비되지 않았습니다. N초 남았습니다.` 대표 거절 화면 문자열에 영문 단어 없음. `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `verifyAuctionSettlement` PASS.
 
 - 2026-10-21 거절 한국어: `verifyP5RejectionReason` PASS. 철광 재채집 예외 문장은 영어이고, 화면 문구는 `채집 지점이 아직 준비되지 않았습니다. N초 남았습니다.` `oscar_p3_fixture` 전체 회귀 검증 97개와 스모크 PASS, FAIL 0. 락 반환. `verifyAuctionSettlement` PASS.
