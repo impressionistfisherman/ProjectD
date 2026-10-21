@@ -2200,7 +2200,7 @@ public final class DalmaruNetworking {
         var session=state.accountSession;String status;java.util.List<String> ids=java.util.List.of();
         try {
             switch(request.action()) {
-                case "list" -> {ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());status="해금 역참 목록";}
+                case "list" -> {var exit=isolatedWaypointExit(player,state);ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());status=exit==null?"해금 역참 목록":"고립 광장 출구: "+exit+" · 8초 준비 · 재사용 대기 없음";}
                 case "return" -> {beginWaypoint(player,request.waypointId());status=WAYPOINT_CASTS.containsKey(player.getUUID())?"귀환 준비 중: 8초 동안 이동하지 마세요.":"귀환을 시작하지 못했습니다. 채팅 안내를 확인하세요.";}
                 case "cancel" -> {interruptWaypoint(player,"귀환을 취소했습니다.");status="귀환 준비 취소";}
                 default -> {return;}
@@ -2215,8 +2215,15 @@ public final class DalmaruNetworking {
     private static void interruptWaypoint(ServerPlayer player,String message){if(WAYPOINT_CASTS.remove(player.getUUID())!=null)player.sendSystemMessage(Component.literal(message));}
     private static void showWaypoints(ServerPlayer player) {
         var state=CONNECTIONS.get(player.getUUID());if(!waypointEligible(player,state))return;var session=state.accountSession;
-        try{var ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());player.sendSystemMessage(Component.literal(ids.isEmpty()?"직접 방문한 마을의 역참이 해금됩니다.":"해금 역참: "+String.join(", ",ids)));player.sendSystemMessage(Component.literal("/dalmaru-waypoint return <역참 이름> · 8초 준비 · 15분 재사용 / cancel로 취소"));}
+        try{var exit=isolatedWaypointExit(player,state);var ids=WAYPOINTS.list(session.accountId(),session.connectionGeneration(),session.activeCharacterId());player.sendSystemMessage(Component.literal(ids.isEmpty()?"직접 방문한 마을의 역참이 해금됩니다.":"해금 역참: "+String.join(", ",ids)));player.sendSystemMessage(Component.literal("/dalmaru-waypoint return <역참 이름> · 8초 준비 · 15분 재사용 / cancel로 취소"));if(exit!=null)player.sendSystemMessage(Component.literal("고립 광장의 연결 역참은 재사용 대기 없이 이동할 수 있습니다."));}
         catch(Exception error){LOGGER.warn("Cannot list waypoints for {}",session.accountId(),error);player.sendSystemMessage(Component.literal("역참 목록을 읽지 못했습니다."));}
+    }
+    private static String isolatedWaypointExit(ServerPlayer player,ConnectionState state)throws java.sql.SQLException {
+        String origin=kr.dalmaru.content.VillagePlazas.waypointExit((ServerLevel)player.level(),player.getX(),player.getY(),player.getZ());
+        if(origin==null)return null;
+        var session=state.accountSession;
+        return WAYPOINTS.unlockIsolatedExit(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),origin,
+                player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ());
     }
     private static void beginWaypoint(ServerPlayer player,String id) {
         var state=CONNECTIONS.get(player.getUUID());if(!waypointEligible(player,state)||RUN_RUNTIME.runId(player)!=null||COMBAT.remainingCombatTicks(player.getUUID(),currentTick)>0){player.sendSystemMessage(Component.literal("던전 밖 비전투 상태에서 보관함을 닫고 귀환하세요."));return;}
@@ -2225,7 +2232,7 @@ public final class DalmaruNetworking {
         var session=state.accountSession;
         try {
             var pending=WAYPOINTS.pending(session.accountId(),session.connectionGeneration(),session.activeCharacterId());if(pending!=null){applyWaypoint(player,state,pending);return;}
-            WAYPOINTS.check(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),id);
+            WAYPOINTS.check(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),id,id.equals(isolatedWaypointExit(player,state)));
             var channel=new kr.dalmaru.account.WaypointChannel(session.activeCharacterId(),session.connectionGeneration(),id,player.level().dimension().identifier().toString(),player.getX(),player.getY(),player.getZ(),currentTick);
             WAYPOINT_CASTS.put(player.getUUID(),new WaypointCast(session,channel,UUID.randomUUID()));player.sendSystemMessage(Component.literal("귀환 준비 8초: 이동·공격·피격 시 취소됩니다."));
         }catch(IllegalArgumentException error){player.sendSystemMessage(Component.literal(error.getMessage()));}
@@ -2260,7 +2267,7 @@ public final class DalmaruNetworking {
             if(status==kr.dalmaru.account.WaypointChannel.Status.CANCEL){interruptWaypoint(player,"이동·전투 또는 캐릭터 상태 변경으로 귀환이 취소되었습니다.");continue;}
             if(status!=kr.dalmaru.account.WaypointChannel.Status.READY)continue;
             WAYPOINT_CASTS.remove(entry.getKey());var session=cast.session();
-            try{applyWaypoint(player,state,WAYPOINTS.prepare(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),cast.request(),cast.channel().waypoint()));}
+            try{applyWaypoint(player,state,WAYPOINTS.prepare(session.accountId(),session.connectionGeneration(),session.activeCharacterId(),cast.request(),cast.channel().waypoint(),cast.channel().waypoint().equals(isolatedWaypointExit(player,state))));}
             catch(IllegalArgumentException error){player.sendSystemMessage(Component.literal(error.getMessage()));}
             catch(Exception error){waypointFailure(player,state,error);}
         }

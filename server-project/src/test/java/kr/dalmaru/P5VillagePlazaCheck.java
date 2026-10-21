@@ -12,7 +12,8 @@ public final class P5VillagePlazaCheck {
         String methods="";
         for(String signature:new String[]{"public static void prepare(","static boolean buildIfUnsafe(","private static boolean dry(",
                 "private static boolean enclosed(","private static BlockPos nearestLand(","private static boolean buildExit(",
-                "private static BlockPos stairTower(","private static void shoreDoor(","private static void landing(","private static void bridge("}) methods+=method(source,signature);
+                "private static BlockPos stairTower(","private static void shoreDoor(","private static void landing(","private static void bridge(",
+                "public static String waypointExit("}) methods+=method(source,signature);
         var dir=Files.createTempDirectory("village-plaza-check-");
         try {
             var file=dir.resolve("PlazaHarness.java");
@@ -131,6 +132,9 @@ public final class P5VillagePlazaCheck {
                 }
                 require(lake.getBlockState(center.offset(0,3,0))==Blocks.GLASS,"Lake roof leak");
                 require(LOGGER.warnings==1,"No-land fallback must log once");
+                require("taepyeong".equals(waypointExit(lake,.5,64,.5)),"Sealed no-land plaza needs a server-proven waypoint exit");
+                require(waypointExit(lake,10,64,0)==null&&waypointExit(lake,0,67,0)==null&&waypointExit(lake,Double.NaN,64,0)==null,"Waypoint exception must stay inside the marked plaza");
+                require(waypointExit(new ServerLevel(70,false),0,64,0)==null,"Water alone cannot authorize the exception");
                 int lakeWrites=lake.writes;prepare(new MinecraftServer(lake));
                 require(lake.writes==lakeWrites&&LOGGER.warnings==1,"No-land fallback must not rebuild or retry every startup");
                 var connected=new ServerLevel(70,false);connected.land(12,0,71);connected.land(20,0,71);
@@ -145,6 +149,11 @@ public final class P5VillagePlazaCheck {
                 require(connected.getBlockState(new BlockPos(4,72,2))==Blocks.AIR,"Only the raised bridge entry must open");
                 int connectedWrites=connected.writes;prepare(new MinecraftServer(connected));
                 require(connected.writes==connectedWrites,"Bridge must share once-only completion state");
+                require(waypointExit(connected,.5,64,.5)==null,"Walking exit must not grant the isolated-plaza exception");
+                var oldLowBridge=new ServerLevel(64,false);oldLowBridge.land(12,0,64);prepare(new MinecraftServer(oldLowBridge));
+                oldLowBridge.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v1");
+                int oldBridgeWrites=oldLowBridge.writes;prepare(new MinecraftServer(oldLowBridge));
+                require(oldLowBridge.writes==oldBridgeWrites&&waypointExit(oldLowBridge,.5,64,.5)==null,"Upgrading an existing low bridge must preserve its terrain and ordinary waypoint rules");
                 var cliff=new ServerLevel(70,false);cliff.land(-8,-7,90);prepare(new MinecraftServer(cliff));
                 require(walkable(cliff,center,new BlockPos(-8,91,-7)),"Nearby high shore needs a full walking stair route");
                 var lowBank=new ServerLevel(70,false);
@@ -155,6 +164,9 @@ public final class P5VillagePlazaCheck {
                 var legacy=new ServerLevel(70,false);buildIfUnsafe(legacy,town);legacy.attached=List.of("taepyeong:0:64:0");legacy.land(12,0,71);
                 prepare(new MinecraftServer(legacy));
                 require(walkable(legacy,center,new BlockPos(12,72,0))&&legacy.attached.contains("taepyeong:0:64:0:exit-v1"),"Old completed plaza must receive exactly one exit upgrade");
+                var oldIsolated=new ServerLevel(70,false);buildIfUnsafe(oldIsolated,town);
+                oldIsolated.attached=List.of("taepyeong:0:64:0","taepyeong:0:64:0:exit-v1");prepare(new MinecraftServer(oldIsolated));
+                require("taepyeong".equals(waypointExit(oldIsolated,.5,64,.5))&&oldIsolated.attached.contains("taepyeong:0:64:0:exit-v2"),"Already-completed no-land plaza must gain its waypoint fallback");
                 var boundary=new ServerLevel(70,false);boundary.land(65,0,71);boundary.land(64,64,71);
                 require(nearestLand(boundary,town)==null,"Land search must use a 64-block circle");
                 boundary.land(64,0,71);require(nearestLand(boundary,town).equals(new BlockPos(64,72,0)),"Exact 64-block boundary must be included");

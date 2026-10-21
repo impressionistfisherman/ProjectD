@@ -33,26 +33,49 @@ public final class VillagePlazas {
             if (level == null) throw new IllegalStateException("Missing village dimension: " + town.dimension());
             String key = village.id() + ":" + town.x() + ":" + town.y() + ":" + town.z();
             List<String> prepared = level.getAttached(PREPARED);
-            String exitKey = key + ":exit-v1";
+            String exitKey = key + ":exit-v2";
             if (prepared != null && prepared.contains(exitKey)) continue;
             boolean changed = (prepared == null || !prepared.contains(key)) && buildIfUnsafe(level, town);
-            if (enclosed(level, town)) changed |= buildExit(level, town);
+            boolean isolated = false;
+            if (enclosed(level, town)) {
+                boolean exitBuilt = buildExit(level, town);
+                changed |= exitBuilt;
+                isolated = !exitBuilt;
+            }
             if (changed) level.getChunkSource().save(true);
             var next = prepared == null ? new ArrayList<String>() : new ArrayList<>(prepared);
             if (!next.contains(key)) next.add(key);
+            if (!next.contains(key + ":exit-v1")) next.add(key + ":exit-v1");
+            if (isolated && !next.contains(key + ":waypoint-exit-v1")) next.add(key + ":waypoint-exit-v1");
             next.add(exitKey);
             level.setAttached(PREPARED, List.copyOf(next));
         }
     }
 
+    public static String waypointExit(ServerLevel level, double x, double y, double z) {
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) return null;
+        List<String> prepared = level.getAttached(PREPARED);
+        if (prepared == null) return null;
+        for (var village : VillageCatalog.current()) {
+            var town = village.zone(); int radius = Math.min(4, town.radius());
+            String key = village.id() + ":" + town.x() + ":" + town.y() + ":" + town.z() + ":waypoint-exit-v1";
+            if (prepared.contains(key) && x >= town.x() - radius + 1 && x < town.x() + radius
+                    && z >= town.z() - radius + 1 && z < town.z() + radius && y >= town.y() && y < town.y() + 3) return village.id();
+        }
+        return null;
+    }
+
     private static boolean enclosed(ServerLevel level, TownZone town) {
         var center = new BlockPos(town.x(), town.y(), town.z());
         int radius = Math.min(4, town.radius());
-        return level.getBlockState(center.offset(0, 3, 0)).is(Blocks.GLASS)
-                && level.getBlockState(center.offset(radius, 0, 0)).is(Blocks.GLASS)
-                && level.getBlockState(center.offset(-radius, 0, 0)).is(Blocks.GLASS)
-                && level.getBlockState(center.offset(0, 0, radius)).is(Blocks.GLASS)
-                && level.getBlockState(center.offset(0, 0, -radius)).is(Blocks.GLASS);
+        if (!level.getBlockState(center.offset(0, 3, 0)).is(Blocks.GLASS)) return false;
+        for (int offset = -radius; offset <= radius; offset++) for (int y = 0; y < 3; y++) {
+            if (!level.getBlockState(center.offset(radius, y, offset)).is(Blocks.GLASS)
+                    || !level.getBlockState(center.offset(-radius, y, offset)).is(Blocks.GLASS)
+                    || !level.getBlockState(center.offset(offset, y, radius)).is(Blocks.GLASS)
+                    || !level.getBlockState(center.offset(offset, y, -radius)).is(Blocks.GLASS)) return false;
+        }
+        return true;
     }
 
     private static BlockPos nearestLand(ServerLevel level, TownZone town) {
@@ -73,7 +96,7 @@ public final class VillagePlazas {
     private static boolean buildExit(ServerLevel level, TownZone town) {
         var land = nearestLand(level, town);
         if (land == null) {
-            LOGGER.warn("Village {} has no dry land within 64 blocks; retaining sealed plaza", town.waypointId());
+            LOGGER.warn("Village {} has no dry land within 64 blocks; retaining sealed plaza with outbound waypoint exit", town.waypointId());
             return false;
         }
         int dx = land.getX() - town.x(), dz = land.getZ() - town.z();

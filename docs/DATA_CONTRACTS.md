@@ -199,6 +199,8 @@ S09c의 개발판 protocol30은 서버 발급 `request_context`와 UUID `operati
 키와 버전은 `CharacterRepository.professionGateFlags()` 및 `PROFESSION_GATE_VERSION`으로 공유한다. S06 이야기·S10 마을 연동 전에는 시험 데이터에서만 완료 증명을 만든다. 클라이언트 요청에 완료 플래그를 추가하거나 전직 요청 자체로 증명을 생성하지 않는다. 이 조건 변경은 기존 보상 지급과 분리하며, 이미 확정한 동일 UUID 요청은 원래 결과를 재생한다.
 
 ## 10. 역참 귀환 (P2-S08)
+
+P5 고립 광장 출구: 서버의 영속 무육지 표시와 현재 플레이어의 광장 내부 좌표가 일치할 때만 연결 마을 한 곳을 해금한다. 그 목적지의 준비·확정 과정에서만 기존 재사용 대기를 예외로 하며, 160tick 준비·전투/이동 취소·던전/소유권/세션/UUID 검증은 그대로 적용한다. 도착 후 일반 지역의 900초 재사용 기록을 지우지 않는다. 패킷에 예외 플래그를 추가하지 않으며 클라이언트가 예외를 주장할 수 없다. 목록 응답은 사용할 출구와 준비 시간을 안내한다.
 - `waypoint_request(requestId, characterId, action, waypointId)`: action은 list/return/cancel. 캐릭터는 선택된 서버 세션과 일치해야 한다. 이름 길이는 128자, action 16자 제한. 최초 해금은 서버 위치만 판정하며 클라이언트 완료 주장은 없다.
 - `waypoint_response(requestId, characterId, status, waypoints)`: 목록과 처리 안내. 클라이언트는 현재 화면 요청·캐릭터와 일치하는 응답만 표시한다. 최종 이동 결과는 서버 채팅으로 알린다. 개발 명령 `/dalmaru-waypoint [return <id>|cancel]`도 동일 서버 처리 경로를 사용한다.
 - 160tick 후에만 `waypoint_return` UUID 요청과 900초 쿨다운을 같은 트랜잭션으로 확정한다. 준비 중 취소에는 쿨다운이 없다. 완료 후 ACK, 실패 시 기존 쿨다운 복구. 취소·성공 처리 완료 요청은 다시 이동하지 않는다. 저장 결과가 불명확하면 접속을 종료하고 재접속 시 pending_recovery를 처리한다.
