@@ -1,5 +1,7 @@
 # 검증 결과
 
+- 2026-10-22 시작 무기·낮 몹: `verifyStarterSupply` PASS(검·방패 1개, 재생성·재지급 없음). `verifyGrowthRewardGrant` PASS(직업 키트는 이미 가진 검·방패를 또 넣지 않음). `verifyStoryQuestCurve` PASS(키트 실패 시 시작 장비 2개만 남음). `verifyStoryInvestigationLink` PASS. `verifyP6DayFieldSpawn` PASS(중심·반경 18 금지, 19 허용, 다른 마을 금지, 밤·지하·마을 안은 열지 않음). `oscar_p3_fixture` 잠금 전체 회귀 102개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 561초. 봇 실기는 이 기록 다음이다. 25576·25577은 유지했다.
+
 - 2026-10-22 마을 문·가장자리: `verifyP5VillagePlaza` PASS(길에서 문 4곳 직선 진입, 모서리는 벽, 낮은 길 끝 2곳과 높은 길 끝 2곳 왕복). `verifyP6VillageLayout` PASS. `oscar_p3_fixture` 잠금 전체 회귀 101개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 551초. `p5-playtest` 25576은 유지했다.
 
 - 2026-10-22 마을 보정: `verifyP5VillagePlaza` PASS(마른 중심의 건물 4종, 벽, 지붕, 강단, 거처 문 보행). `verifyP6VillageLayout` PASS. `oscar_p3_fixture` 잠금 전체 회귀 101개와 JAR 격리 부팅 스모크 PASS, FAIL 0, exit 0, LOCK_RELEASED. 벽시계 약 535초. 실제 플레이어 접속은 하지 않았다. `p5-playtest` 25576은 유지했다.

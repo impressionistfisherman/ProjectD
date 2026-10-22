@@ -63,7 +63,7 @@ public final class StoryQuestCurveCheck {
                     sql("CREATE FUNCTION dalmaru."+trap+"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.character_id='"+character+"'::uuid AND NEW.grant_key='profession' THEN RAISE EXCEPTION 'story kit rollback'; END IF; RETURN NEW; END $$");
                     sql("CREATE TRIGGER "+trap+" BEFORE INSERT ON dalmaru.character_supply_grants FOR EACH ROW EXECUTE FUNCTION dalmaru."+trap+"()");
                     fail(()->operate(repo,account,generation,character,attemptedReport,here));
-                    check(experience(characters.profile(character))==before&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE character_id=?",character)==1&&value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",report.requestId())==0,"Profession kit failure escaped story transaction");drop(trap);
+                    check(experience(characters.profile(character))==before&&value("SELECT count(*) FROM dalmaru.character_equipment WHERE character_id=?",character)==2&&value("SELECT count(*) FROM dalmaru.operation_requests WHERE request_id=?",report.requestId())==0,"Profession kit failure escaped story transaction");drop(trap);
                 }
                 if(chapter.rewardOwner()==StoryCatalog.RewardOwner.S07) {
                     long before=experience(characters.profile(character));

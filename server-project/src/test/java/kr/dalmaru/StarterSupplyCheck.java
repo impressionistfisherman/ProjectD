@@ -44,6 +44,7 @@ public final class StarterSupplyCheck {
 		return count("SELECT copper FROM dalmaru.character_wallet WHERE character_id=?", character) == 20
 			&& count("SELECT quantity FROM dalmaru.character_materials WHERE character_id=? AND material_id='supply.recovery'", character) == 4
 			&& count("SELECT count(*) FROM dalmaru.character_equipment WHERE character_id=? AND item_id='supply.training_gear' AND bound AND location='INVENTORY'", character) == 1
+			&& count("SELECT count(*) FROM dalmaru.character_equipment WHERE character_id=? AND item_id='pilot.weapon.sword_shield.10' AND bound AND location='INVENTORY'", character) == 1
 			&& count("SELECT count(*) FROM dalmaru.character_supply_grants WHERE character_id=? AND grant_key='starter'", character) == 1;
 	}
 

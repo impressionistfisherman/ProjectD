@@ -2,6 +2,6 @@
   "required": true,
   "package": "kr.dalmaru.mixin",
   "compatibilityLevel": "JAVA_25",
-  "mixins": ["RpgDamageMixin", "DungeonRewardMixin", "DungeonNaturalSpawnMixin", "BowTimingMixin", "RpgGuardMixin", "ReviveSwingMixin", "RunRespawnMixin"],
+  "mixins": ["RpgDamageMixin", "DungeonRewardMixin", "DungeonNaturalSpawnMixin", "DayFieldSpawnMixin", "BowTimingMixin", "RpgGuardMixin", "ReviveSwingMixin", "RunRespawnMixin"],
   "injectors": { "defaultRequire": 1 }
 }

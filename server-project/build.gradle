@@ -14,6 +14,7 @@ tasks.register('verifyP5VillagePlaza', JavaExec) {
     mainClass = 'kr.dalmaru.P5VillagePlazaCheck'
 }
 
+tasks.register('verifyP6DayFieldSpawn', JavaExec) { group = 'verification'; classpath = sourceSets.test.runtimeClasspath; mainClass = 'kr.dalmaru.DayFieldSpawnCheck' }
 tasks.register('verifyP6VillageLayout', JavaExec) {
     group = 'verification'
     classpath = sourceSets.test.runtimeClasspath

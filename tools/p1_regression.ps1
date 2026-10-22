@@ -97,6 +97,8 @@ try {
     $expected += 'verifyP5VillagePlaza'
     $tasks += 'verifyP6VillageLayout'
     $expected += 'verifyP6VillageLayout'
+    $tasks += 'verifyP6DayFieldSpawn'
+    $expected += 'verifyP6DayFieldSpawn'
     # P5 Grok
     $tasks += 'verifyP5FieldReviveReconnect'
     $expected += 'verifyP5FieldReviveReconnect'

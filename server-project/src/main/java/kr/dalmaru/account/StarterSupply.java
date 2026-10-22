@@ -62,7 +62,15 @@ public final class StarterSupply {
 	}
 
 	private static void give(Connection connection, UUID characterId, List<String> itemIds) throws SQLException {
-		for (String itemId : itemIds) insertEquipment(connection, characterId, itemId);
+		for (String itemId : itemIds) if (!owns(connection, characterId, itemId)) insertEquipment(connection, characterId, itemId);
+	}
+
+	private static boolean owns(Connection connection, UUID characterId, String itemId) throws SQLException {
+		try (var query = connection.prepareStatement("SELECT 1 FROM dalmaru.character_equipment WHERE character_id=? AND item_id=?")) {
+			query.setObject(1, characterId);
+			query.setString(2, itemId);
+			try (var result = query.executeQuery()) { return result.next(); }
+		}
 	}
 
 	private static void replace(Connection connection, UUID characterId, List<String> levelTen) throws SQLException {
@@ -123,6 +131,7 @@ public final class StarterSupply {
 				lines.add(new Line(line.get("grant").getAsString(), line.get("kind").getAsString(), line.get("item").getAsString(), line.get("quantity").getAsInt()));
 			}
 			if (lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("equipment") && line.item.equals("supply.training_gear") && line.quantity == 1)
+				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("equipment") && line.item.equals("pilot.weapon.sword_shield.10") && line.quantity == 1)
 				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("material") && line.item.equals("supply.recovery") && line.quantity == 4)
 				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("copper") && line.quantity == 20)
 				|| lines.stream().noneMatch(line -> line.grant.equals(INVESTIGATION) && line.kind.equals("copper") && line.quantity == 40)
