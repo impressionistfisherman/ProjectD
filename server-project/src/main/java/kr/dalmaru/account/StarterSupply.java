@@ -131,7 +131,7 @@ public final class StarterSupply {
 				lines.add(new Line(line.get("grant").getAsString(), line.get("kind").getAsString(), line.get("item").getAsString(), line.get("quantity").getAsInt()));
 			}
 			if (lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("equipment") && line.item.equals("supply.training_gear") && line.quantity == 1)
-				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("equipment") && line.item.equals("pilot.weapon.sword_shield.10") && line.quantity == 1)
+				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("equipment") && line.item.equals("pilot.weapon.starter_sword.1") && line.quantity == 1)
 				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("material") && line.item.equals("supply.recovery") && line.quantity == 4)
 				|| lines.stream().noneMatch(line -> line.grant.equals(STARTER) && line.kind.equals("copper") && line.quantity == 20)
 				|| lines.stream().noneMatch(line -> line.grant.equals(INVESTIGATION) && line.kind.equals("copper") && line.quantity == 40)

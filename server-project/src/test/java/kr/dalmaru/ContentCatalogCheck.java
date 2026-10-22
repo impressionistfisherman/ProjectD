@@ -11,7 +11,8 @@ import kr.dalmaru.equipment.PilotEquipment;
 public final class ContentCatalogCheck {
     public static void main(String[] args)throws Exception{
         String source=Files.readString(Path.of("src/main/resources/content/pilot.json"));
-        var catalog=ContentCatalog.current();check(catalog.items().size()==78&&catalog.version().equals("pilot-p4-1"),"Pilot IDs/version changed");
+        var catalog=ContentCatalog.current();check(catalog.items().size()==79&&catalog.version().equals("pilot-p4-1"),"Pilot IDs/version changed");
+        var starterSword=catalog.items().get("pilot.weapon.starter_sword.1");check(starterSword.level()==1&&starterSword.requirement().isBlank()&&starterSword.slot()==0&&starterSword.attack()==20&&starterSword.attack()<30&&!starterSword.magical(),"Starter sword is not a level 1 weapon below the field sword");
         check(catalog.quest("pilot1.zombie_hunt").version().equals("pilot-1")&&catalog.quest("pilot1.zombie_hunt").goal()==3&&catalog.quest("pilot1.zombie_hunt").experience()==100,"Legacy quest changed");
         check(catalog.run("run.bongsudae").version().equals("pilot-p4-1")&&catalog.run("run.bongsudae").minPlayers()==1&&catalog.run("run.bongsudae").maxPlayers()==4,"Run manifest differs");
         int[][] attacks={{41,51,63},{30,37,46},{35,44,55},{57,71,88},{36,46,57},{31,39,48},{38,48,59},{34,43,53}};
@@ -97,7 +98,7 @@ public final class ContentCatalogCheck {
         disabled.getAsJsonArray("quests").get(0).getAsJsonObject().getAsJsonArray("itemRefs").add("pilot.weapon.two_handed_sword.10");try{ContentCatalog.parse(disabled.toString());throw new AssertionError("Active reference to disabled item accepted");}catch(IllegalArgumentException expected){}
         try{catalog.items().clear();throw new AssertionError("Catalog is mutable");}catch(UnsupportedOperationException expected){}
         check(ContentCatalog.parse(catalog.snapshot()).items().equals(catalog.items()),"Snapshot roundtrip changed definitions");
-        System.out.println("Versioned pilot definitions,78 item displays,6 J02 mobs, archived consumers and30 invalid-definition cases PASS");
+        System.out.println("Versioned pilot definitions,79 item displays,6 J02 mobs, archived consumers and30 invalid-definition cases PASS");
     }
     private static void reject(String source,Consumer<JsonObject> change){var root=JsonParser.parseString(source).getAsJsonObject();change.accept(root);try{ContentCatalog.parse(root.toString());}catch(IllegalArgumentException expected){return;}throw new AssertionError("Invalid content definition accepted");}
     private static void check(boolean value,String message){if(!value)throw new AssertionError(message);}

@@ -845,6 +845,19 @@
       15,
       20
     ],
+    "starterSword": {
+      "id": "starter_sword",
+      "attack": 20,
+      "basicTicks": 16,
+      "basicMultiplier": 1,
+      "enabled": true,
+      "schemaVersion": 1,
+      "contentVersion": "pilot-1",
+      "display": {
+        "name": "시작 검",
+        "description": "직업 없이 쓰는 짧은 검"
+      }
+    },
     "budgets": {
       "weapon": 0.3,
       "armor": 0.45,
@@ -1528,7 +1541,7 @@
   },
   "supplies": [
     {"grant": "starter", "kind": "equipment", "item": "supply.training_gear", "quantity": 1},
-    {"grant": "starter", "kind": "equipment", "item": "pilot.weapon.sword_shield.10", "quantity": 1},
+    {"grant": "starter", "kind": "equipment", "item": "pilot.weapon.starter_sword.1", "quantity": 1},
     {"grant": "starter", "kind": "material", "item": "supply.recovery", "quantity": 4},
     {"grant": "starter", "kind": "copper", "item": "copper", "quantity": 20},
     {"grant": "investigation", "kind": "copper", "item": "copper", "quantity": 40},

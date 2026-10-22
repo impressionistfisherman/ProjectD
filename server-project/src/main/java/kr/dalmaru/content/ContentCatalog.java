@@ -143,6 +143,11 @@ public final class ContentCatalog {
             }
             if(equippedProfessions.size()!=CharacterProfession.values().length)throw new IllegalArgumentException("Weapon profession coverage incomplete");
             if(!weaponNames.equals(Set.of("two_handed_sword","sword_shield","bow","crossbow","fan","ritual_sword","dual_axes","pirate_sword")))throw new IllegalArgumentException("Pilot weapon definitions incomplete/unsupported");
+            var starter=equipment.getAsJsonObject("starterSword");if(starter==null||!id(starter,"id").equals("starter_sword"))throw new IllegalArgumentException("Starter sword is missing");
+            int starterAttack=integer(starter,"attack");int lowestField=Integer.MAX_VALUE;for(var element:array(equipment,"weapons"))lowestField=Math.min(lowestField,integers(element.getAsJsonObject(),"attack").getFirst());
+            int starterTicks=integer(starter,"basicTicks");double starterMultiplier=number(starter,"basicMultiplier");
+            if(!flag(starter,"enabled")||starterAttack<1||starterAttack>=lowestField||starterTicks<1||starterMultiplier<=0)throw new IllegalArgumentException("Starter sword must stay below the field weapons");
+            put(items,all,"pilot.weapon.starter_sword.1",new Item(1,0,"",starterAttack,0,0,0,false,starterMultiplier,starterTicks,true));
             var refinementGrades=new ArrayList<RefinementGrade>();
             if(equipment.has("refinementGrades")){
                 double previous=0;
@@ -245,6 +250,7 @@ public final class ContentCatalog {
             putDisplay(result,id(node,"id"),display(node,1));
         }
         for(var value:array(equipment,"weapons")){var node=value.getAsJsonObject();var info=result.get(id(node,"id"));for(int level:integers(equipment,"levels"))putDisplay(result,"pilot.weapon."+id(node,"id")+"."+level,new Display(info.name()+" "+level,info.description()));}
+        if(equipment.has("starterSword")){var starter=equipment.getAsJsonObject("starterSword");var info=display(starter,1);putDisplay(result,"pilot.weapon."+id(starter,"id")+".1",info);}
         for(var value:array(equipment,"armor")){var node=value.getAsJsonObject();var info=result.get(id(node,"id"));for(var partValue:array(equipment,"parts")){var part=partValue.getAsJsonObject();var partInfo=result.get(id(part,"id"));for(int level:integers(equipment,"levels"))putDisplay(result,"pilot.armor."+id(node,"id")+"."+id(part,"id")+"."+level,new Display(info.name()+" "+partInfo.name()+" "+level,info.description()));}}
         for(var value:array(equipment,"accessories")){var node=value.getAsJsonObject();var info=result.get(id(node,"id"));for(int level:integers(equipment,"levels"))putDisplay(result,"pilot.accessory."+id(node,"id")+"."+level,new Display(info.name()+" "+level,info.description()));}
         for(var value:array(root,"skills")){var node=value.getAsJsonObject();putDisplay(result,id(node,"id"),display(node,2));}
